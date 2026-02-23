@@ -1,0 +1,15 @@
+# Netflix-specific skills (not for public repos)
+arch-navigator/
+debug-trace/
+decorator-wizard/
+extension-builder/
+java-context/
+js-client-context/
+js-context/
+maestro-conditionals/
+maestro-debug/
+metaflow-dev/
+pattern-finder/
+python-context/
+scheduler-api/
+test-smart/
