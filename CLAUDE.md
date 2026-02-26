@@ -7,4 +7,5 @@
 - Before proposing large rewrites (UI redesigns, architectural changes, multi-file refactors), spend the first 1-2 turns validating the core problem with the user: 'What are the 2-3 specific things that need to change?' rather than proposing comprehensive redesigns.
 - When setting up external tool integrations (MCP, Jira, credentials) in the middle of a session, immediately ask the user for configuration details rather than attempting multiple failed calls. A 2-minute credential clarification beats 60 turns of failed attempts.
 - Before replacing directories with cloned repos, always verify gitignore patterns cover all file types (files AND directories) of items marked for preservation; update patterns preemptively rather than discovering gaps mid-operation.
+- Never include "Co-Authored-By: Claude" or any co-author trailer in commit messages.
 <!-- claude-retro-auto -->
