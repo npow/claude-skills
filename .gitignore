@@ -1,4 +1,5 @@
 # Netflix-specific skills (not for public repos)
+ai-tool-catalog-cli/
 arch-navigator/
 arch-navigator.md
 debug-trace/
@@ -14,6 +15,7 @@ maestro-conditionals/
 maestro-conditionals.md
 maestro-debug/
 maestro-debug.md
+metaflow/
 metaflow-dev/
 metaflow-dev.md
 pattern-finder/
