@@ -41,6 +41,39 @@
 - "App that converts units" — built into every phone's search bar
 - "Tool that formats JSON" — `jq`, VS Code, every IDE does this
 
+## Check 2.5: Assembly Test
+
+**Goal**: Kill ideas that are just assembling existing open-source components with no defensible layer on top.
+
+**The problem this catches**: A competent ML engineer can take SemHash + ArmoRM + a clustering library and wire them together in a day. That's a blog post, not a product. The 6-check kill chain won't catch this — competitors don't exist yet, the pain is real, monetization looks plausible. But the product has no moat: the first person who reads your README can reproduce it.
+
+**Process**:
+1. List every major technical component in the idea (library, model, API, dataset).
+2. For each component, verify it is available as an open-source library, a HuggingFace model, or a free/cheap API.
+3. If a competent engineer can assemble all components in 1-2 days, the idea requires a **defensibility factor** to pass.
+
+**Defensibility factors** — the idea must have at least ONE:
+- **Non-obvious algorithm**: The core IP is an algorithm that is not obvious from the component docs and took real research to discover. Example: Cleanlab's "confident learning" for detecting label errors — not just running a classifier; a specific mathematical insight about identifying noisy labels. The algorithm is the product.
+- **Hard-to-self-host infrastructure**: Running it correctly requires expensive, specialized, or operationally complex infrastructure that most teams won't maintain. Example: a calibration service that must run every evaluation N times with swapped orderings at scale, using a GPU fleet you operate. "Just spin up the Docker container" is not hard infrastructure.
+- **Proprietary data with ongoing maintenance**: The value comes from data you collect and maintain that users cannot easily replicate. Example: up-to-date embeddings of all public benchmark test sets for contamination detection — requires re-running every time a new benchmark releases.
+
+**Pass criteria**: The idea names at least one defensibility factor AND that factor is real (not hand-wavy). "We'll train our own model" is not a defensibility factor unless you explain what proprietary data or architecture makes it better than the open-source alternative.
+
+**Kill criteria**: The entire product is assembling PyPI packages, HuggingFace models, and open APIs. No proprietary algorithm, no hard infrastructure, no proprietary data. Someone reading your README can reproduce the core value in a weekend.
+
+**Examples of kills**:
+- \"Synthetic data quality pipeline\" — SemHash + ArmoRM + clustering: assembles three open-source components. No novel algorithm. Infrastructure is just GPU inference (anyone can call Together/Replicate). No proprietary data. DEAD.
+- \"LLM evaluation runner\" — wraps OpenAI API + a judge prompt + averages scores: no novel algorithm, no hard infrastructure, no proprietary data. DEAD.
+- \"Dependency upgrade tool\" — calls npm outdated + reads changelogs via API: two API calls glued together. DEAD.
+
+**Examples that survive**:
+- Cleanlab: confident learning algorithm is non-obvious — specific mathematical approach to finding label errors that required real research. Not just "run a classifier."
+- Braintrust: the value is accumulated human eval data and calibration across orgs, not just the eval runner itself.
+
+**Record in state file**: State which defensibility factor the idea claims and why you accepted or rejected it.
+
+---
+
 ## Check 3: Recurring Pain Frequency
 
 **Goal**: Verify the pain point occurs frequently enough to sustain a product.
@@ -120,11 +153,12 @@
 Run checks in this order (cheapest/fastest kills first):
 
 1. **Check 2** (Existing-Solution test) — kills ideas in 30 seconds without any search
-2. **Check 3** (Recurring Pain) — quick gut check + one search
-3. **Check 1** (Competitor Search) — requires 3+ searches, most time-consuming
-4. **Check 5** (Technical Feasibility) — quick assessment
-5. **Check 4** (Monetization) — requires thought about business model
-6. **Check 6** (Distribution) — final check
+2. **Check 2.5** (Assembly Test) — kills ideas that are just gluing open-source components; fast mechanical test, no search needed
+3. **Check 3** (Recurring Pain) — quick gut check + one search
+4. **Check 1** (Competitor Search) — requires 3+ searches, most time-consuming
+5. **Check 5** (Technical Feasibility) — quick assessment
+6. **Check 4** (Monetization) — requires thought about business model
+7. **Check 6** (Distribution) — final check
 
 ## Saturation response (do NOT stop — adapt)
 
@@ -145,6 +179,7 @@ After every 2 batches, calculate kill-reason distribution. If >80% of ideas in t
 |---------|-------|-----|
 | Every idea in a batch dies at Check 1 | Generating ideas in a well-explored space | Switch to a different generation angle, niche vertical, or target user |
 | Every idea dies at Check 2 | Generating features, not products — things LLMs/existing tools already handle | Focus on ideas requiring external data access or real computation |
+| Every idea dies at Check 2.5 | Generating integration work, not products — gluing open-source components | Ask: what is the ONE thing this idea does that cannot be easily reproduced from a README? If the answer is "the integration itself", the idea needs a moat or it's a library, not a product. |
 | Every idea dies at Check 3 | Solving rare problems | Ask: "What did [specific user] do 3 times TODAY that was frustrating?" |
 | Every idea dies at Check 4 | Generating hobbyist tools | Target professional users whose employers pay for tools |
 | 2+ consecutive batches at 0 survivors, >80% Check 1 kills | Sub-space is saturated | Widen: change target user, business model, or go hyper-niche. Do NOT stop |

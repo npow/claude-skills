@@ -227,6 +227,44 @@ Note: for libraries, `Cargo.lock` is gitignored. For binaries, it is committed.
 *.out
 ```
 
+## Trusted publishing (PyPI OIDC)
+
+When a user has set up trusted publishing on PyPI, use a **separate `publish.yml` workflow** — not
+a job inside `ci.yml`. PyPI's trusted publisher config requires the workflow filename to match
+exactly what was registered on PyPI. Always ask the user what filename they used (common choices:
+`publish.yml`, `release.yml`) before writing the workflow.
+
+```yaml
+# .github/workflows/publish.yml
+name: Publish
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          pip install build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+```
+
+The `ci.yml` workflow should NOT include a publish job or trigger on tags — keep them separate.
+
+To trigger a release: `git tag v0.1.0 && git push origin v0.1.0`
+
 ## Failure diagnosis
 
 | Symptom | Likely cause | Fix |

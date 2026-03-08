@@ -12,11 +12,12 @@ Renders interactive sortable, filterable tables in the browser by writing a zero
 
 1. **Extract columns and rows** — identify column names, value types (text, number, badge, rating, boolean, tag), and all row data from user context. See [TEMPLATE.md](TEMPLATE.md) for column type definitions.
 2. **Map column types** — assign a `type` to each column: text, number, badge, rating, boolean, or tag. See [TEMPLATE.md](TEMPLATE.md) for rendering rules per type.
-3. **Write the HTML file** — write a complete self-contained file to `/tmp/table.html` using the vanilla JS template. See [TEMPLATE.md](TEMPLATE.md) for the full template with sort and filter implementation.
-4. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/table.html`.
+3. **Choose a unique filename** — use `/tmp/table.html` by default. If a file with that name already exists (check with Bash `ls /tmp/table.html`), use a descriptive slug instead (e.g. `/tmp/genai-taxonomy.html`, `/tmp/db-comparison.html`). Never silently overwrite an existing file with unrelated content.
+4. **Write the HTML file** — write a complete self-contained file to the chosen path using the vanilla JS template. See [TEMPLATE.md](TEMPLATE.md) for the full template with sort and filter implementation.
+5. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/<filename>.html`.
 5. **Wait for render** — call `mcp__chrome-devtools__wait_for` on the text of the first column header. Timeout 8000ms.
-6. **Take screenshot** — call `mcp__chrome-devtools__take_screenshot` and verify all columns and rows are visible without horizontal overflow.
-7. **Fix and reload if broken** — if screenshot shows problems, edit `/tmp/table.html`, then call `mcp__chrome-devtools__navigate_page` with `type: reload`. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+7. **Take screenshot** — call `mcp__chrome-devtools__take_screenshot` and verify all columns and rows are visible without horizontal overflow.
+8. **Fix and reload if broken** — if screenshot shows problems, edit the file, then call `mcp__chrome-devtools__navigate_page` with `type: reload`. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## Self-review checklist
 
