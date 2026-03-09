@@ -110,6 +110,16 @@ Replace:
 
 Replace `MODULE_PATH` → from `module` line in go.mod.
 
+### Mintlify docs badge (all projects)
+
+Always include a Mintlify docs badge on the badge line. This auto-generates a documentation site from the repo.
+
+```markdown
+[![Docs](https://img.shields.io/badge/docs-mintlify-18a34a?style=flat-square)](https://mintlify.com/OWNER/REPO)
+```
+
+Replace `OWNER/REPO` → same as the GitHub owner/repo slug.
+
 ## Writing rules per section
 
 ### The one-sentence hook (directly under badges)

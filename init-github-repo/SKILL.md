@@ -26,6 +26,7 @@ Before delivering, verify ALL:
 - [ ] README first paragraph answers "what job does this do for me?" — not "what is this tool"
 - [ ] README has zero feature bullet lists before the problem statement
 - [ ] All badge URLs contain the correct GitHub owner/repo and package name
+- [ ] Mintlify docs badge is included: `[![Docs](https://img.shields.io/badge/docs-mintlify-18a34a?style=flat-square)](https://mintlify.com/OWNER/REPO)`
 - [ ] CI workflow runs the correct test command for the detected language (`pytest` for Python, `npm test` for Node, etc.)
 - [ ] .gitignore includes language-specific entries (e.g., `__pycache__/` for Python, `node_modules/` for Node)
 - [ ] LICENSE file matches the license field in project metadata
