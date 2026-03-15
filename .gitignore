@@ -26,3 +26,9 @@ scheduler-api.md
 test-smart/
 test-smart.md
 DEMO.md
+
+# Symlinks managed by metaflow-agent install.sh
+add-resource
+contribute
+debug-pr
+debug-run
