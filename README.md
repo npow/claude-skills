@@ -4,27 +4,52 @@
 
 Make Claude Code do complex multi-step workflows reliably with a single slash command.
 
-## The problem
+## How it works
 
-Claude Code is powerful, but complex tasks — scaffolding a Python library, initializing a GitHub repo with CI/CD, diagnosing flaky tests — require careful prompting and domain knowledge that gets lost between sessions. You end up re-explaining the same workflows, catching the same mistakes, and missing the same steps.
+Claude Code is powerful out of the box, but complex tasks — scaffolding a Python library, initializing a GitHub repo with CI/CD, diagnosing flaky tests, shipping a product idea end-to-end — require careful prompting and domain knowledge that gets lost between sessions. You end up re-explaining the same workflows, catching the same mistakes, and missing the same steps.
+
+Skills fix that. Each skill is a directory of markdown files that Claude loads as context when you invoke it. The main `SKILL.md` defines workflow steps, golden rules, and a self-review checklist. Additional reference files cover specific phases — templates, patterns, examples — loaded only when needed. Because they live in `~/.claude/skills/`, they're always available.
 
 ## Skills
 
-| Skill | Trigger | What it does |
-|-------|---------|-------------|
-| **build-python-library** | `/build-python-library` | Scaffolds pip-installable Python packages with src layout, pyproject.toml, and pytest |
-| **create-skill** | `/create-skill` | Builds new Claude Code skills with table-of-contents architecture and self-review loops |
-| **develop-board-game** | `/develop-board-game` | Creates faithful digital board games as single-file HTML/JS/CSS apps with Playwright tests |
-| **flaky-test-diagnoser** | `/flaky-test-diagnoser` | Runs multi-run experiments, isolation tests, and timing analysis to diagnose test flakiness |
-| **gap-finder** | `/gap-finder` | Generates product ideas in batches, validates against real competitors, kills weak ones |
-| **init-github-repo** | `/init-github-repo` | Initializes repos with JTBD README, CI/CD, license, .gitignore, and SEO-optimized metadata |
-| **prod-readiness** | `/prod-readiness` | Scans codebases for 24 production readiness items and produces a scored report |
-| **proposal-reviewer** | `/proposal-reviewer` | Reviews proposals for viability, fact-checks claims, maps competitive landscape |
-| **ship-it** | `/ship-it` | Takes a product idea through design, build, test, integrate, and package phases |
+### Building & Shipping
+
+- **`/build-python-library`** — Scaffolds pip-installable Python packages with src layout, pyproject.toml, and pytest, building core abstractions with adapters and verifying each module before proceeding.
+- **`/develop-board-game`** — Creates faithful digital board games as single-file HTML/JS/CSS apps, handling rules, multiplayer, and Playwright tests.
+- **`/init-github-repo`** — Initializes repos with a JTBD-focused README, CI/CD workflow, license, .gitignore, and SEO-optimized description and topics.
+- **`/ship-it`** — Takes a product idea through design, build, test, integrate, and package phases using parallel subagents with quality gates between each phase.
+
+### Research & Design
+
+- **`/competitive-matrix`** — Researches a market and renders an interactive, color-coded comparison matrix in the browser.
+- **`/deep-design`** — Adversarially stress-tests a design with parallel critic agents across dimensions like security, scalability, and UX. Iterates until flaws are saturated. Output is a battle-tested spec.
+- **`/deep-idea`** — Generates genuinely novel ideas via five orthogonal forcing functions and adversarial novelty killing. Forces extrapolation over interpolation.
+- **`/deep-qa`** — Audits any artifact (document, spec, code, skill) for defects using parallel critic agents across QA dimensions tailored to the artifact type.
+- **`/deep-research`** — Systematic multi-dimensional research using parallel agents across orthogonal dimensions (WHO/WHAT/HOW/WHERE/WHEN/WHY). Source quality tiers, spot-checked verification, honest coverage report.
+- **`/gap-finder`** — Finds viable product or business ideas through adversarial generation-and-kill cycles, validating each candidate against real market data.
+- **`/proposal-reviewer`** — Critically reviews proposals by fact-checking claims against primary sources, mapping the competitive landscape, and identifying structural flaws.
+- **`/research-brief`** — Produces a structured, cited research brief with counterevidence and synthesis from web sources.
+- **`/spec`** — Turns a conversation or rough idea into a complete, structured technical specification saved as a markdown file.
+
+### Visualization
+
+- **`/chart`** — Renders interactive Chart.js charts (bar, line, pie, radar, time series) live in the browser from context-supplied data.
+- **`/diagram`** — Renders interactive, draggable node-and-edge diagrams in the browser using Cytoscape.js.
+- **`/slides`** — Converts content into a Reveal.js slide deck and opens it live in the browser.
+- **`/table`** — Renders sortable, filterable comparison tables live in the browser with zero dependencies.
+- **`/timeline`** — Renders interactive Gantt-style timelines and roadmaps in the browser using vis-timeline.
+
+### Debugging & Quality
+
+- **`/flaky-test-diagnoser`** — Runs multi-run experiments, isolation tests, ordering permutations, and timing analysis to find the root cause of a flaky test.
+- **`/prod-readiness`** — Scans codebases for 24 production readiness items and produces a scored report with pass/fail/warning and suggested fixes.
+
+### Meta
+
+- **`/create-skill`** — Builds new Claude Code skills following harness engineering best practices: table-of-contents architecture, golden rules, self-review loops, progressive disclosure.
+- **`/magic-fetch`** — Logs capability gaps in real-time. When Claude hits a wall, it records exactly what tool, API, or access would have solved it — building a prioritized integration roadmap over time.
 
 ## Install
-
-Copy or symlink individual skills into `~/.claude/skills/`:
 
 ```bash
 # Clone the repo
@@ -41,36 +66,23 @@ ln -s "$(pwd)/claude-skills" ~/.claude/skills
 
 ## Usage
 
-Once installed, invoke any skill by typing its name as a slash command in Claude Code:
+Invoke any skill by typing its name as a slash command in Claude Code:
 
 ```
-/init-github-repo
-/build-python-library
+/deep-research
 /ship-it
+/flaky-test-diagnoser
 ```
 
-Each skill includes a `SKILL.md` with the workflow, golden rules, and a self-review checklist.
+## Contributing
 
-## How it works
+Skills live directly in this repository. To contribute:
 
-Each skill is a directory containing markdown files that Claude Code loads as context:
+1. Fork the repository
+2. Use `/create-skill` to scaffold and test your new skill
+3. Submit a PR
 
-- `SKILL.md` — Main entry point with workflow steps, golden rules, and self-review checklist
-- Additional `.md` files — Reference material for specific phases (templates, patterns, examples)
-
-Skills use a table-of-contents architecture: the main `SKILL.md` links to reference files so Claude loads detailed context only when needed.
-
-## Development
-
-```bash
-# Edit skills in place
-vim ~/.claude/skills/build-python-library/SKILL.md
-
-# Commit and push
-cd ~/.claude/skills
-git add -A && git commit -m "Update build-python-library"
-git push
-```
+See `create-skill/SKILL.md` for the complete guide.
 
 ## License
 
