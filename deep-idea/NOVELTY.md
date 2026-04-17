@@ -12,6 +12,20 @@
 
 ---
 
+## Novelty is a two-stage independent verdict
+
+The kill chain in this file is stage one — the **prosecution**. It searches adversarially for evidence the idea already exists and emits a killer verdict.
+
+The **judge** (stage two) is a separate agent with separate context that makes a blind classification from idea + stripped kill-chain evidence. See SKILL.md Phase 3a and the Novelty Judge Agent Prompt Template for the contract.
+
+The **prior-art search** (stage three) is a separate external-source verification agent with web access. See SKILL.md Phase 3.5 and the Prior-Art Search Agent Prompt Template.
+
+**Coordinator rule (Golden Rule 9):** the coordinator never decides novelty. A `NOVEL` verdict from the killer alone does not produce a survivor — it only advances the idea to the judge. The final classification comes from structured output of the judge and prior-art searcher together, read by the coordinator with no coordinator editorializing.
+
+If the killer is the only novelty check in the run (judge or prior-art agent fail to spawn or produce parseable output), tag the idea `novelty_unverified` and present with the tag. Never silently promote a killer-only verdict to survivor.
+
+---
+
 ## Structured output requirement
 
 Every killer agent response **must** begin with these structured lines as the absolute first lines of output:

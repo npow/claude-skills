@@ -2,6 +2,15 @@
 
 How to write effective metadata, SKILL.md, reference files, golden rules, and checklists.
 
+This document covers the mechanical "how do I write good content" layer. Companions:
+
+- [FORMAT.md](FORMAT.md) defines the MANDATORY sections every produced skill must contain — counter-table, termination labels, iron-law gate language.
+- [GOLDEN-RULES.md](GOLDEN-RULES.md) is the consolidated rule set that every produced skill must absorb.
+- [PRESSURE-TESTING.md](PRESSURE-TESTING.md) is the RED-GREEN-REFACTOR protocol — authored pressure scenarios, RED baseline, GREEN verification, REFACTOR loophole closing.
+- [INTEGRATION.md](INTEGRATION.md) documents composition with `deep-qa` for skill review and `deep-design` for design review, including degraded-mode fallbacks.
+
+**Iron law:** No skill ships without a `pressure-tests/baseline.md` file on disk recording what a subagent does WITHOUT the skill loaded. Write SKILL.md before baseline exists → delete SKILL.md → go to [PRESSURE-TESTING.md](PRESSURE-TESTING.md) Step 2.
+
 ## Metadata: name and description
 
 ### Name
@@ -34,7 +43,19 @@ description: I can help you build skills.
 
 ## SKILL.md body: the table of contents
 
-SKILL.md has exactly four sections:
+Every produced SKILL.md has the mandatory sections defined in [FORMAT.md](FORMAT.md):
+
+1. YAML frontmatter
+2. Title + one-line purpose
+3. Execution Model (workflow skills only)
+4. Workflow (numbered, one line each)
+5. Honest termination labels (workflow skills only)
+6. Self-review checklist
+7. Golden rules
+8. Anti-rationalization counter-table
+9. Reference/companion file index
+
+This document covers the mechanics of writing each section well. [FORMAT.md](FORMAT.md) is the authoritative template.
 
 ### 1. Title and one-line purpose
 
@@ -103,19 +124,57 @@ Rules for golden rules:
 - 3-8 rules per skill
 - Use imperative voice: "Never", "Always", "Must", "Do not"
 - Never use soft language: "Consider", "Try to", "Prefer", "Should"
-- Each rule prevents a specific failure mode identified in the design phase
+- Each rule prevents a specific failure mode **observed in the RED baseline** (not hypothetical)
 - Each rule is mechanical — an agent can follow it without judgment
 
-**How to derive golden rules**: Look at your failure modes list from the design phase. For each failure mode, write a rule that prevents it:
+**How to derive golden rules**: Look at the rationalizations captured in `pressure-tests/baseline.md`. For each observed rationalization, write a rule that prevents it:
 
-| Failure mode | Golden rule |
+| Observed rationalization | Golden rule |
 |---|---|
-| Agent puts all content in SKILL.md | "SKILL.md is a map. If you're writing a code block in SKILL.md, it belongs in a reference file." |
-| Agent writes vague descriptions | "Description is discovery. If the description doesn't contain the keywords a user would say, the skill won't trigger." |
-| Agent skips testing | "Every skill must have at least one feedback loop: do → check → fix." |
-| Output is inconsistent between runs | "Replace every adjective with a specification." |
+| "Tests probably pass, I'll skip running them" | "Never claim completion without `test-output.txt` on disk matching `Tests: \d+ passed, 0 failed` from this session." |
+| "SKILL.md is cleaner if I add examples inline" | "SKILL.md is a map. If you're writing a code block in SKILL.md, it belongs in a companion file." |
+| "Obvious what to do, I'll skip the description keywords" | "Description is discovery. If the description doesn't contain keywords a user would say, the skill won't trigger." |
+| "I'll hand-wave the verification" | "Every completion claim is file-gated. `Verify` / `check` / `ensure` without a concrete file-existence check is forbidden." |
 
-### 5. Reference file index
+### 5. Anti-rationalization counter-table
+
+MANDATORY section (new). Captures the exact rationalizations observed in `pressure-tests/baseline.md` and pairs each with a concrete reality.
+
+```markdown
+## Anti-rationalization counter-table
+
+| Excuse | Reality |
+|---|---|
+| "<verbatim excuse observed in baseline>" | <specific action the agent must take instead> |
+```
+
+Rules:
+- Minimum 5 rows for discipline-enforcing skills. Minimum 3 rows for one-shot generators.
+- Every row references a real excuse observed in `pressure-tests/baseline.md`. No imagined rows.
+- Reality column is a concrete action, not a platitude.
+
+Bad row: `| "Tests will pass eventually" | Be patient. |` — platitude, not an action.
+Good row: `| "Tests will pass eventually" | Run `npm test`, save output to `test-output.txt`, only claim completion if exit code is 0. |` — concrete action.
+
+### 6. Honest termination labels (workflow skills only)
+
+MANDATORY for any produced skill that makes completion claims. A finite enum, 3-6 labels, each with an observable condition on disk.
+
+```markdown
+## Honest termination labels
+
+| Label | Meaning |
+|---|---|
+| `complete` | Every AC verified green; zero unresolved critical/major defects. |
+| `partial_with_accepted_unfixed` | Critical defects fixed; some major/minor explicitly accepted with rationale. |
+| `blocked_unresolved` | Critical defect with no path forward AND budget not exhausted. |
+| `budget_exhausted` | Fix budget reached with unresolved critical/major defects. |
+| `cancelled` | User interrupted. |
+```
+
+Never `done` / `all good` / `no issues remain`. One of the N labels must be `cancelled`. Every label's meaning references observable evidence files, not the coordinator's judgment.
+
+### 7. Reference file index
 
 A table linking to every reference file:
 

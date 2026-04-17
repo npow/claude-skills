@@ -6,7 +6,7 @@ Present each NOVEL survivor immediately when it passes novelty checks. Do not ba
 
 ```markdown
 ---
-## [Idea Name] ✓ NOVEL
+## [Idea Name] ✓ NOVEL  {tags: [PRIOR_ART_OVERLAP] [FEASIBILITY_UNVERIFIED] [NOVELTY_DISPUTED] [JUDGE_SUSPECT] [novelty_unverified] — apply only if triggered}
 
 **Forcing function:** {INVERTER | BISOCIATOR | EDGE DESIGNER | TEMPORAL EXPLOITER | CONSTRAINT FLIPPER | [Level N combination]}
 **Mutation level when found:** {0-4}
@@ -30,18 +30,30 @@ Present each NOVEL survivor immediately when it passes novelty checks. Do not ba
 ### Why now
 {What changed in the last 18 months that makes this viable — the specific enabler}
 
+### Minimum viable implementation path
+{1-3 sentences. Falsifiable — someone could try the first step and fail. Names specific tech, data sources, build artifacts, or measurable outcomes. If absent or judged hand-wave, tag `[FEASIBILITY_UNVERIFIED]` above.}
+
 ### Closest existing things
-{What the novelty checker found — the nearest competitors — and how this differs structurally}
+{What the prior-art search agent found — the nearest references with citations — and how this differs structurally. If verdict was `partial_match`, also tag `[PRIOR_ART_OVERLAP]` above and list the overlap below.}
 
 ### Novelty checks completed
 - N4 (Forcing function — blind assessment + chain evaluation): PASS — {what the blind assessment found, why the chain is genuine}
 - N1 (Exact existence search): PASS — {searches run, what was not found}
 - N2 (Structural clone test): PASS — {why this isn't a domain-shifted version of X}
 - N3 (Recency test): PASS — {why this wasn't viable 3 years ago + structural reason}
+- Novelty judge (independent blind classification): `novel` — {one-sentence rationale from judge}
+- Prior-art search (external-source verification): `no_match_found` — {queries run, refs cited or "NONE"}
 ---
 ```
 
 **Note on N4 evidence:** The killer agent evaluates the idea in two passes (blind, then with chain). The N4 PASS entry must describe both: what the blind assessment concluded AND why the chain evaluation confirmed it. A one-line "derivation chain is explicit" is not sufficient N4 evidence.
+
+**Tag semantics:**
+- `[PRIOR_ART_OVERLAP]`: prior-art search returned `partial_match`. Idea still presented as survivor; the overlap is surfaced to the reader.
+- `[NOVELTY_DISPUTED]`: novelty judge returned `disputed`. Idea is a near-miss, not a survivor; does not count toward target.
+- `[JUDGE_SUSPECT]`: in this cycle the judge returned `novel` on ≥95% of ≥5 classifications. Treat survivors with skepticism.
+- `[FEASIBILITY_UNVERIFIED]`: `minimum_viable_implementation_path` was missing or hand-wave. Coordinator could not confirm a falsifiable first step.
+- `novelty_unverified`: prior-art search agent timed out, failed, or `SEARCH_UNAVAILABLE`. The no-match claim is unverified.
 
 ---
 
@@ -94,6 +106,8 @@ Total killed: {N}
 | Idea | Forcing Function | Failed Check | Kill Reason |
 |------|-----------------|--------------|-------------|
 | {name} | {function} | N1 | {existing product URL} |
+| {name} | {function} | JUDGE_REJECT | {one-sentence judge rationale} |
+| {name} | {function} | PRIOR_ART | {exact_match reference(s)} |
 
 ## Landscape Map
 
@@ -116,6 +130,8 @@ Total killed: {N}
 | Landscape mapping | 3 | Haiku | ~$0.15 |
 | Generation (Level 0, N cycles) | {5N} | Sonnet | ~${X} |
 | Kill chain ({ideas} ideas) | {ideas} | Haiku | ~${Y} |
+| Novelty judge ({novel_or_flagged} ideas) | {same} | Haiku | ~${J} |
+| Prior-art search ({judge_survivors} ideas) | {same} | Haiku | ~${P} |
 | Level 3 ({cycles} cycles) | {3×cycles} | Opus | ~${Z} |
 | **Total** | | | **~${total}** |
 

@@ -307,6 +307,29 @@ consistency, and feasibility, not the design decisions themselves (those were de
 13. **Judges must be adversarial too.** An independent judge that rubber-stamps critical claims is as useless as a critic that rubber-stamps good design. A 100% acceptance rate from a judge is evidence of failure.
 14. **Input transparency.** Log all angle definitions with source and rationale. The independence invariant protects outputs — you must audit inputs.
 
+## Anti-Rationalization Counter-Table
+
+These are excuses agents use under pressure to inflate "good" verdicts on weak designs. Each row is a defensive entry — when you catch yourself thinking the excuse, look at the reality.
+
+| Excuse | Reality |
+|---|---|
+| "This is just an MVP — we'll iterate" | MVPs ship and ossify. The design must work in v1, not v3. Underspecified components do not self-resolve after launch. |
+| "Users will understand the limitation" | Users do not read docs. Test the failure mode via concrete scenario, not assumed goodwill. |
+| "This edge case is unlikely" | Unlikely × scale = certain. Apply the falsifiability check: construct the scenario where it manifests. |
+| "We can patch it later" | Later is now in six months. The existence check applies: if patching is inevitable, redesign instead. |
+| "The critic is being pedantic" | If the critic produced a falsifiable scenario, the flaw is real. Apply the 5 validation checks, not dismissal. |
+| "This component is well-understood — no need to spec it" | A label ("matchmaking system", "prompt pool") is not a design. Underspecification IS a critical flaw per Golden Rule 11. |
+| "The judge accepted everything — the critics were thorough" | A judge with 100% acceptance rate is broken (Golden Rule 13). Expected acceptance is 30-60%. Re-read pass-1 + pass-2 verdicts. |
+| "Outside-frame critic is overkill — the spec-derived critics covered it" | Spec-derived critics are bounded by the spec's vocabulary. The outside-frame critic is non-optional; its absence is a quorum failure mode. |
+| "Just one more round will resolve this tension" | DRIFT_CRITICAL or PERSISTENT_TENSION at round N means design fundamentals are off. File CORE_TENSION and escalate — do not loop. |
+| "Concept drift detection is overzealous — the spec still sounds right" | Layer 1 + Layer 2 thresholds are explicit (0.80 / 0.65). Disagreement requires honestly changing the threshold, not bypassing the check. |
+| "The fix weakens an invariant but the old invariant was too strict" | Invariants are append-only and coordinator-write-prohibited. Relaxing one triggers DIRECTION_REVERSAL. File DESIGN_TENSION, do not silently relax. |
+| "I'll classify this flaw for the judge — the agent is slow" | Severity classification MUST be delegated (Golden Rule 12 / Independence invariant). Coordinator self-classification is an invariant violation. |
+| "GAP_REPORT keeps firing on the same flaw — the critic is stuck" | Third GAP_REPORT triggers PERSISTENT_TENSION by design. That is the signal the fix cannot close the gap — escalate, do not suppress. |
+| "Quorum is close enough — 3 of 6 is fine" | Quorum is ≥ 4 of 6 spec-derived critics. Close-enough is a failed round; do not paper over with the outside-frame critic (tracked separately). |
+
+When you catch ANY of these in your reasoning, stop and apply the relevant validation gate (falsifiability, premise, contradiction, nerf, existence checks) or independence delegation.
+
 ## Self-Review Checklist
 
 - [ ] State file is valid JSON after every round

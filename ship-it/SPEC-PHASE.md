@@ -1,17 +1,21 @@
 # Phase 1: Spec
 
-Transform a raw idea into a formal, unambiguous specification.
+Transform a raw idea into a formal, unambiguous specification. Phase 1 is the only phase where the coordinator authors the primary artifact directly; the user is the independent judge.
 
 ## Input
 
-The user's idea description — could be one sentence or a full plan document (like gap-finder output).
+The user's idea description — one sentence to a full plan document.
 
 ## Process
 
-1. Read the idea description thoroughly.
-2. Identify ambiguities — anything that could be interpreted two ways.
-3. Write `SPEC.md` in the project root with the structure below.
-4. Present SPEC.md to the user and ask for confirmation before proceeding. Do NOT auto-advance.
+1. Generate `run_id = $(date +%Y%m%d-%H%M%S)`. Create `ship-it-{run_id}/spec/` and write initial `state.json` (see [STATE.md](STATE.md)).
+2. Read the idea description thoroughly.
+3. Identify ambiguities — anything that could be interpreted two ways.
+4. Write `SPEC.md` in the project root with the structure below.
+5. Copy to `ship-it-{run_id}/spec/SPEC.md` (canonical evidence copy).
+6. Present SPEC.md to the user. Ask for explicit approval. Do NOT auto-advance.
+7. Record the user's response verbatim in `ship-it-{run_id}/spec/user-approval.md` per the schema in [FORMAT.md](FORMAT.md).
+8. If `USER_APPROVED|false` or `APPROVAL_SCOPE|partial|conditional`: revise SPEC.md in the direction the user indicated, re-save both copies, re-present. Max 3 rounds. If still not approved after 3 rounds, surface as `blocked_on_user_approval` and halt.
 
 ## SPEC.md structure
 
@@ -50,12 +54,21 @@ The user's idea description — could be one sentence or a full plan document (l
 [For libraries: list each public function with signature]
 ```
 
-## Quality gate
+## Iron-law gate (Phase 1 → Phase 2)
 
-The user must approve SPEC.md before Phase 2 begins. If the user requests changes, revise and re-present. No implementation code is written before spec approval.
+A fresh `phase-gate` subagent reads the evidence files and emits the structured verdict documented in [FORMAT.md](FORMAT.md). Required evidence:
+
+- `ship-it-{run_id}/spec/SPEC.md` with all required sections (Problem, Target User, Core Features, Non-Goals, Tech Stack, Success Criteria, API)
+- `ship-it-{run_id}/spec/user-approval.md` with `USER_APPROVED|true`
+- Absence of any section → `ADVANCE: false`
+- `USER_APPROVED|false` → `ADVANCE: false`
+
+`APPROVAL_SCOPE|partial|conditional` with listed conditions → `ADVANCE: true` but the conditions are carried into the Phase 6 completion report as Accepted Tradeoffs.
 
 ## What NOT to do
 
 - Do not include implementation details (file names, class names, algorithms) — that's Phase 2.
 - Do not pad the spec with obvious requirements ("must be fast", "must be secure") — only project-specific criteria.
 - Do not list technologies you haven't verified exist and work (check npm/PyPI if unsure).
+- Do not infer user approval from ambiguous responses ("sounds ok", "let's see"). Prompt again for explicit yes.
+- Do not advance to Phase 2 before `USER_APPROVED|true`. The gate is load-bearing.

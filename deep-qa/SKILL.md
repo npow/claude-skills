@@ -172,7 +172,7 @@ recommended = min(recommended, 6)         # cap at 6 for typical artifacts
 if current_round >= state.hard_stop:
     → terminate immediately; no prompt; no extension offered
     → label: "Hard stop at round {hard_stop}"
-    → proceed directly to Phase 4/Phase 6
+    → proceed directly to Phase 4/Phase 5.5/Phase 6
 ```
 This check cannot be bypassed. Extensions update `max_rounds` but never `hard_stop`.
 
@@ -198,10 +198,13 @@ Continue? [y/N/redirect:<focus>]
 5. On timeout: mark `timed_out`, write `"generation": += 1`, do NOT re-queue, do NOT increment dedup counter
 6. Collect new angles from ALL completed agents BEFORE running dedup
 7. Apply dedup against stable pre-round snapshot. **Assign `depth = parent.depth + 1`** to each critic-reported angle. Reject angles where `depth > max_depth`. Enforce frontier cap with required-category protection (see STATE.md).
-8. For each new defect: write defect data to `deep-qa-{run_id}/judge-inputs/{defect_id}.md`, then spawn independent Haiku severity judge with that path. **Dimension cross-check after judge completes:** verify the critique file's declared `**QA Dimension:**` header matches the angle's assigned dimension in state.json. If mismatch: flag as potential injection, do NOT set `required_categories_covered.{category}` true.
-9. Spawn Haiku subagent to write a **cumulative** coordinator summary (see SYNTHESIS.md). After subagent completes, verify `coordinator-summary.md` exists and is non-empty. If missing/empty: log warning, retain prior round's summary.
-10. Run coverage evaluation: read `required_categories_covered` from **state.json** (not coordinator-summary.md). For any uncovered required category: generate CRITICAL-priority angle. Write `"generation": += 1` after updating `coverage_gaps` and `rounds_without_new_dimensions`.
-11. Increment round
+8. For each new defect: **Dimension cross-check (synchronous):** verify the critique file's declared `**QA Dimension:**` header matches the angle's assigned dimension in state.json. If mismatch: flag as potential injection, do NOT set `required_categories_covered.{category}` true. Create defect in state.json with critic-proposed severity and `judge_status: "pending"`.
+9. Run coverage evaluation: read `required_categories_covered` from **state.json** (not coordinator-summary.md). For any uncovered required category: generate CRITICAL-priority angle. Write `"generation": += 1` after updating `coverage_gaps` and `rounds_without_new_dimensions`.
+10. **Background severity judges:** Batch new defects into groups of up to 5. For each batch: write combined defect data to `deep-qa-{run_id}/judge-inputs/batch_{round}_{batch_num}.md`, then spawn a **single** Haiku severity judge agent with `run_in_background=true` (see SYNTHESIS.md for batched judge prompt). Record batch in `background_tasks.judges` in state.json.
+11. **Background coordinator summary:** Spawn Haiku subagent with `run_in_background=true` to write a **cumulative** coordinator summary (see SYNTHESIS.md). Record in `background_tasks.summaries` in state.json.
+12. Increment round → **immediately proceed to next round's step 1** (do not wait for background tasks)
+
+**Pipelining rationale:** Severity judges and coordinator summaries are reporting artifacts consumed only in Phase 6. They do not affect angle selection, dedup, or coverage evaluation. Running them in the background while the next round's critics execute hides their latency entirely.
 
 **No redesign phase.** Defects are catalogued with severity; status remains `open` unless disputed by validation.
 
@@ -261,6 +264,25 @@ Never use a label not in this table. Never write "no defects remain."
 
 ---
 
+### Phase 5.5: Drain Background Tasks
+
+Before proceeding to Phase 6, all background tasks from the pipelined rounds must complete.
+
+1. **Wait for ALL background severity judge batches** (from `background_tasks.judges` in state.json where `status == "running"`). Use `TaskOutput` with `block=true` for each.
+2. **Wait for ALL background coordinator summaries** (from `background_tasks.summaries`). Use `TaskOutput` with `block=true` for each.
+3. **Apply judge results to state.json:** For each completed judge batch, read the output file. For each defect classification in the output:
+   - Parse the structured `DEFECT_ID` / `SEVERITY` / `CONFIDENCE` / `REASONING` lines
+   - Update `defects.{id}.severity` with the judge's authoritative classification (overwriting the critic-proposed severity)
+   - Set `defects.{id}.judge_status: "completed"`
+   - Write `"generation": += 1`
+4. **Handle judge timeouts:** If any judge batch timed out, retain critic-proposed severity for those defects. Set `judge_status: "timed_out"`. Log `JUDGE_TIMEOUT_BACKGROUND: {defect_ids}`.
+5. **Verify coordinator summary:** Check that the final `coordinator-summary.md` exists and is non-empty. If missing or empty: log `SUMMARY_WRITE_FAILED: final`, use the most recent non-empty summary.
+6. **State invariant check:** Verify no defect has `judge_status: "pending"`. If any remain (indicates a missed batch), log error and retain critic-proposed severity.
+
+**Drain timeout:** Wait up to 120s total for all background tasks. After 120s, proceed with whatever has completed — timeouts are handled gracefully per steps 4-6.
+
+---
+
 ### Phase 6: Final QA Report
 
 - **Do NOT read raw critique files** — use coordinator summary + mini-syntheses + state.json
@@ -293,9 +315,9 @@ else:                                       → Scout (haiku)
 
 ## Golden Rules
 
-1. **QA is adversarial.** A critic that says "looks good" has failed. Every artifact has defects — find them.
+1. **QA is adversarial but grounded.** A critic that says "looks good" has failed. But a critic that reports 15 defects and 12 are theoretical non-issues has also failed — it wastes the owner's time and erodes trust in the report. Find REAL problems that would actually cause failures in production.
 2. **Every defect needs a concrete scenario.** "This might be unclear" is not a defect. "A reader with context X but not Y will interpret section Z as [wrong meaning], causing [consequence]" is a defect.
-3. **Classify honestly.** Don't inflate minor defects to critical. Don't downgrade critical defects to minor.
+3. **Classify honestly.** Don't inflate minor defects to critical. Don't downgrade critical defects to minor. A "theoretical race condition that requires adversarial scheduling" is minor at most, not critical.
 4. **No fixing — only reporting.** Suggested remediations are optional guidance. The artifact owner decides how to fix.
 5. **Validate defects before accepting.** Apply falsifiability, contradiction, and premise checks. A defect is only real if it survives validation.
 6. **Critique what's missing.** The most dangerous defects are omissions — components referenced but not specified, error paths not defined, assumptions not stated.
@@ -303,6 +325,31 @@ else:                                       → Scout (haiku)
 8. **Termination means coverage is saturated, not zero defects.** The report is honest about what wasn't covered.
 9. **Artifact type shapes dimensions.** Don't apply code security analysis to a research report. Dimensions must match the artifact.
 10. **Never suppress disputed defects.** Disputed defects are documented, not silently dropped.
+
+---
+
+## Anti-Rationalization Counter-Table
+
+These are excuses critics and judges use to suppress, downgrade, or ignore real defects. Each row is a defensive entry — when you catch yourself thinking the excuse, look at the reality.
+
+| Excuse | Reality |
+|---|---|
+| "This defect is theoretical — it COULD happen under unusual circumstances" | Apply the practical-manifestation requirement. "COULD happen if..." is minor at most. "WILL happen under realistic load" is the bar for critical. |
+| "The framework prevents this (gevent / scoped sessions / expire_on_commit)" | Verify the framework guarantee in code, not in your head. Cite the specific line or documented contract. If unverified, the defense does not exist. |
+| "We already discussed this defect in an earlier round" | New round = new evaluation. Check the known-defects file; if the ID is not listed, it's a new defect and must be filed. |
+| "Coverage looks good enough to terminate" | Read `required_categories_covered` from state.json (not from coordinator-summary.md, not from vibes). "Looks good" is not a label. |
+| "100% of judge verdicts agree with critics on severity" | Then the judge is broken or the critics are inflating. Independence invariant failed. Investigate the calibration. |
+| "This is just a documentation gap, not a real defect" | If a real consumer (implementer, maintainer, incident responder) would interpret it wrong, it's a defect. Construct the concrete misinterpretation scenario. |
+| "Defensive code is missing but the condition can't occur" | Verify the defended-against condition cannot be triggered given the surrounding code's invariants. If it CAN be triggered, missing defense is a defect. |
+| "The author intended X; that's what they meant" | Intent doesn't matter. The artifact as written is what consumers see. Critique what IS, not what was meant. |
+| "Inflate this to critical to be safe — better to over-report" | Inflation wastes the owner's time and erodes trust in the report. Critical requires: WILL fail in production, data loss, or real security attack vector. Apply honest calibration. |
+| "Terminate because no critical defects remain" | Forbidden label. Use the Phase 5 vocabulary table only. Termination means coverage is saturated, not zero defects. |
+| "This angle is a rephrased duplicate — skip dedup" | Run dedup against the stable pre-round snapshot. "Similar vibe" is not dedup; structural comparison against known defects is. |
+| "The critic said 'looks good overall' — accept the pass" | A critic that says "looks good" has failed. Re-spawn with a sharper angle or mark the dimension uncovered. |
+| "I read the critique file directly to write the final report" | Forbidden. Phase 6 uses coordinator summary + mini-syntheses + state.json only. Raw critique files are not the contract. |
+| "The coordinator can classify severity here — the judge is slow" | Independence invariant violation. Severity is delegated to independent judge agents, always. Coordinator orchestrates; it does not evaluate. |
+
+When you catch ANY of these in your reasoning, stop and re-read the relevant Golden Rule.
 
 ---
 
@@ -316,7 +363,7 @@ else:                                       → Scout (haiku)
 - [ ] Every critique file's declared `**QA Dimension:**` matches the angle's assigned dimension in state.json
 - [ ] No angle explored > 2 times
 - [ ] All required dimension categories have ≥1 explored angle per **state.json** `required_categories_covered` (not coordinator-summary.md)
-- [ ] Coverage evaluation in Phase 3 step 10 read `required_categories_covered` from state.json
+- [ ] Coverage evaluation in Phase 3 step 9 read `required_categories_covered` from state.json
 - [ ] Disputed defects documented in coordinator summary — not silently dropped
 - [ ] Final report does NOT read raw critique files
 - [ ] For `research` type: fact verification ran before synthesis
@@ -324,7 +371,10 @@ else:                                       → Scout (haiku)
 - [ ] QA report exists and is non-empty after Phase 6
 - [ ] `hard_stop` stored in state.json and never modified after initialization
 - [ ] All pre-spawn file writes verified non-empty before Agent tool call
-- [ ] Severity judge input files written to `deep-qa-{run_id}/judge-inputs/{defect_id}.md`
+- [ ] Severity judge batches written to `deep-qa-{run_id}/judge-inputs/batch_{round}_{batch_num}.md` (up to 5 defects per batch)
+- [ ] Background severity judges and coordinator summaries spawned with `run_in_background=true`
+- [ ] Phase 5.5 drain completed before Phase 6: no `judge_status: "pending"` remaining in state.json
+- [ ] `background_tasks` registry in state.json tracks all background spawns with correct status
 
 ---
 
@@ -373,6 +423,28 @@ scenario where the defect manifests AND a scenario where it does not. "This is u
 specific reader profile and specific misinterpretation is NOT a defect. Unfalsifiable concerns should
 be filed as minor notes, not defects.
 
+PRACTICAL MANIFESTATION REQUIREMENT: Before filing a defect, ask: "Under normal operating conditions,
+does this actually cause a problem?" A defect that only manifests under adversarial scheduling, pathological
+interleaving, framework violations, or conditions that don't occur in production is NOT a defect — it is
+a theoretical concern. Downgrade it to minor or drop it entirely. Specifically:
+- If the bug requires violating a framework guarantee (e.g. "cooperative scheduling means greenlets
+  don't preempt between non-IO lines"), it is NOT a real bug.
+- If the bug requires conditions that the deployment environment prevents (e.g. a race that can't occur
+  because there is only one writer, or gevent serializes access), it is NOT a real bug.
+- If the code already handles the scenario (e.g. via try/except, framework magic, or documented contract),
+  it is NOT a bug — it may be a documentation gap at most.
+- "This COULD happen if..." is not sufficient. "This WILL happen when..." under realistic load is the bar.
+
+FRAMEWORK CONTEXT: When reviewing code, you must reason about what the framework guarantees. For example:
+- gevent cooperative scheduling: greenlets only yield at IO boundaries — races between non-IO statements
+  within one greenlet do NOT exist
+- Flask-SQLAlchemy scoped sessions: sessions are isolated per greenlet — cross-session issues require
+  explicit cross-greenlet sharing, which must be verified in the code
+- SQLAlchemy expire_on_commit=False: attributes remain cached after commit — DetachedInstanceError
+  requires lazy-loading relationships, which must be verified in the model
+Before flagging a defect involving concurrency, sessions, or framework behavior, verify the scenario
+is actually possible given the framework's guarantees.
+
 AVOID THESE COMMON QA MISTAKES:
 - Don't nitpick style when substance is fine
 - Don't report the same defect multiple ways with different titles
@@ -380,11 +452,16 @@ AVOID THESE COMMON QA MISTAKES:
 - Don't assume the author's intent is wrong — identify what is ACTUALLY broken for a REAL consumer
 - **Do critique what's MISSING.** Underspecified components are often the highest-severity defects.
   A label is not a specification. A referenced-but-undefined component is a critical defect.
+- Don't flag "defensive code is missing" as a defect if the condition being defended against cannot
+  occur given the surrounding code's invariants. Defensive code is good practice but its absence
+  is a defect only if the undefended condition can actually be triggered.
+- Don't inflate severity. "This COULD cause a problem under unusual circumstances" is minor at most.
+  Critical severity requires: this WILL fail under normal production conditions, or this loses data,
+  or this is a security vulnerability with a realistic attack vector.
 
 Think like:
 - A developer who must implement from this spec exactly as written
-- A reader who didn't attend the design meeting and has no background context
-- A malicious user looking for loopholes in the rules
+- A senior engineer doing a production incident postmortem — what actually broke, not what could theoretically break
 - A maintainer six months from now who inherits this artifact cold
 ```
 

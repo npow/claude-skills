@@ -1,87 +1,87 @@
 # Phase 3: Build
 
-Implement all modules using parallel subagents with code review.
+Implement all modules via delegation to `/team`. Ship-It handles scaffolding and skeleton verification; `/team` handles the staged executor pipeline with two-stage review on every source modification.
 
 ## Prerequisites
 
-- SPEC.md approved by user
-- DESIGN.md approved by critic subagent
-- `types.ts` (shared types) already written during design phase
-- `package.json` / `tsconfig.json` scaffolded with dependencies installed
+- SPEC.md approved by user (Phase 1 gate passed)
+- DESIGN.md written and `/consensus-plan` returned `consensus_reached_at_iter_N` (Phase 2 gate passed)
+- `types.ts` frozen (immutable for Phase 3)
 
 ## Process
 
 ### Step 1: Scaffold the project
 
-Before launching build subagents, set up the project skeleton:
-1. Create directory structure from DESIGN.md file tree
-2. Write `package.json` with all dependencies from DESIGN.md
-3. Write `tsconfig.json` (or equivalent config)
-4. Run `npm install` (or equivalent)
-5. Write `types.ts` with all shared types from DESIGN.md
-6. Verify the skeleton compiles: `npx tsc --noEmit` should pass
+Coordinator runs these steps (mechanical, no evaluation):
 
-### Step 2: Determine build order
+1. Create directory structure from DESIGN.md file tree.
+2. Write `package.json` with all dependencies from DESIGN.md External Dependencies table.
+3. Write `tsconfig.json` (or equivalent config).
+4. Run `npm install` (or `pip install -e ".[dev]"`) in the background. Wait for success.
+5. Confirm `types.ts` is present at the canonical path from Phase 2. DO NOT regenerate it — it is frozen.
+6. Verify the skeleton compiles: `npx tsc --noEmit` should pass. If it doesn't, the types.ts is broken; re-open Phase 2 via `/consensus-plan` — do NOT patch types.ts in Phase 3.
 
-From DESIGN.md dependency graph, identify:
-- **Wave 1**: Modules with no internal dependencies (only depend on types.ts)
-- **Wave 2**: Modules that depend on Wave 1 modules
-- **Wave 3**: Modules that depend on Wave 2 modules
-- etc.
+### Step 2: Delegate to `/team`
 
-Modules within the same wave build in parallel. Waves execute sequentially.
+1. Update `state.json`: `phases.build.spawn_time_iso = <iso>`, `phases.build.status = "in_progress"`.
+2. Invoke `/team` with arguments per [INTEGRATION.md](INTEGRATION.md):
+   ```
+   /team --plan ship-it-{run_id}/design/DESIGN.md \
+         --output ship-it-{run_id}/build/
+   ```
+3. `/team` runs the staged pipeline:
+   - **team-plan** — explore + planner + optional deep-design pass
+   - **team-prd** — analyst + mandatory independent critic with falsifiability gate
+   - **team-exec** — executor with TDD preamble; honors DESIGN.md wave order for parallelization
+   - **team-verify** — `deep-qa --diff` (parallel critics) + independent code-quality reviewer (two-stage)
+   - **team-fix** — bounded fix loop; each fix independently verified before merge
+4. Ship-It does NOT intervene in any of these stages. The coordinator orchestrates state but does not author, review, or approve code.
 
-### Step 3: Launch build subagents (per wave)
+### Step 3: Consume `/team` outputs
 
-For each wave, launch one `coder_loop` subagent per module. The `coder_loop` subagent type has built-in coder → reviewer → arbitrator cycling.
+After `/team` completes:
 
-**Subagent prompt template** (adapt per module):
+1. Parse `build/team-termination.md` for `TEAM_LABEL` per [FORMAT.md](FORMAT.md):
+   - `complete` → proceed to gate
+   - `partial_with_accepted_unfixed` → proceed to gate; count is recorded for Phase 6 completion report
+   - `blocked_unresolved` → gate fails; terminate as `blocked_at_phase_3`
+   - `budget_exhausted` → gate fails; terminate as `budget_exhausted`
+   - `cancelled` → gate fails; terminate as `blocked_at_phase_3`
+2. Copy `build/modified-files.txt` and `build/build-output.txt` for use by Phase 4 (`deep-qa --diff`) and Phase 6 (judges).
+3. Verify `build/handoffs/` directory is non-empty (per `/team` schema).
 
-```
-You are implementing the [MODULE_NAME] module for [PROJECT_NAME].
+## Parallelization rules (honored inside `/team`)
 
-## Context files to read:
-- [PROJECT_PATH]/SPEC.md — product specification
-- [PROJECT_PATH]/DESIGN.md — architecture and module API contracts
-- [PROJECT_PATH]/src/types.ts — shared types (DO NOT MODIFY THIS FILE)
+- **DO parallelize**: Independent modules in the same wave (e.g., utils + db in Wave 1)
+- **DO NOT parallelize**: Dependent modules (e.g., tools depends on analysis)
+- **DO NOT parallelize** more than 5 subagents simultaneously — diminishing returns
+- **ALWAYS** include types.ts (read-only) and DESIGN.md in every worker's context
+- TDD preamble is mandatory in every `/team` worker prompt (failing test first, then implementation)
 
-## Your task:
-Implement [PROJECT_PATH]/src/[MODULE_PATH]/[MODULE_NAME].ts
+## Degraded-mode fallback
 
-## Requirements from DESIGN.md:
-[Paste the module's section from DESIGN.md — responsibility, public API, dependencies, error handling]
+If `/team` is unavailable:
 
-## Rules:
-1. Import all shared types from '../types.js' (or correct relative path)
-2. Implement EVERY function listed in the module's public API from DESIGN.md
-3. Match function signatures EXACTLY as specified in DESIGN.md
-4. Handle all error cases listed in DESIGN.md
-5. No placeholder/stub implementations — every function must have real logic
-6. No console.log in production code — use proper error returns
-7. Write the test file alongside: [MODULE_NAME].test.ts with tests for every public function + error paths
-```
+- By default, **refuse to proceed** — `/team`'s staged pipeline with two-stage review is too rich to substitute losslessly. Prompt user to install `/team`.
+- If user passes `--skip-team` explicitly: follow the inline fallback in [INTEGRATION.md](INTEGRATION.md) (coder+reviewer per module, max 2 revisions, tagged `VERIFICATION_MODE: degraded`). Document TDD and two-stage-review losses in the evidence files.
 
-### Step 4: Collect results
-
-After each wave completes:
-1. Read all generated files
-2. Verify they compile: `npx tsc --noEmit`
-3. If compilation fails, identify which module has the error and re-run its coder_loop with the error message
-4. Once the wave compiles, proceed to the next wave
-
-### Parallelization rules
-
-- **DO parallelize**: Independent modules in the same wave (e.g., utils + db in wave 1)
-- **DO NOT parallelize**: Modules that depend on each other (e.g., tools depends on analysis)
-- **DO NOT parallelize** more than 5 subagents simultaneously — diminishing returns and context confusion
-- **ALWAYS** include types.ts and DESIGN.md in every subagent's context
-
-### Handling build subagent failures
+## Handling delegation failures
 
 | Failure | Response |
 |---------|----------|
-| Subagent produces stub/placeholder code | Re-run with explicit instruction: "No stubs. Implement real logic for every function." |
-| Subagent modifies types.ts | Revert types.ts to the design-phase version. Re-run the subagent with "DO NOT MODIFY types.ts" |
-| Subagent imports from wrong path | Fix the import path and re-run compilation check |
-| Subagent misses a function from DESIGN.md | Diff the module's public API against what was implemented. Re-run with the missing functions listed explicitly |
-| coder_loop hits max iterations without approval | Read the arbitrator's last rejection reason. Fix the specific issue manually, then move on |
+| `/team` errors on spawn | Mark `phases.build.status = "delegation_failed"`; increment `budget.current_delegation_count.build`; re-delegate if under max, else block |
+| `/team` modifies `types.ts` | Invariant `types_ts_immutable_after_design` flips false; run is invalid; halt and report |
+| `/team` misses a module from DESIGN.md | Parse `build/modified-files.txt` vs DESIGN.md module list; if gap, re-delegate `/team` with the missing modules explicitly listed |
+| `/team` returns `partial_with_accepted_unfixed` | Permitted — gate passes. Items flow into Phase 6 Accepted Tradeoffs. Coordinator does NOT evaluate whether items are "really minor" |
+| `/team` returns `budget_exhausted` | Ship-It terminates as `budget_exhausted` (distinct from `blocked_at_phase_3`) |
+
+## Iron-law gate (Phase 3 → Phase 4)
+
+Fresh phase-gate subagent reads evidence. Required:
+- `build/team-termination.md` with `TEAM_LABEL ∈ {complete, partial_with_accepted_unfixed}`
+- `build/handoffs/` directory non-empty
+- `build/modified-files.txt` non-empty (or explicitly empty with rationale if DESIGN.md was a no-op plan)
+- `build/build-output.txt` showing exit code 0
+- `build/phase-gate.md` with `ADVANCE: true`
+
+Any missing/unparseable → `ADVANCE: false`.

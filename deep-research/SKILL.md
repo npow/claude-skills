@@ -199,18 +199,47 @@ Terminate when ANY of these is true (any-of-4, not all-of-4):
 
 ---
 
+## Anti-Rationalization Counter-Table
+
+The coordinator WILL be tempted to skip steps. These are the talking points it must reject.
+
+| Excuse | Reality |
+|---|---|
+| "Coverage is good enough — we've hit most dimensions." | No. "Good enough" is the label for the termination check, not a reason to skip it. Run the coverage plateau check and emit the honest number. Under-coverage disclosed is fine; under-coverage hidden is a bug. |
+| "This source looks fine — no need to assess its tier." | No. Every source gets a tier classification (primary/secondary/unverified). A blog post is not a primary source because it cites one. Tier drives Evidence Quality — skipping it silently inflates the report's credibility. |
+| "A single citation is sufficient for this claim." | No. Single-source claims MUST carry `corroboration: single_source` and MUST be surfaced in the report's Single-Source Claims section. Never promote a single-source claim to "established fact." |
+| "The source is recent enough — within a couple of years." | No. For fast-moving topics, `recency_class` is computed from the 12-month threshold, not from vibes. A 2-year-old paper on a fast-moving topic is `stale` and must be flagged. |
+| "No need to search for counter-evidence — findings are consistent." | No. Consistency across a coordinator-generated framing is not evidence of truth. Every claim needs `counter_evidence_searched`. "I didn't find any" is a valid answer; "I didn't look" is not. |
+| "A primary source confirmed it — we can call it settled." | No. A single primary source is still `single_source`. Independence check requires 2+ sources that do not cite each other and are not from the same publishing entity. One paper is not settled science. |
+| "This forum post / personal blog counts as a citation." | No. `unverified` tier sources do NOT count toward corroboration. They may appear in the source table as context, but the claim's `corroboration` field only counts primary + secondary. |
+| "Exhaustion threshold met — we're done with this direction." | No. Exhaustion ≥ 4 is one termination trigger, not a license to skip the coverage plateau check or the counter-evidence search. Exhaustion measures what was found, not what was missed. |
+| "Honest coverage report can wait — the findings are the main product." | No. The coverage report IS the product. An overclaimed research report is worse than a short one. Termination label + Coverage % + Evidence Quality + single-source count are non-optional. |
+| "Just one more round will close the gap." | No. The budget soft gate exists because "one more round" is how runs spiral. If the user wants more, they extend. The coordinator does not self-extend. |
+| "The second agent repeated the first — that's corroboration." | No. Two agents reading the same sources is not independent corroboration. Independence is a source-level property, not an agent-level property. |
+| "Counter-evidence was weak, so I didn't cite it." | No. Disconfirming evidence that was found MUST be cited inline with the claim and the field set to `yes_disconfirming_evidence_present`. Omitting it is selection bias dressed up as editorial judgment. |
+| "I'll merge stale-source claims into the main text — flagging them is clutter." | No. Stale sources get counted and surfaced in the final report. The reader cannot assess freshness if the coordinator launders the date. |
+
+When the coordinator finds itself about to reach for any of these excuses: it stops, updates the structured field, and proceeds the right way. The extra structure is the cost of honest output.
+
+---
+
 ## Self-Review Checklist
 
 - [ ] State file is valid JSON after every round
 - [ ] No direction has status "in_progress" after round completes
-- [ ] Every findings file has: Findings + Source Table + Mini-Synthesis + New Directions (or "terminal node") + Exhaustion Assessment
+- [ ] Every findings file has: Findings + Claims Register + Source Table + Mini-Synthesis + New Directions (or "terminal node") + Exhaustion Assessment
+- [ ] Every claim in every Claims Register has `corroboration`, `counter_evidence_searched`, and `recency_class` set (no nulls, no defaults)
 - [ ] No direction explored > 2 times
 - [ ] Prospective gate was shown before each round (or `--auto` was set)
 - [ ] Coordinator summary updated each round (structured format, not freeform)
 - [ ] Fact verification ran before final synthesis
 - [ ] Final report includes Spot-Check Sample Results section with explicit limitations
+- [ ] Final report includes Single-Source Claims section (every `single_source` claim listed and tagged `[SINGLE_SOURCE_CAVEAT]` inline)
+- [ ] Final report includes Skipped Counter-Evidence Searches section (every `no_search_skipped` claim listed)
+- [ ] Final report includes Stale-Source Claims section (every `stale` / `undated` claim listed with threshold noted)
 - [ ] Final report uses termination label (User-stopped / Coverage plateau / Budget limit / Convergence)
 - [ ] Two separate confidence scores in report (Coverage % + Evidence Quality)
+- [ ] Topic velocity recorded in state and surfaced in final report header
 - [ ] Model tier was correctly selected for each agent
 
 ---
@@ -225,6 +254,7 @@ You are a research agent. Your task is to thoroughly research ONE specific direc
 **Your research question:** {direction.question}
 **Dimension:** {direction.dimension}
 **Depth:** {direction.depth} | **Priority:** {direction.priority}
+**Topic velocity:** {topic_velocity}   (recency threshold: {recency_threshold_months} months; sources older than this are `stale`)
 
 **Coverage fingerprint (dedup only — do NOT let this anchor your findings):**
 Already-explored directions: {list of explored direction titles}
@@ -239,11 +269,17 @@ Dominant framing so far: {dominant_framing}
 1. Use WebSearch to find papers, articles, docs, and discussions on this topic
 2. Go deep — follow references, check citations, look for contradictions
 3. Assess source quality for EACH source (primary / secondary / unverified) — see definitions below
-4. Write your findings to: {findings_path}
-5. Use the FORMAT specified: Findings, Source Table, Mini-Synthesis, New Directions, Exhaustion Assessment
-6. Every claim needs a source URL
-7. New directions are OPTIONAL — if this is a terminal node, write "None — terminal node."
-8. Do NOT report new directions that are paraphrases of already-explored topics
+4. Record each source's publication date AND publishing entity — needed for the independence and recency checks
+5. For every load-bearing factual claim: run a counter-evidence search. Record the outcome as `yes_none_found`, `yes_disconfirming_evidence_present` (cite the disconfirming source inline), or `no_search_skipped` (only for definitional claims)
+6. Write your findings to: {findings_path}
+7. Use the FORMAT specified: Findings, Claims Register, Source Table, Mini-Synthesis, New Directions, Exhaustion Assessment
+8. Every claim row in the Claims Register needs:
+   - `corroboration`: `single_source` | `two_independent_sources` | `three_or_more_independent_sources` (sources independent iff they don't cite each other AND aren't from the same publishing entity; unverified-tier sources don't count)
+   - `counter_evidence_searched`: one of the three values above
+   - `recency_class`: `fresh` | `stale` | `undated` (freshest source wins for the claim)
+9. Every claim in text needs an inline source URL
+10. New directions are OPTIONAL — if this is a terminal node, write "None — terminal node."
+11. Do NOT report new directions that are paraphrases of already-explored topics
 
 **Source quality tiers:**
 - `primary`: peer-reviewed research, official documentation, primary data — note specific evidence
@@ -251,6 +287,7 @@ Dominant framing so far: {dominant_framing}
 - `unverified`: forums, personal blogs, social media, paywalled sources (you can't read it = can't verify it)
 
 **Search budget:** {8 searches for Haiku/Scout tier | 15 searches for Sonnet/Researcher tier}
+(Counter-evidence searches count against the budget — plan accordingly.)
 ```
 
 ---

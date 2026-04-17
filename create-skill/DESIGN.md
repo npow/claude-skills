@@ -66,6 +66,25 @@ my-skill/
 
 SKILL.md points to reference files. Reference files do NOT point to other reference files. This is the "one level deep" rule. Deeply nested references cause Claude to partially read files and miss information.
 
+### The 300-line companion-split threshold
+
+If the skill's total content (SKILL.md + all reference files) exceeds 300 lines, switch to the npow orchestration companion split:
+
+```
+my-skill/
+├── SKILL.md           # lean map only — workflow, golden rules, counter-table, labels
+├── FORMAT.md          # output templates and schemas for every artifact the skill produces
+├── STATE.md           # state.json schema, resume protocol, pre-transition gate checks
+├── GOLDEN-RULES.md    # rules with concrete examples + full anti-rationalization counter-table
+├── INTEGRATION.md     # composition with deep-qa, deep-design, degraded-mode fallbacks
+└── pressure-tests/
+    ├── scenarios.md
+    ├── baseline.md
+    └── with-skill.md
+```
+
+This is mandatory above 300 lines. It's not bureaucracy — long SKILL.md bodies get partial-read by Claude, and the split enables progressive disclosure. See [FORMAT.md](FORMAT.md) for templates.
+
 ### How to split content
 
 | Content type | Where it goes | Why |
@@ -83,10 +102,12 @@ SKILL.md points to reference files. Reference files do NOT point to other refere
 
 ### How many reference files?
 
-- **1-2 files**: Simple skills (conventions, style guides, single-tool workflows)
-- **3-5 files**: Medium skills (multi-step workflows with distinct phases)
-- **6-8 files**: Complex skills (full application builders, multi-domain)
+- **1-2 files**: Simple skills (conventions, style guides, single-tool workflows, under 300 lines total)
+- **3-5 files**: Medium skills (multi-step workflows, 300-800 lines — companion split applies)
+- **6-8 files**: Complex skills (orchestrators, full application builders, 800+ lines — companion split + extra reference files)
 - **More than 8**: The skill is too broad. Split into multiple skills.
+
+Above 300 lines total, the core five files are always: SKILL.md, FORMAT.md, STATE.md (if workflow), GOLDEN-RULES.md, INTEGRATION.md. Extra topic-specific reference files come on top of those five.
 
 ### Naming reference files
 
@@ -184,6 +205,9 @@ Do NOT fork when:
 - [ ] Output format defined
 - [ ] Required tools identified
 - [ ] Failure modes listed (5-10)
-- [ ] File structure designed (SKILL.md + reference files)
+- [ ] File structure designed (flat or companion-split based on 300-line threshold)
 - [ ] Each reference file has a clear name and single responsibility
 - [ ] Invocation settings decided
+- [ ] Pressure scenarios drafted (3-5, at least 2 pressure types) — see [PRESSURE-TESTING.md](PRESSURE-TESTING.md). These are authored BEFORE SKILL.md is written.
+- [ ] Termination labels sketched (if workflow) — see [FORMAT.md](FORMAT.md) mandatory section 5.
+- [ ] Integration decisions made: will the skill invoke `deep-qa` for self-review? `deep-design` for design review? — see [INTEGRATION.md](INTEGRATION.md).

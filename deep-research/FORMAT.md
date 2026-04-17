@@ -10,6 +10,7 @@ Each research agent writes to `deep-research-findings/{direction_id}.md`:
 **Depth:** {depth}
 **Parent:** {parent_id or "seed"}
 **Researched:** {date}
+**Topic velocity:** {fast_moving | stable}   [inherited from run-init config flag]
 
 ## Findings
 
@@ -23,10 +24,41 @@ Each research agent writes to `deep-research-findings/{direction_id}.md`:
 ### Sub-topic B
 [findings...]
 
+## Claims Register
+
+[REQUIRED. One row per load-bearing factual claim in the Findings section.
+A "claim" is any statement of fact that would change the report's conclusions if wrong.
+Opinions, framings, and summary sentences are NOT claims.]
+
+| Claim ID | Claim (one sentence) | Sources (ids) | corroboration | counter_evidence_searched | recency_class |
+|----------|----------------------|---------------|---------------|---------------------------|---------------|
+| c1 | ... | s1 | single_source | yes_none_found | fresh |
+| c2 | ... | s1, s4 | two_independent_sources | yes_disconfirming_evidence_present | stale |
+
+**Field definitions:**
+
+- `corroboration` — one of:
+  - `single_source` — one source supports the claim
+  - `two_independent_sources` — two sources, independent per the rule below
+  - `three_or_more_independent_sources` — three or more, all pairwise independent
+
+  **Independence rule:** Two sources are independent iff (a) neither cites the other, AND (b) they are not from the same publishing entity (same org, same author, same parent corporation, same pre-print server thread). `unverified`-tier sources do NOT count toward corroboration even if present in the source table.
+
+- `counter_evidence_searched` — one of:
+  - `yes_none_found` — a counter-evidence search was run; no disconfirming sources found
+  - `yes_disconfirming_evidence_present` — disconfirming source(s) found and MUST be cited inline with the claim in Findings
+  - `no_search_skipped` — no counter-evidence search performed (this will be flagged by the coordinator; use only when the claim is definitional/tautological)
+
+- `recency_class` — computed from source date + topic velocity:
+  - If `Topic velocity: fast_moving` at run init: sources older than 12 months from run date → `stale`, else `fresh`
+  - If `Topic velocity: stable`: sources older than 36 months → `stale`, else `fresh`
+  - If source has no date: `undated` (treated as `stale` for gate purposes)
+  - A claim's `recency_class` is the FRESHEST among its sources (one fresh source is enough to mark the claim fresh)
+
 ## Key Sources
-| Source | Type | Tier | Paywalled? | Snippet or full-text? | Relevance |
-|--------|------|------|------------|-----------------------|-----------|
-| [Name](url) | paper/blog/repo/docs | primary/secondary/unverified | yes/no | snippet/full | Brief note |
+| Source ID | Source | Type | Tier | Publishing entity | Publication date | Paywalled? | Snippet or full-text? | Relevance |
+|-----------|--------|------|------|-------------------|------------------|------------|-----------------------|-----------|
+| s1 | [Name](url) | paper/blog/repo/docs | primary/secondary/unverified | e.g. arXiv / NYT / Google Research | YYYY-MM-DD or "undated" | yes/no | snippet/full | Brief note |
 
 **Tier definitions:**
 - `primary`: peer-reviewed research, official documentation, primary data — note specific evidence
@@ -76,6 +108,13 @@ Each research agent writes to `deep-research-findings/{direction_id}.md`:
 **Dimensions covered:** {count}/{total applicable}
 **Coverage:** {N}%
 **Evidence Quality:** {opinion-heavy | mixed | primarily-sourced}
+**Topic velocity:** {fast_moving | stable}   [run-init config; drives `recency_class` threshold]
+
+**Claim-level integrity counts:**
+- Single-source claims: {N}   [surfaced in Single-Source Claims section]
+- Claims with counter-evidence search skipped: {N}   [surfaced in Skipped Counter-Evidence Searches]
+- Claims backed by at least one stale source: {N}   [surfaced in Stale-Source Claims]
+- Claims with disconfirming evidence cited inline: {N}
 
 > ⚠️ [Only if budget limit reached]: Coverage may be incomplete. Uncovered dimensions: {list}.
 
@@ -142,6 +181,49 @@ Results:
   Claims with specific figures should be manually verified against cited source.
 - This is a spot-check, not a comprehensive audit. {Y - X} claims were not checked.
 - For high-stakes decisions, independently verify all primary claims.
+
+---
+
+## Single-Source Claims  `[SINGLE_SOURCE_CAVEAT]`
+
+[REQUIRED section. Every claim with `corroboration: single_source` is listed here, tagged
+`[SINGLE_SOURCE_CAVEAT]` in the report body where it appears, and repeated here verbatim.
+Never promote a single-source claim to "established fact" in the Executive Summary or Consensus.]
+
+| Claim | Sole source | Tier | Why corroboration was not obtained |
+|-------|-------------|------|-------------------------------------|
+| {claim text} | [Name](url) | primary/secondary | e.g. "only paper on this subclaim", "paywalls on alternatives" |
+
+If this section is empty: write "None — every claim has two or more independent sources."
+
+---
+
+## Skipped Counter-Evidence Searches
+
+[REQUIRED section. Every claim with `counter_evidence_searched: no_search_skipped` is listed.]
+
+| Claim | Reason search was skipped | Direction ID |
+|-------|---------------------------|--------------|
+| {claim text} | e.g. "definitional", "tautological", "time budget exhausted" | dir_XXX |
+
+If non-empty: "⚠️ These claims were not stress-tested for disconfirming evidence. Treat as weaker than claims that survived a counter-evidence search."
+
+If empty: write "None — every claim was subjected to a counter-evidence search."
+
+---
+
+## Stale-Source Claims
+
+[REQUIRED section. Every claim whose `recency_class` is `stale` or `undated` is listed.
+Threshold is 12 months for fast-moving topics, 36 months for stable topics — set at run init.]
+
+| Claim | Source(s) | Source date | Why still included |
+|-------|-----------|-------------|---------------------|
+| {claim text} | [Name](url) | YYYY-MM-DD or "undated" | e.g. "canonical reference", "no newer source available" |
+
+If non-empty: "⚠️ Fast-moving topic; {N} claims rely on sources older than the freshness threshold. Re-verify before acting on these."
+
+If empty: write "None — all claims have at least one fresh source."
 
 ---
 

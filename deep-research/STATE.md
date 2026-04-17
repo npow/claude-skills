@@ -11,6 +11,8 @@
   "max_rounds": 5,
   "max_agents_per_round": 6,
   "max_depth": 3,
+  "topic_velocity": "fast_moving",
+  "recency_threshold_months": 12,
   "dimensions": {
     "dim_name": {
       "description": "What this dimension covers",
@@ -44,6 +46,15 @@
   "coordinator_summary_path": "deep-research-coordinator-summary.md"
 }
 ```
+
+---
+
+## Run-Init Config Fields
+
+- `topic_velocity` — one of `fast_moving` (e.g. LLM research, current events, emerging tech) or `stable` (e.g. historical analysis, mathematical foundations, established science). Set at run init; immutable after. Drives the freshness threshold used to compute `recency_class` on each source.
+- `recency_threshold_months` — derived from `topic_velocity`: 12 for `fast_moving`, 36 for `stable`. Stored for clarity so agents don't recompute the mapping inconsistently.
+
+These fields are inherited by every research agent in the run via the agent prompt (`Topic velocity: {topic_velocity}`) and are echoed in each findings file header.
 
 ---
 

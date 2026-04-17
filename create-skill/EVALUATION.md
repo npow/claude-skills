@@ -2,6 +2,8 @@
 
 How to test skills, verify they work, and iterate based on real usage.
 
+**Note on scope:** This document covers the discovery/invocation test layer — does the skill activate for the right prompts and produce the right output shape? The complementary discipline-under-pressure layer is covered in [PRESSURE-TESTING.md](PRESSURE-TESTING.md), which runs BEFORE this evaluation. Both layers are required. Pressure testing catches rationalization; evaluation catches trigger misses, noisy-context failures, and false positives.
+
 ## Test prompt categories
 
 Every skill should be tested with 4 types of prompts. Write 3-5 prompts per category.
@@ -62,15 +64,23 @@ After writing a skill, run it through this verification sequence:
 Without running the skill, manually inspect the files:
 
 ```
-1. Count SKILL.md content lines (target: 50-100)
+1. Count SKILL.md content lines (target: 50-100 for flat skills; ≤150 for companion-split maps)
 2. Verify zero code blocks in SKILL.md
 3. Verify all reference files are linked from SKILL.md
 4. Verify reference files are under 500 lines each
-5. Verify description contains trigger keywords
-6. Verify golden rules use imperative language (no "should", "consider")
+5. Verify description contains trigger keywords and does NOT summarize workflow
+6. Verify golden rules use imperative language (no "should", "consider", "try to", "prefer")
 7. Verify self-review checklist items are objectively verifiable
 8. Verify at least one feedback loop exists
+9. Verify anti-rationalization counter-table exists with min 5 rows (discipline) or 3 rows (one-shot)
+10. Verify termination labels section exists and is a finite enum (workflow skills only)
+11. Verify iron-law gate language in completion claims (concrete file-existence check, not "verify")
+12. Verify companion split applied if total content > 300 lines
+13. Verify `pressure-tests/scenarios.md`, `baseline.md`, `with-skill.md` all exist on disk
+14. Verify `pressure-tests/with-skill.md` shows zero unaddressed rationalizations
 ```
+
+If `deep-qa` is installed, running it against the skill at `--type skill` runs a parallel-critic audit across these dimensions. See [INTEGRATION.md](INTEGRATION.md).
 
 ### Phase 2: Dry run
 
@@ -121,13 +131,17 @@ Grade the skill on these dimensions:
 | Dimension | A | B | C |
 |---|---|---|---|
 | **Discovery** | Triggers correctly for all positive prompts, never for negative | Triggers for most positive, occasionally for negative | Misses common phrasings or false-triggers |
-| **Structure** | SKILL.md under 100 lines, clean progressive disclosure | SKILL.md slightly long but organized | SKILL.md is a manual, or reference files are disorganized |
+| **Structure** | SKILL.md under 100 lines (or lean map if companion-split), clean progressive disclosure, companion split applied if needed | SKILL.md slightly long but organized | SKILL.md is a manual, or reference files are disorganized |
 | **Specificity** | Zero vague adjectives, all instructions are concrete | Mostly concrete, 1-2 vague spots | Multiple "clean/good/appropriate" without specification |
 | **Feedback loops** | Automated verification + self-review + failure diagnosis | Self-review checklist only | No verification step |
-| **Golden rules** | 3-8 hard rules, each preventing a known failure mode | Rules exist but some are soft ("try to") | No golden rules, or rules are generic |
+| **Golden rules** | 3-8 hard rules, each preventing a specific rationalization observed in RED baseline | Rules exist but some are soft ("try to") | No golden rules, or rules are generic |
+| **Rationalization resistance** | Counter-table ≥5 rows (discipline) or ≥3 (one-shot); every row maps to a baseline observation; REFACTOR pass shows zero new rationalizations slipping through | Counter-table exists but some rows are imagined, not observed | No counter-table, or rows don't match baseline |
+| **Termination honesty** | Finite enum of 3-6 labels with observable conditions; includes `cancelled`; no `done`/`all good`/`no issues` | Labels exist but some are vague | No labels, or labels include "done"/"all good" |
+| **Iron-law gates** | Every completion claim backed by concrete file-existence check on disk | Gates exist but some use "verify/check" as the actual gate | Gates are reminders ("verify tests pass"), not gates |
+| **Pressure-test coverage** | `baseline.md` + `with-skill.md` both on disk; with-skill shows zero violations | Baseline exists but with-skill is missing some scenarios | No pressure tests |
 | **Consistency** | Two runs on the same input produce structurally identical output | Minor cosmetic differences between runs | Significant structural differences between runs |
 
-Target: A on all dimensions before delivering.
+Target: A on all dimensions before delivering. Any B or C dimension must be tagged in the final report (e.g. `shipped_degraded` with reason).
 
 ## Common pitfalls
 
