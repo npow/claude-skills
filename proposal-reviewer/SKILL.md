@@ -104,7 +104,7 @@ See `CRITIC_PROMPT_TEMPLATE` at the bottom of this file.
 **Critic output contract (enforced by FORMAT.md):**
 - File MUST have `STRUCTURED_OUTPUT_START/END` markers; files without are treated as failed.
 - Each filed weakness includes: title, dimension, concrete failure scenario, root cause, one-line suggested fix direction, and a **counter-response** — what the proposal author could plausibly say to defend the point. This is the falsifiability contract (Step 5 judge enforces it).
-- Each critic may file at most **5 weaknesses** (quality over quantity).
+- Each critic files **every load-bearing weakness** — no cap on real findings. Quality and signal density matter more than count. Critics MUST exclude nitpicks (cosmetic issues, stylistic preferences, prose polish, taste-based wording quibbles); a critique padded with cosmetics erodes trust in every weakness it carries.
 - Each critic may suggest at most **1 additional angle** for a future round (rarely triggered; this is a single-round skill by default).
 
 **Quorum:** Round is complete if ≥ 3 of 4 critics return parseable output within timeout (180s base). If < 3 parseable: label the run `insufficient_evidence_to_review` and stop; do not synthesize from incomplete critique data. Circuit-break-like behavior; matches deep-design's quorum rule.
@@ -320,7 +320,7 @@ be polite. Do NOT say "overall this looks promising." Find REAL problems.
 
 **Instructions:**
 1. Read the proposal end-to-end through the lens of your dimension.
-2. Identify 2-5 genuine weaknesses. Quality over quantity.
+2. Identify every genuine load-bearing weakness — **no cap** on real findings. Quality and signal density matter more than count. Exclude nitpicks: cosmetic issues, stylistic preferences, prose polish, taste-based wording quibbles. Every filed weakness must describe a concrete failure mode in practice, not a taste preference.
 3. For EACH weakness, produce:
    - A clear title
    - Severity claim (fatal/major/minor) — this will be stripped before the judge sees it
@@ -350,6 +350,8 @@ that fails falsifiability; do not waste effort on unfalsifiable filings.
 - "This feels right" — feelings are not evidence.
 - "Other competitors have failed at this" — so what? Is THIS proposal better or worse?
 - "The writing is good" — prose quality is not a viability signal.
+- "The wording on page 3 is awkward" — nitpick. Prose polish is not a weakness. Skip cosmetic concerns; only file load-bearing problems.
+- "I should pad the report to look thorough" — inflated reports erode trust. File only load-bearing weaknesses; if the proposal has only one true weakness in your dimension, file one. No cap, but no padding.
 
 Focus on: concrete scenarios, evidence-backed claims, named competitors, cited costs,
 specific timeline calculations, measurable market signals.

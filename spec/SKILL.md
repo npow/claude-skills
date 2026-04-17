@@ -11,9 +11,11 @@ Turns a conversation, idea, or discussion into a complete, structured technical 
 
 ## Workflow
 
+> **Pace:** Spec authoring is load-bearing design work — choices made here propagate to implementation. Think carefully and step-by-step; this is harder than it looks. Do not rush the API/data-model/failure-mode sections.
+
 1. **Extract the core idea** — identify what system, feature, or API is being specified from the conversation or argument. See [DESIGN.md](DESIGN.md).
 
-2. **Ask clarifying questions if needed** — if the problem, scale, or constraints are unclear, ask at most 3 targeted questions before proceeding. See [DESIGN.md](DESIGN.md).
+2. **Ask clarifying questions if needed (batched)** — if the problem, scale, or constraints are unclear, ask at most 3 targeted questions before proceeding. **If you have ≥ 1 question, present ALL of them as a single numbered batch in one message — never serially.** See [DESIGN.md](DESIGN.md).
 
 3. **Draft the problem statement and goals** — write the Problem Statement and Goals/Non-Goals sections first. Do not proceed to design until these are locked. See [FORMAT.md](FORMAT.md).
 
@@ -52,7 +54,7 @@ Hard rules. Never violate these.
 4. **Success Metrics are mandatory.** Without measurable criteria there is no definition of done. Vague metrics ("users are happy") are rejected — replace with numbers.
 5. **Never write TBD in API or Data Model.** If the design is unknown, write the open question in the Open Questions section. The spec body must contain actual designs, not placeholders.
 6. **Always save the spec to a file.** Print to conversation AND write `spec-[slug].md`. Specs that exist only in the conversation are lost.
-7. **Ask at most 3 clarifying questions.** If the problem is truly ambiguous, ask — but never more than 3 at once, and prefer to proceed with stated assumptions over interrogating the user.
+7. **Ask at most 3 clarifying questions, batched in one message.** If the problem is truly ambiguous, ask — but never more than 3 at once, present them as a single numbered batch, and prefer to proceed with stated assumptions over interrogating the user.
 
 ## Reference files
 

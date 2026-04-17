@@ -21,7 +21,7 @@ Non-negotiable contracts for every skill produced by this skill:
 
 ## Workflow
 
-1. **Understand the domain** — elicit what the skill does, when it should trigger, what tools/output it produces. Do not design until the purpose is clear. See [DESIGN.md](DESIGN.md).
+1. **Understand the domain (batched intake)** — elicit what the skill does, when it should trigger, what tools/output it produces. If clarification is needed, present **all questions as a single numbered batch in one message** — never serially. Do not design until the purpose is clear. See [DESIGN.md](DESIGN.md).
 
 2. **Author pressure scenarios FIRST** — write 3-5 scenarios a subagent will face without the skill loaded. Include at least one discipline-pressure case (time pressure, sunk cost, authority). Save to `pressure-tests/scenarios.md`. See [PRESSURE-TESTING.md](PRESSURE-TESTING.md).
 

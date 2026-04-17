@@ -105,6 +105,10 @@ Build the dependency graph from `depends_on` edges and write it to `logs/depende
    - Run the `verification_command` after the work completes.
    - Write its output to `results/{task_id}.md` with a required `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` block.
    - Write raw verification stdout/stderr/exit-code to `verify/{task_id}.{stdout,stderr,exit}`.
+   - **Tier-matched work pace** (inject the appropriate phrase into each subagent prompt — Opus 4.7 needs explicit pacing signals):
+     - **haiku** tasks: `"Prioritize speed over depth; respond directly when uncertain. This is mechanical work — ship fast, don't over-engineer."`
+     - **sonnet** tasks: no extra pacing directive (default behavior is correct).
+     - **opus** tasks: `"Think carefully and step-by-step; this problem is harder than it looks. Reason about edge cases and downstream effects before writing."`
 5. Long-running tasks (`run_in_background: true`) use `Task(..., run_in_background=true)`; their completion is detected by the presence of the result files, not by in-memory state.
 6. If the Task tool returns a spawn error: record `status: "spawn_failed"`, `spawn_time_iso: null`, `failure_reason: <error>` in state.json. Do NOT record as "spawned." Resume retries; it does not wait.
 

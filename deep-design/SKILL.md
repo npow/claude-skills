@@ -27,7 +27,7 @@ Good design survives adversarial scrutiny. This skill treats design as a **gener
 
 ### Step 0: Input Validation Gate
 
-Before any work begins, validate the concept:
+Before any work begins, validate the concept. **Batch any clarifying questions** — if multiple questions surface in this step (concept rubric ambiguity, core-claim confirmation, alternatives selection), present ALL of them as a single numbered batch in one message. Never serially. The user answers once, then Step 1 begins.
 
 **Concept rubric** — reject if any of these apply:
 - Too vague to critique ("make a good app") — request specificity
@@ -386,7 +386,7 @@ Read this file for flaw IDs and titles. Do NOT repeat any flaw with these IDs.
    - A specific scenario demonstrating the flaw
    - WHY it's a problem (the root cause, not just the symptom)
    - A suggested fix direction
-5. Find 2-5 genuine flaws (quality over quantity)
+5. Find every load-bearing flaw — **no cap**. Quality and signal density matter more than count. Exclude nitpicks: cosmetic issues, stylistic preferences, prose polish, taste-based wording quibbles, and "this could be more elegant"-class concerns. Every filed flaw must name a concrete failure mode or risk to a real consumer — not a taste preference. A 15-flaw critique padded with cosmetics is worse than a 3-flaw critique of load-bearing defects.
 6. If you believe a previously-closed flaw was insufficiently fixed, file a GAP_REPORT:
    `GAP_REPORT: {"references_flaw_id": "<flaw_id>", "gap_description": "<what the fix missed>"}`
    This bypasses the dedup list and does not consume a challenge token.

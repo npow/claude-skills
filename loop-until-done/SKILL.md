@@ -116,6 +116,10 @@ Pass the executor:
 - Story path: `loop-{run_id}/prd.json` and the story ID
 - Context file: the list of files touched in prior iterations (from `progress.jsonl`)
 - Explicit instruction: "Do not modify tests to make them pass. Do not reduce scope. If a criterion is genuinely infeasible, file a `STORY_INFEASIBLE` note in the progress log instead of silently skipping it."
+- **Tier-matched work pace** (inject into the executor prompt — Opus 4.7 needs explicit pacing signals):
+  - **Haiku stories** (mechanical edits, single-file fixups): `"Prioritize speed over depth; respond directly when uncertain. Ship fast — don't over-engineer."`
+  - **Sonnet stories** (standard work against a clear spec): no extra pacing directive.
+  - **Opus stories** (architectural / multi-file reasoning / load-bearing decisions): `"Think carefully and step-by-step; this problem is harder than it looks. Reason about edge cases and downstream effects before writing."`
 
 If during implementation the executor discovers sub-tasks, the coordinator appends new stories to `prd.json` (never overwrites existing criteria). New stories must pass the falsifiability gate before their first iteration — re-run Step 2b on the newly added story only.
 

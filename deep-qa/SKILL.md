@@ -418,6 +418,13 @@ Read this file for defect IDs and titles. Do NOT repeat any defect with these ID
 7. Write findings to: {critique_path}
 8. Use the FORMAT specified in FORMAT.md
 
+NITPICK FILTER (apply BEFORE the falsifiability check): Exclude cosmetic issues, stylistic preferences,
+prose polish, taste-based wording quibbles, and "this could be more elegant"-class concerns. Nitpicks
+waste the artifact owner's time and erode trust in the entire report. There is **no cap on real
+load-bearing defects** — find every one — but every filed defect must name a concrete failure mode
+for a real consumer, not a taste preference. A 15-defect report padded with cosmetics is worse than
+a 3-defect report of load-bearing problems.
+
 FALSIFIABILITY REQUIREMENT: Every defect must be falsifiable — it must be possible to construct a
 scenario where the defect manifests AND a scenario where it does not. "This is unclear" without a
 specific reader profile and specific misinterpretation is NOT a defect. Unfalsifiable concerns should

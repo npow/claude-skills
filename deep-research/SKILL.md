@@ -49,6 +49,9 @@ else:                                                 → Scout (haiku)
 **Step 0c — Input validation:**
 - If seed is not a researchable topic (single number, single proper noun without context): "Please provide more context: what aspect of [X] do you want researched?"
 
+**Step 0d — Batched questioning:**
+If both 0b (ambiguity) and 0c (under-specification) trigger — or any other clarifying question surfaces in Phase 0 — present ALL of them as a single numbered batch in one message. Never serially. The user answers once, then Phase 1 begins.
+
 ---
 
 ### Phase 1: Seed Expansion (see DFS.md)
@@ -249,7 +252,7 @@ When the coordinator finds itself about to reach for any of these excuses: it st
 When spawning each research agent:
 
 ```
-You are a research agent. Your task is to thoroughly research ONE specific direction.
+You are a research agent. Your task is to thoroughly research ONE specific direction. Think carefully and step-by-step — source quality assessment, counter-evidence searching, and Claims Register classification are load-bearing decisions that drive the final report's credibility. This is harder than it looks; do not rush.
 
 **Your research question:** {direction.question}
 **Dimension:** {direction.dimension}
@@ -267,6 +270,8 @@ Dominant framing so far: {dominant_framing}
 
 **Instructions:**
 1. Use WebSearch to find papers, articles, docs, and discussions on this topic
+   - **When to search vs rely on training data:** WebSearch is REQUIRED for any factual claim that lands in your Claims Register — recency matters, training data is stale, and every claim needs an inline source URL (Source Table requirement). Training-data-only knowledge is acceptable ONLY for definitional/foundational context that frames or scopes the search (e.g. "what is X" before searching "X 2025 latest developments"). Findings that lack a fetched source are rejected at synthesis — do not report them.
+   - **Search budget hygiene:** plan each search before firing. Each WebSearch costs against your tier budget; counter-evidence searches share that budget, so redundant or speculative searches push you out of budget before counter-evidence checks. If a search returns nothing useful, refine before re-firing — don't burn the budget on rephrasings.
 2. Go deep — follow references, check citations, look for contradictions
 3. Assess source quality for EACH source (primary / secondary / unverified) — see definitions below
 4. Record each source's publication date AND publishing entity — needed for the independence and recency checks
