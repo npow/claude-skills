@@ -48,6 +48,8 @@
     "defect_001": {
       "title": "Missing error path for authentication failure",
       "severity": "critical|major|minor",
+      "judge_status": "pending|completed|timed_out",
+      "judge_batch_id": "batch_1_1",
       "dimension": "dim_name",
       "source_angle": "angle_001",
       "round_classified": 1,
@@ -70,6 +72,14 @@
   "hard_stop": 8,
   "max_agents_per_round": 6,
   "max_depth": 3,
+  "background_tasks": {
+    "judges": [
+      {"batch_id": "batch_1_1", "defect_ids": ["defect_001", "defect_002"], "round": 1, "status": "running|completed|timed_out", "task_id": "bg_task_id"}
+    ],
+    "summaries": [
+      {"round": 1, "status": "running|completed|timed_out", "task_id": "bg_task_id"}
+    ]
+  },
   "auto": false,
   "files_examined": ["artifact.md"]
 }
@@ -81,6 +91,8 @@
 - No `accepted_fixes` — defects are reported, not fixed
 - `flaws` → `defects`; flaw statuses `fixed` and `wont_fix` → only `open`, `accepted`, `disputed`, `wont_fix`
 - Adds `artifact_name`, `artifact_path`, `artifact_type`
+- Adds `judge_status` and `judge_batch_id` on defects for pipelined severity classification
+- Adds `background_tasks` registry for tracking pipelined judge batches and coordinator summaries
 
 ---
 
@@ -250,10 +262,39 @@ Note: `required_categories_covered.{category}` is only set to true if the critiq
 // Logged in coordinator summary as timed out.
 ```
 
-### After severity judge completes
+### After critic creates defect (before judge runs)
 ```json
-"defects.{id}.severity": "critical|major|minor",
+"defects.{id}.severity": "critical|major|minor",  // critic-proposed (preliminary)
+"defects.{id}.judge_status": "pending",
+"defects.{id}.judge_batch_id": "batch_{round}_{batch_num}",
 "defects.{id}.status": "open",
+"generation": += 1
+```
+
+### After spawning background judge batch
+```json
+"background_tasks.judges[].batch_id": "batch_{round}_{batch_num}",
+"background_tasks.judges[].defect_ids": ["defect_001", "defect_002"],
+"background_tasks.judges[].round": {round},
+"background_tasks.judges[].status": "running",
+"background_tasks.judges[].task_id": "{background_task_id}",
+"generation": += 1
+```
+
+### After spawning background coordinator summary
+```json
+"background_tasks.summaries[].round": {round},
+"background_tasks.summaries[].status": "running",
+"background_tasks.summaries[].task_id": "{background_task_id}",
+"generation": += 1
+```
+
+### After severity judge batch completes (during Phase 5.5 drain)
+For each defect in the batch:
+```json
+"defects.{id}.severity": "critical|major|minor",  // judge-authoritative (overwrites critic-proposed)
+"defects.{id}.judge_status": "completed",
+"background_tasks.judges[batch_idx].status": "completed",
 "generation": += 1
 ```
 
@@ -286,6 +327,13 @@ After every round, verify:
 8. `generation` is strictly monotonically increasing
 9. `hard_stop` value in state.json equals the value set at initialization — never changed
 10. All `critique_file` paths across angles are unique (no two angles share a path)
+11. All new defects this round have `judge_status: "pending"` and a valid `judge_batch_id`
+12. All background judge batches from this round are registered in `background_tasks.judges` with `status: "running"`
+
+After Phase 5.5 drain (additional invariants):
+13. No defect has `judge_status: "pending"` — all must be `completed` or `timed_out`
+14. All entries in `background_tasks.judges` have `status: "completed"` or `status: "timed_out"`
+15. All entries in `background_tasks.summaries` have `status: "completed"` or `status: "timed_out"`
 
 ---
 
