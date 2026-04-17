@@ -19,6 +19,16 @@ Skills fix that. Each skill is a directory of markdown files that Claude loads a
 - **`/init-github-repo`** — Initializes repos with a JTBD-focused README, CI/CD workflow, license, .gitignore, and SEO-optimized description and topics.
 - **`/ship-it`** — Takes a product idea through design, build, test, integrate, and package phases using parallel subagents with quality gates between each phase.
 
+### Orchestration
+
+Multi-agent coordination skills with independent-judge architecture, two-stage review, and iron-law verification gates. File-based state (no MCP dependency). Integrate deeply with `/deep-design` and `/deep-qa`.
+
+- **`/autopilot`** — Takes a vague idea through five phases (expand → plan → exec → qa → validate) using iron-law evidence gates between each transition. Delegates each phase to the right specialist skill (`deep-design`, `/consensus-plan`, `/team`, `deep-qa`) and ends with three fully independent judges (correctness, security, quality).
+- **`/consensus-plan`** — Planner → Architect → Critic loop producing an ADR-backed plan. All three roles are fully independent agents reading and writing via files; critic rejections require falsifiable failure scenarios, not opinions. Outputs include per-criterion verification commands.
+- **`/loop-until-done`** — PRD-driven persistence loop that keeps working until every story's acceptance criterion has fresh evidence. Structured criteria with executable verification commands, two-stage review per story (spec compliance → code quality via `deep-qa`), honest termination labels, mandatory deslop pass.
+- **`/parallel-exec`** — Fires independent subagents in parallel with inline tier routing. Every task carries a mandatory verification command; an independent convergence-checker reads all task outputs and detects conflicts between siblings before any aggregate success claim.
+- **`/team`** — N coordinated agents on a staged pipeline (plan → prd → exec → verify → fix) using Claude Code's native team tools. Structured handoff docs between stages, two-stage verify via `deep-qa --diff` plus code-quality review, bounded fix budget, honest termination labels.
+
 ### Research & Design
 
 - **`/competitive-matrix`** — Researches a market and renders an interactive, color-coded comparison matrix in the browser.
