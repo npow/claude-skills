@@ -1,9 +1,14 @@
 # Custom harness evaluation for Temporal-native coordination
 
-**Status:** evaluation design — exploratory, runs in parallel with P2 build
+**Status:** ⚠️ SUPERSEDED by `2026-04-18-pi-dev-harness-adoption-design.md` — kept as history
 **Author:** npow + Claude (brainstorming session 2026-04-18)
-**Type:** evaluation / spike (P4 in path analysis)
+**Type:** evaluation / spike (P4 in path analysis) — decision made before full eval ran
 **Companion:** `2026-04-18-flux-temporal-orchestration-design.md` (P2 build)
+
+> **Why superseded:** after a desk evaluation + architectural discussion in the same brainstorming session,
+> user committed to pi.dev as the P4 direction without running the full 3-candidate spike.
+> See `2026-04-18-pi-dev-harness-adoption-design.md` for the current plan. This file remains in the repo
+> so the reasoning trail for the decision is preserved.
 
 ## Context
 
