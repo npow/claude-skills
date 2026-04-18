@@ -19,6 +19,8 @@ Non-negotiable contracts:
 - **Iron-law pre-transition gate.** A stage cannot advance until `state.stages[<stage>].evidence_files` is non-empty and each listed file exists on disk. This is checked by reading `state.json` plus `ls` of listed paths — no in-memory claim is accepted.
 - **Honest termination labels.** Exactly one of: `complete` | `partial_with_accepted_unfixed` | `blocked_unresolved` | `budget_exhausted` | `cancelled`. Never "no issues remain", "all done", "LGTM".
 
+**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
 ## Philosophy
 
 A team is only as trustworthy as its weakest review step. OMC's `/team` skill lets the coordinator mark stages complete, allows single-pass verification, and does not enforce test-first execution. This skill fixes each of those: the coordinator is a librarian, not a judge. Verification is two-stage by mandate. Workers write a failing test before implementation and attach the test-run output as evidence.

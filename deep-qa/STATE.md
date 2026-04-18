@@ -48,13 +48,25 @@
     "defect_001": {
       "title": "Missing error path for authentication failure",
       "severity": "critical|major|minor",
-      "judge_status": "pending|completed|timed_out",
+      "judge_status": "pending|pass_1_completed|pass_1_timed_out|completed|timed_out",
       "judge_batch_id": "batch_1_1",
+      "judge_pass_1_verdict": {
+        "severity": "critical|major|minor",
+        "confidence": "high|medium|low",
+        "rationale": "one-line basis for pass-1 blind verdict"
+      },
+      "judge_pass_2_verdict": {
+        "severity": "critical|major|minor",
+        "confidence": "high|medium|low",
+        "calibration": "confirm|upgrade|downgrade",
+        "rationale": "one-line basis for pass-2 informed verdict"
+      },
       "dimension": "dim_name",
       "source_angle": "angle_001",
       "round_classified": 1,
       "scenario": "A developer implementing the spec encounters a token expiry — section 4.2 specifies no error response, so they return a generic 500",
       "root_cause": "Auth error path not specified in the token lifecycle section",
+      "author_counter_response": "what the artifact author could plausibly say to defend this — from the critic; required for the defect to be falsifiable",
       "status": "open|accepted|disputed|wont_fix",
       "acceptance_rationale": null,
       "dispute_rationale": null,
@@ -74,11 +86,18 @@
   "max_depth": 3,
   "background_tasks": {
     "judges": [
-      {"batch_id": "batch_1_1", "defect_ids": ["defect_001", "defect_002"], "round": 1, "status": "running|completed|timed_out", "task_id": "bg_task_id"}
+      {"batch_id": "batch_1_1", "defect_ids": ["defect_001", "defect_002"], "round": 1, "pass": 1, "status": "running|completed|timed_out", "task_id": "bg_task_id"},
+      {"batch_id": "batch_pass2_1", "defect_ids": ["defect_001", "defect_002"], "round": 1, "pass": 2, "status": "running|completed|timed_out", "task_id": "bg_task_id"}
     ],
     "summaries": [
       {"round": 1, "status": "running|completed|timed_out", "task_id": "bg_task_id"}
-    ]
+    ],
+    "rationalization_audit": {
+      "status": "not_started|running|clean|compromised|compromised_twice|timed_out",
+      "attempt_count": 0,
+      "task_id": "bg_task_id",
+      "verdict_path": "deep-qa-{run_id}/judges/rationalization-audit.md"
+    }
   },
   "auto": false,
   "files_examined": ["artifact.md"]
@@ -289,14 +308,44 @@ Note: `required_categories_covered.{category}` is only set to true if the critiq
 "generation": += 1
 ```
 
-### After severity judge batch completes (during Phase 5.5 drain)
+### After pass-1 blind severity judge batch completes (Phase 5.5.a)
 For each defect in the batch:
 ```json
-"defects.{id}.severity": "critical|major|minor",  // judge-authoritative (overwrites critic-proposed)
+"defects.{id}.judge_pass_1_verdict": {
+  "severity": "critical|major|minor",   // pass-1 BLIND judgment (no critic severity visible)
+  "confidence": "high|medium|low",
+  "rationale": "..."
+},
+"defects.{id}.judge_status": "pass_1_completed",
+"background_tasks.judges[batch_idx].status": "completed",
+"generation": += 1
+// NOTE: defects.{id}.severity is NOT yet overwritten — pass-2 is authoritative.
+```
+
+### After pass-2 informed severity judge batch completes (Phase 5.5.b)
+For each defect in the batch:
+```json
+"defects.{id}.judge_pass_2_verdict": {
+  "severity": "critical|major|minor",        // pass-2 INFORMED judgment
+  "confidence": "high|medium|low",
+  "calibration": "confirm|upgrade|downgrade", // did pass-2 agree with pass-1 or change it?
+  "rationale": "..."
+},
+"defects.{id}.severity": "critical|major|minor",  // authoritative; set from pass_2_verdict.severity
 "defects.{id}.judge_status": "completed",
 "background_tasks.judges[batch_idx].status": "completed",
 "generation": += 1
 ```
+
+**Authoritative-severity invariant:** after Phase 5.5.b drain, for every defect where `judge_status == "completed"`, `defects.{id}.severity` MUST equal `defects.{id}.judge_pass_2_verdict.severity`. Pass-1 verdict is kept only as a calibration record; it is never the authoritative value.
+
+### After rationalization audit completes (Phase 5.6)
+```json
+"background_tasks.rationalization_audit.status": "clean|compromised|compromised_twice|timed_out",
+"background_tasks.rationalization_audit.attempt_count": += 1,
+"generation": += 1
+```
+Termination impact: `compromised_twice` or `timed_out` triggers the `"Audit compromised — report re-assembled from verdicts only"` label.
 
 ### After defect validation (dispute)
 ```json
@@ -331,9 +380,14 @@ After every round, verify:
 12. All background judge batches from this round are registered in `background_tasks.judges` with `status: "running"`
 
 After Phase 5.5 drain (additional invariants):
-13. No defect has `judge_status: "pending"` — all must be `completed` or `timed_out`
+13. No defect has `judge_status: "pending"` or `"pass_1_completed"` — all must be `completed` (both passes done) or `timed_out` (one or both passes timed out)
 14. All entries in `background_tasks.judges` have `status: "completed"` or `status: "timed_out"`
 15. All entries in `background_tasks.summaries` have `status: "completed"` or `status: "timed_out"`
+16. For every defect with `judge_status: "completed"`: `defects.{id}.severity == defects.{id}.judge_pass_2_verdict.severity` (authoritative-severity invariant)
+
+After Phase 5.6 rationalization audit (additional invariants):
+17. `background_tasks.rationalization_audit.status` is one of: `clean`, `compromised_twice`, `timed_out` (terminal states — never `running` or `not_started` once Phase 5.6 completes)
+18. If `status == "compromised_twice"`: coordinator terminates with label `"Audit compromised — report re-assembled from verdicts only"` — no further Phase 6 coordinator synthesis; report is written directly from judge verdicts
 
 ---
 

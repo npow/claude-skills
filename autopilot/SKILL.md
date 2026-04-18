@@ -20,6 +20,8 @@ Non-negotiable contracts:
 - **Honest termination labels.** `complete` requires evidence files for all 5 phases (Phase 0 through Phase 4 — Phase 5 is the reporting phase itself). Any missing evidence forces `partial_with_accepted_tradeoffs`, `blocked_at_phase_N`, or `budget_exhausted`.
 - **Data passed via files.** All phase inputs and outputs live under `autopilot-{run_id}/`. No inline data transfer between phases.
 
+**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
 ## Philosophy
 
 Autopilot is a composition operator. It does not re-implement planning, execution, QA, or validation — those jobs belong to `/consensus-plan`, `/team`, `deep-qa`, `/loop-until-done`, and the independent judges. Autopilot's value is (1) Phase 0 ambiguity routing, (2) iron-law gates between phases, (3) independent Phase 4 validation, (4) honest completion reporting. Anything else is scope creep — if it smells like coordinator-authored content, it belongs in a subagent.

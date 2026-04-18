@@ -18,6 +18,21 @@ Non-negotiable contracts (same spine as `deep-design`, `deep-qa`, `/team`):
 - **Iron-law gate before the final verdict.** A final viability verdict cannot be rendered until every claim has a judge-written credibility verdict AND every weakness has a judge-written severity + falsifiability verdict on disk. This is checked by reading `state.json` plus `ls` of listed paths.
 - **Honest termination labels.** Exactly one of: `high_conviction_review` | `mixed_evidence` | `insufficient_evidence_to_review` | `declined_unfalsifiable`. Never "looks solid", "some concerns remain", "promising overall".
 
+**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+## Adversarial judging (full adoption)
+
+See [`_shared/adversarial-judging.md`](../_shared/adversarial-judging.md) for the pattern definition. This skill implements all four mechanisms:
+
+| Mechanism | Implementation location |
+|---|---|
+| Blind severity protocol (two-pass) | Step 5 Judge A pass 1 (blind) + pass 2 (informed); Judge B pass 1 + pass 2. |
+| Mandatory author counter-response | Step 3 critic prompt template requires `author-counter-response`; Judge B drops filings without one via `FALSIFIABLE|no`. |
+| Rationalization auditor | Step 6 spawns an independent `rationalization-auditor` with the full `judges/` directory as input; `REPORT_FIDELITY|compromised` halts assembly. |
+| Falsifiability drop (not downgrade) | Step 5 Judge B: weaknesses with `FALSIFIABLE|no` are dropped from the final report and logged in `logs/judge_decisions.jsonl`. |
+
+When this skill's contract or the shared reference diverges, the shared reference is authoritative for the pattern definition; this skill's domain-specific detail (claim extraction, fact-check research, landscape window judge) remains local.
+
 ## Philosophy
 
 A proposal reviewer is only as honest as its weakest gate. The rationalization patterns are well-known: "the founders are impressive, so this must work"; "my prior was high, I should approve"; "rejecting this would embarrass them". This skill counters rationalization structurally — no single agent (coordinator included) gets to both generate a claim and approve it. Every severity call is made by someone with no stake in the outcome. Every weakness must ship with a falsifiable scenario and a concrete counter-response the proposal author could make.

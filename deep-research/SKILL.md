@@ -9,6 +9,15 @@ argument: The seed topic/question to research deeply
 
 Systematically explore a topic using parallel agents across applicable orthogonal dimensions (WHO/WHAT/HOW/WHERE/WHEN/WHY/LIMITS). Unlike a quick research brief, this skill provides structured multi-dimensional coverage with source quality tiers and risk-stratified spot-checking. Coverage is bounded by a user-controlled round budget; the output honestly characterizes what was covered and what wasn't.
 
+## Execution Model
+
+This skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The shared file is authoritative; the elaborations below are the research-specific applications:
+
+- **Files not inline:** seed, direction definitions, per-direction research outputs, verification inputs, and fact-check evidence all live under `deep-research-{run_id}/`. Seed and coordinator summary are short enough to fit inline but are still written to disk so resume can reconstruct state.
+- **State before agent spawn:** each research-direction spawn writes `directions.{id}.status = "in_progress"` and `spawn_time_iso` to `state.json` BEFORE the Agent tool call. Spawn failure records `spawn_failed`; resume re-reads state and replays.
+- **Structured output:** research directions emit a per-finding block (claim + source tier + URL + attribution) between `STRUCTURED_OUTPUT_START/END` markers. Unparseable output → the direction is treated as `needs_retry` (fail-safe worst).
+- **Independence invariant:** the coordinator orchestrates expansion and gap detection; source-quality tiering and citation spot-checking are delegated to an independent fact-verification agent (see Phase 4). The coordinator never rates source quality itself.
+
 ## Model Tier Strategy
 
 Three tiers balance cost and quality. The coordinator (main session) always handles synthesis and gap detection — never delegated.
@@ -52,13 +61,35 @@ else:                                                 → Scout (haiku)
 **Step 0d — Batched questioning:**
 If both 0b (ambiguity) and 0c (under-specification) trigger — or any other clarifying question surfaces in Phase 0 — present ALL of them as a single numbered batch in one message. Never serially. The user answers once, then Phase 1 begins.
 
+**Step 0e — Pre-mortem micro-round (blind-spot seeding):**
+Before dimension expansion, spawn 1 Haiku agent with this prompt:
+```
+Given the seed "{seed}", list 5 concrete ways this research could miss the important insight.
+Cover these angles:
+ 1. Wrong framing — the seed presupposes a conclusion that may be wrong
+ 2. Adjacent-effort blindness — parallel work that would duplicate or invalidate
+ 3. Stale assumption — something assumed true that has changed
+ 4. Baseline blindness — no measurement of what's being "improved"
+ 5. Strategic-timing blindness — planning window / roadmap / executive memo coincidence
+Output to deep-research-premortem.md with one concrete claim per angle.
+```
+Coordinator reads pre-mortem.md; each flagged blind spot becomes an auto-seeded direction in Phase 1 with `priority=critical`.
+
 ---
 
 ### Phase 1: Seed Expansion (see DFS.md)
 
+- **Sub-goal extraction (required before dimension expansion):** re-read the seed and identify distinct sub-goals (e.g. "iterate on existing X" + "spin up new Y" = 2 sub-goals; "compare A" + "decide B" + "document C" = 3 sub-goals). Each sub-goal gets **minimum 2 seed-specific directions** allocated during expansion. This prevents the common failure mode where a secondary sub-goal gets absorbed into general infrastructure research and never gets dedicated investigation. Record sub-goals in `state.json` under `seed_subgoals`; per-sub-goal direction coverage is tracked in the coordinator summary.
 - Assess which dimensions from WHO/WHAT/HOW/WHERE/WHEN/WHY/LIMITS are applicable using the multi-context table (see DFS.md)
 - Generate 2-4 directions per applicable dimension + cross-dimensional directions
-- Maximum: 25 initial directions
+- **REQUIRED cross-cutting dimensions** (fire on every run, regardless of seed type — these exist to break anchoring bias and catch structural blind spots):
+  - **PRIOR-FAILURE** — "What has been tried in this space and failed? Look for deprecated repos, GRAVEYARD markers, abandoned PRs, killed projects, lessons-learned post-mortems."
+  - **BASELINE** — "What is the current state of the thing this would improve? Measure it concretely before solutioning. Cadence, cost, pain points today."
+  - **ADJACENT-EFFORTS** — "What parallel/competing work is happening right now? Who else is planning or building in this space? Check active design threads and in-progress PRs."
+  - **STRATEGIC-TIMING** — "What planning windows, published roadmaps, or executive memos bear on this? Is there a time-sensitive coordination opportunity?"
+  - **ACTUAL-USAGE** — "For any tool/framework/pattern claimed as 'official,' 'standard,' or 'canonical,' verify via independent code search — don't accept docs-only claims about what teams actually do."
+  Each cross-cutting dimension gets ≥1 direction at priority=high, in addition to seed-specific directions.
+- Maximum: 25 initial directions (cross-cutting dimensions count against this cap)
 - Minimum dimension rule:
   - 0 applicable → error; prompt user to clarify
   - 1-2 applicable → warn user; ask if they want to continue
@@ -120,12 +151,14 @@ This fires BEFORE agents are spawned. User can prevent spend, not just observe i
 2. Select model tier for each direction
 3. Spawn agents in parallel with 8-minute timeout (see agent prompt template below)
 4. On timeout: mark `timed_out`, DO NOT re-queue, DO NOT increment dedup counter
+   - **On transient API errors (proxy ZlibError, 429, 503, ECONNRESET, timeout <30s):** auto-retry ONCE with the same prompt before marking `timed_out`. Record `retry_count: 1` in the direction entry. True infrastructure flakes cost one agent-slot to recover; persistent errors still fail to `timed_out` on the retry.
 5. Collect ALL new directions from ALL completed agents BEFORE running dedup (see STATE.md)
 6. Apply dedup against stable pre-round snapshot
 7. Validate direction ID headers in completed findings files (see STATE.md)
-8. Update coordinator summary (see SYNTHESIS.md)
-9. Run round-level dimension re-assessment (see DFS.md)
-10. Increment round
+8. **Unconsumed Leads Recovery:** scan every completed findings file for a `## Unconsumed Leads` section (required output — see FORMAT.md). Each lead = entity/team/concept/tool mentioned but not independently researched. Apply dedup against explored + frontier. Net-new leads become directions with `priority=high`. This pass fires BEFORE coverage evaluation so recovered leads can drive dimension coverage.
+9. Update coordinator summary (see SYNTHESIS.md) — including cross-cutting dimension coverage table
+10. Run round-level dimension re-assessment (see DFS.md), including cross-cutting dimensions
+11. Increment round
 
 ---
 
@@ -180,9 +213,11 @@ and counter-evidence gaps that the research pass may not have self-checked.)
 
 Terminate when ANY of these is true (any-of-4, not all-of-4):
 1. **User chooses N at a round gate** (explicit user decision)
-2. **Coverage plateau:** No new dimensions for 3 consecutive rounds AND all frontier items have exhaustion ≥ 4
+2. **Coverage plateau:** No new dimensions for 3 consecutive rounds AND all frontier items have exhaustion ≥ 4 AND **blind-spot check passes** (all 5 cross-cutting dimensions have ≥1 explored direction AND unconsumed-leads count == 0)
 3. **Budget soft gate:** `max_rounds` reached with non-empty frontier → prompt user to extend or stop (see DFS.md Step 5)
 4. **Frontier actually empties** (possible because direction reporting is optional)
+
+**Blind-spot gate:** condition 2 CANNOT fire if any of PRIOR-FAILURE / BASELINE / ADJACENT-EFFORTS / STRATEGIC-TIMING / ACTUAL-USAGE is uncovered, or if unconsumed-leads count > 0. Dimension coverage alone is necessary but not sufficient for "coverage plateau."
 
 `max_rounds` is a **soft gate** — it prompts the user, it does not auto-terminate. Only `--auto` makes it a hard stop. Absolute hard ceiling is `max_rounds * 3`.
 
@@ -199,6 +234,9 @@ Terminate when ANY of these is true (any-of-4, not all-of-4):
 7. **Every finding needs a source.** Web search URLs required. No training-data-only findings.
 8. **Always specify model tier explicitly.** Never let agents default — cost spirals come from unintentional Opus usage.
 9. **Verify numerics manually.** Flag all numerical claims in the spot-check; LLM number verification is unreliable.
+10. **Mentioned-but-unexplored is a bug.** Entities/teams/tools named in a finding but not independently researched are unconsumed leads. Every round must drain them.
+11. **"Official" claims need code-level verification.** Docs say what's policy; `search/code` says what's actual. For any paved-road / canonical / standard claim, verify adoption in production code before reporting.
+12. **Blind-spot dimensions are required, not optional.** PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE fire on every run. Coverage plateau cannot be claimed without them.
 
 ---
 
@@ -221,6 +259,10 @@ The coordinator WILL be tempted to skip steps. These are the talking points it m
 | "The second agent repeated the first — that's corroboration." | No. Two agents reading the same sources is not independent corroboration. Independence is a source-level property, not an agent-level property. |
 | "Counter-evidence was weak, so I didn't cite it." | No. Disconfirming evidence that was found MUST be cited inline with the claim and the field set to `yes_disconfirming_evidence_present`. Omitting it is selection bias dressed up as editorial judgment. |
 | "I'll merge stale-source claims into the main text — flagging them is clutter." | No. Stale sources get counted and surfaced in the final report. The reader cannot assess freshness if the coordinator launders the date. |
+| "The seed framing is obviously correct — I don't need a pre-mortem." | No. The most expensive research failures are framing errors. The Phase 0e pre-mortem costs ~agent.10 and catches the wrong-framing category before direction expansion. Skip it and you anchor the entire run on an unchecked premise. |
+| "Entity X came up briefly but isn't worth a direction." | No. If it was named in a finding, it's a lead. Either dedupe it against explored directions (and record the dedupe decision) or spawn a direction. Silent skipping is how critical parallel efforts, adjacent teams, and competing tools routinely disappear from final reports. |
+| "Docs say X is official — no need to verify with code." | No. ACTUAL-USAGE requires `search/code` (or equivalent) whenever the domain supports it. "Official" is about policy; code is about reality. Policy-only claims must carry `corroboration: single_source` and note "adoption unverified." |
+| "Cross-cutting dimensions are optional for simple topics." | No. They exist to catch what the seed framing obscures. "Simple" topics are where the most framing errors hide — a narrow seed + skipped cross-cutting dimensions = confidently wrong report. |
 
 When the coordinator finds itself about to reach for any of these excuses: it stops, updates the structured field, and proceeds the right way. The extra structure is the cost of honest output.
 
@@ -244,6 +286,13 @@ When the coordinator finds itself about to reach for any of these excuses: it st
 - [ ] Two separate confidence scores in report (Coverage % + Evidence Quality)
 - [ ] Topic velocity recorded in state and surfaced in final report header
 - [ ] Model tier was correctly selected for each agent
+- [ ] Phase 0e pre-mortem ran before Phase 1 expansion; pre-mortem.md flags seeded as critical directions
+- [ ] All 5 cross-cutting dimensions (PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE) have ≥1 explored direction at termination
+- [ ] Every findings file has a `## Unconsumed Leads` section (may be "None — ...")
+- [ ] Unconsumed Leads Recovery ran after each round (leads scanned, deduped, net-new leads added to frontier)
+- [ ] "Coverage plateau" termination blocked unless blind-spot gate passes (cross-cutting dims + zero unconsumed leads)
+- [ ] Final report includes Cross-Cutting Dimension Coverage table
+- [ ] For every "official/standard/canonical" claim, the findings file notes whether code-level usage was verified
 
 ---
 
@@ -285,6 +334,9 @@ Dominant framing so far: {dominant_framing}
 9. Every claim in text needs an inline source URL
 10. New directions are OPTIONAL — if this is a terminal node, write "None — terminal node."
 11. Do NOT report new directions that are paraphrases of already-explored topics
+12. **Unconsumed Leads (required — do NOT skip):** scan your findings for every named entity (team, tool, repo, person, framework, project) that you mentioned but did NOT independently research. Report them in a `## Unconsumed Leads` section with one line each: `- <entity>: <why it's worth researching>`. If genuinely none: write "None — all referenced entities were core to this direction's scope." The coordinator uses this section to drain missed leads across rounds.
+13. **"Official" claims require code-level verification:** for any claim that something is "official," "standard," "canonical," "paved road," or "the way X is done at <org>," run at least one code search (e.g. `search/code` or equivalent) to verify ACTUAL adoption in production code. If you can only find docs but no code, mark the claim `corroboration: single_source` and note "policy-only, adoption unverified" in the Claims Register.
+14. **Restricted-access document handling:** when you encounter a source behind auth (Google Docs, Confluence, Notion, internal wikis, paywalls, Slack threads), try the domain-appropriate authenticated tool first in this order: (a) domain-specific MCP tool if one is available for this source type (e.g. `mcp__google-docs`, `mcp__jira`, `mcp__slack`), (b) internal search/gh API, (c) WebFetch as last resort. If NONE work, do NOT silently drop the source — record it in `## Unconsumed Leads` with status `access_blocked` and a one-line note describing (i) what the document is expected to contain based on context, (ii) which tool would resolve it. Never fabricate content from a document you could not access. The coordinator uses `access_blocked` leads to surface a "Known blind spots" section in the final report.
 
 **Source quality tiers:**
 - `primary`: peer-reviewed research, official documentation, primary data — note specific evidence

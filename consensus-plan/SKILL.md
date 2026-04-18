@@ -22,6 +22,8 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
 - **Structured output is the contract.** All role outputs include `STRUCTURED_OUTPUT_START` / `STRUCTURED_OUTPUT_END` markers. Unparseable output fails the iteration for that role (fail-safe: Critic unparseable → treat as `REJECT`, Architect unparseable → re-spawn once then fail).
 - **No coordinator self-approval.** The coordinator cannot author a plan revision or approve one. Every revision is by the Planner; every approval is by the Critic.
 
+**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
 ## Flags
 
 | Flag | Effect |

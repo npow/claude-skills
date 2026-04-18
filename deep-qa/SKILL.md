@@ -28,6 +28,22 @@ Shares deep-design's core execution contracts:
 - **Termination labels are honest.** Seven defined labels map to all reachable termination paths — never "no defects remain." See Phase 5 for the complete vocabulary.
 - **Hard stop is unconditional.** `hard_stop = max_rounds * 2` is set at initialization and checked at the start of every round before any user prompt. No extension can exceed it.
 
+**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+## Adversarial judging (3 of 4 mechanisms adopted)
+
+See [`_shared/adversarial-judging.md`](../_shared/adversarial-judging.md) for the full pattern: blind severity protocol, mandatory author counter-response, rationalization auditor, falsifiability drop.
+
+Current deep-qa adoption status:
+
+| Mechanism | Adopted? | Location |
+|---|---|---|
+| Independent judges (baseline) | ✅ yes | Severity classification is delegated to independent Haiku batches in Phase 3 step 10. |
+| Blind severity protocol (two-pass) | ✅ yes | Phase 3 step 10 strips critic-proposed severity before pass-1 judge spawn; Phase 5.5.b runs pass-2 informed judges that may confirm/upgrade/downgrade; calibration signal logged if confirm rate is 0% or 100%. |
+| Mandatory author counter-response | ✅ yes | Critic template requires an `Author counter-response` field — if the critic cannot write a plausible defense, the defect is filed as a minor observation instead of a defect. |
+| Rationalization auditor | ✅ yes | Phase 5.6 spawns an independent auditor before final synthesis; `REPORT_FIDELITY\|compromised` triggers re-assembly from judge verdicts only; two failures → `"Audit compromised — report re-assembled from verdicts only"` label. |
+| Falsifiability drop (not downgrade) | ❌ no | deep-qa's nitpick filter downgrades unfalsifiable concerns to minor notes rather than dropping them. Intentional divergence — user chose to keep this behavior when adopting the other three mechanisms. See `_shared/adversarial-judging.md` §4 for the pattern this skill deliberately departs from. |
+
 ## Artifact Types
 
 | Type | Applies to | Required QA Categories |
@@ -200,7 +216,7 @@ Continue? [y/N/redirect:<focus>]
 7. Apply dedup against stable pre-round snapshot. **Assign `depth = parent.depth + 1`** to each critic-reported angle. Reject angles where `depth > max_depth`. Enforce frontier cap with required-category protection (see STATE.md).
 8. For each new defect: **Dimension cross-check (synchronous):** verify the critique file's declared `**QA Dimension:**` header matches the angle's assigned dimension in state.json. If mismatch: flag as potential injection, do NOT set `required_categories_covered.{category}` true. Create defect in state.json with critic-proposed severity and `judge_status: "pending"`.
 9. Run coverage evaluation: read `required_categories_covered` from **state.json** (not coordinator-summary.md). For any uncovered required category: generate CRITICAL-priority angle. Write `"generation": += 1` after updating `coverage_gaps` and `rounds_without_new_dimensions`.
-10. **Background severity judges:** Batch new defects into groups of up to 5. For each batch: write combined defect data to `deep-qa-{run_id}/judge-inputs/batch_{round}_{batch_num}.md`, then spawn a **single** Haiku severity judge agent with `run_in_background=true` (see SYNTHESIS.md for batched judge prompt). Record batch in `background_tasks.judges` in state.json.
+10. **Background severity judges (pass-1 blind):** Batch new defects into groups of up to 5. For each batch: write combined defect data to `deep-qa-{run_id}/judge-inputs/batch_{round}_{batch_num}.md` **with the critic-proposed severity STRIPPED from each defect entry** (blind-severity protocol; see [`_shared/adversarial-judging.md`](../_shared/adversarial-judging.md) §1). Then spawn a **single** Haiku severity judge agent with `run_in_background=true` (see SYNTHESIS.md for batched judge prompt). Record batch in `background_tasks.judges` in state.json with `pass: 1`. Each defect gets a `judge_pass_1_verdict` field once the batch completes.
 11. **Background coordinator summary:** Spawn Haiku subagent with `run_in_background=true` to write a **cumulative** coordinator summary (see SYNTHESIS.md). Record in `background_tasks.summaries` in state.json.
 12. Increment round → **immediately proceed to next round's step 1** (do not wait for background tasks)
 
@@ -259,33 +275,94 @@ For `artifact_type == "research"`, run before final synthesis. Skip entirely for
 | `"User-stopped at round N"` | Condition 1 |
 | `"Convergence — frontier exhausted before full coverage"` | Condition 4 + not all-3 |
 | `"Hard stop at round N"` | Phase 3 pre-check fires |
+| `"Audit compromised — report re-assembled from verdicts only"` | Phase 5.6 rationalization auditor reports `REPORT_FIDELITY\|compromised` on two consecutive assemblies |
 
 Never use a label not in this table. Never write "no defects remain."
 
 ---
 
-### Phase 5.5: Drain Background Tasks
+### Phase 5.5: Drain Background Tasks + Pass-2 Informed Severity
 
-Before proceeding to Phase 6, all background tasks from the pipelined rounds must complete.
+Before proceeding to Phase 5.6 (rationalization audit) and Phase 6 (final report), all background tasks from the pipelined rounds must complete, AND the blind-severity protocol must finish pass 2.
 
-1. **Wait for ALL background severity judge batches** (from `background_tasks.judges` in state.json where `status == "running"`). Use `TaskOutput` with `block=true` for each.
+**5.5.a — Drain pass-1 blind judges:**
+
+1. **Wait for ALL background severity judge batches** (from `background_tasks.judges` in state.json where `status == "running"` and `pass == 1`). Use `TaskOutput` with `block=true` for each.
 2. **Wait for ALL background coordinator summaries** (from `background_tasks.summaries`). Use `TaskOutput` with `block=true` for each.
-3. **Apply judge results to state.json:** For each completed judge batch, read the output file. For each defect classification in the output:
+3. **Apply pass-1 judge results to state.json:** For each completed judge batch, read the output file. For each defect classification:
    - Parse the structured `DEFECT_ID` / `SEVERITY` / `CONFIDENCE` / `REASONING` lines
-   - Update `defects.{id}.severity` with the judge's authoritative classification (overwriting the critic-proposed severity)
-   - Set `defects.{id}.judge_status: "completed"`
+   - Store as `defects.{id}.judge_pass_1_verdict` (do NOT yet overwrite `defects.{id}.severity` — pass 2 is authoritative)
+   - Set `defects.{id}.judge_status: "pass_1_completed"`
    - Write `"generation": += 1`
-4. **Handle judge timeouts:** If any judge batch timed out, retain critic-proposed severity for those defects. Set `judge_status: "timed_out"`. Log `JUDGE_TIMEOUT_BACKGROUND: {defect_ids}`.
-5. **Verify coordinator summary:** Check that the final `coordinator-summary.md` exists and is non-empty. If missing or empty: log `SUMMARY_WRITE_FAILED: final`, use the most recent non-empty summary.
-6. **State invariant check:** Verify no defect has `judge_status: "pending"`. If any remain (indicates a missed batch), log error and retain critic-proposed severity.
+4. **Handle pass-1 timeouts:** If any pass-1 batch timed out, retain critic-proposed severity for those defects. Set `judge_status: "pass_1_timed_out"`. Log `JUDGE_TIMEOUT_BACKGROUND_PASS_1: {defect_ids}`.
+
+**5.5.b — Spawn pass-2 informed judges:**
+
+For each defect where `judge_pass_1_verdict` exists:
+5. Write `deep-qa-{run_id}/judge-inputs/batch_pass2_{batch_num}.md` containing: the full defect (INCLUDING critic-proposed severity this time), the pass-1 verdict, and the pass-2 prompt asking the judge to confirm, upgrade, or downgrade with rationale.
+6. Spawn Haiku judge (pass-2) with `run_in_background=true`. Record in `background_tasks.judges` with `pass: 2`.
+7. Wait for ALL pass-2 batches with `TaskOutput block=true`.
+8. **Apply pass-2 verdict as authoritative:** For each defect:
+   - Parse pass-2 `SEVERITY` / `CONFIDENCE` / `RATIONALE` / `CALIBRATION` (confirm|upgrade|downgrade)
+   - Set `defects.{id}.severity` = pass-2 `SEVERITY` (authoritative — may differ from pass-1)
+   - Set `defects.{id}.judge_status: "completed"`
+   - Record pass-2 verdict in `defects.{id}.judge_pass_2_verdict`
+   - Write `"generation": += 1`
+9. **Calibration check:** compute rate of `CALIBRATION == "confirm"` across all pass-2 verdicts. If rate == 100% OR rate == 0%, log `CALIBRATION_SUSPICIOUS: rate={rate}` — the judge may be anchoring despite the blind protocol. Surface this in Phase 6 final-report caveats.
+
+**5.5.c — Final state checks:**
+
+10. **Verify coordinator summary:** Check that the final `coordinator-summary.md` exists and is non-empty. If missing or empty: log `SUMMARY_WRITE_FAILED: final`, use the most recent non-empty summary.
+11. **State invariant check:** Verify no defect has `judge_status` of `"pending"` or `"pass_1_completed"` (all should be `completed` or a timeout variant). If any remain, log error and retain critic-proposed severity for those defects.
+
+**Drain timeout:** wait up to 120s per pass for all background tasks. After 120s, proceed with whatever has completed — timeouts are handled gracefully per step 4 and the step-11 invariant check.
 
 **Drain timeout:** Wait up to 120s total for all background tasks. After 120s, proceed with whatever has completed — timeouts are handled gracefully per steps 4-6.
 
 ---
 
+### Phase 5.6: Rationalization Audit
+
+Before final report assembly, spawn an independent auditor to detect coordinator drift. The auditor reads judge verdicts and the draft summary; it does NOT evaluate defects themselves — it evaluates whether the coordinator's assembly reflects the verdicts honestly. See [`_shared/adversarial-judging.md`](../_shared/adversarial-judging.md) §3 for the pattern.
+
+**5.6.a — Spawn auditor:**
+
+1. Write auditor input file `deep-qa-{run_id}/judges/rationalization-audit-input.md` containing:
+   - Path to `state.json` (authoritative defect registry, with pass-2 verdicts)
+   - Paths to all pass-2 judge verdict files
+   - Path to the latest `coordinator-summary.md`
+   - Expected report structure (severity-sorted registry; coverage table; caveats)
+2. Spawn Haiku auditor agent (fresh context — must NOT be any agent that participated in critique or judging). Prompt asks for structured output:
+   ```
+   STRUCTURED_OUTPUT_START
+   ACCEPTANCE_RATE_{DIMENSION}|{rate}     (one line per QA dimension; rate = pass-2 confirm % per dimension)
+   DEFECTS_TOTAL|{count from state.json}
+   DEFECTS_CARRIED|{count in draft summary}
+   DEFECTS_DROPPED|{count dropped before report}
+   SUSPICIOUS_PATTERNS|{list or "none"}
+   REPORT_FIDELITY|clean|compromised
+   RATIONALE|{one line}
+   STRUCTURED_OUTPUT_END
+   ```
+3. Write output to `deep-qa-{run_id}/judges/rationalization-audit.md`.
+
+**5.6.b — Handle verdict:**
+
+4. **If `REPORT_FIDELITY|clean`:** proceed to Phase 6. Include audit result in the final-report caveats (for transparency).
+5. **If `REPORT_FIDELITY|compromised` (first failure):**
+   - Halt current assembly. Log `AUDIT_COMPROMISED_1: {rationale}`.
+   - Re-assemble: coordinator writes a new draft report **strictly from pass-2 judge verdicts**, with no summarization, combination, or softening. Every defect verdict becomes a report entry as-is.
+   - Re-run the auditor with the re-assembled draft.
+6. **If `REPORT_FIDELITY|compromised` (second failure):**
+   - Halt. Log `AUDIT_COMPROMISED_2: {rationale}`.
+   - Terminate with label `"Audit compromised — report re-assembled from verdicts only"` (see Phase 5 label table).
+   - Write the pass-2-only report to `qa-report.md` with a prominent caveat at the top: "⚠️ Coordinator drift detected by rationalization auditor on two consecutive assemblies. This report is the mechanical assembly of judge verdicts without coordinator synthesis."
+
+**Auditor timeout:** 120s. On timeout: treat as `REPORT_FIDELITY|compromised` (fail-safe to worst legal verdict).
+
 ### Phase 6: Final QA Report
 
-- **Do NOT read raw critique files** — use coordinator summary + mini-syntheses + state.json
+- **Do NOT read raw critique files** — use coordinator summary + mini-syntheses + state.json + Phase 5.6 audit result
 - Spawn Sonnet subagent to write `deep-qa-{run_id}/qa-report.md` (see FORMAT.md)
 - **After subagent completes:** verify `qa-report.md` exists and is non-empty.
   - If missing or empty: re-spawn once.

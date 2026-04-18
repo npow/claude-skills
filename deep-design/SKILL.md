@@ -19,6 +19,8 @@ All operations use Claude Code primitives. The following contracts are non-negot
 - **No coordinator self-review of anything load-bearing.** Fact sheets, severity classifications, cross-fix checks, form-switch dedup, section-impact scores — all delegated to independent agents. The coordinator orchestrates; it does not evaluate.
 - **Termination labels are honest.** "Conditions Met" or "Max Rounds Reached" — never "no critical flaws remain." Coverage fraction includes the denominator caveat. Unverified sections are listed explicitly.
 
+**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
 ## Philosophy
 
 Good design survives adversarial scrutiny. This skill treats design as a **generate-then-break** loop: draft a design, attack it from every angle, fix the flaws, then attack again. Each critic agent is an expert in one dimension (balance, UX, edge cases, narrative, technical feasibility, etc.) trying to find holes. Flaws discovered in one round feed redesign in the next.

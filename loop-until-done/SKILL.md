@@ -27,6 +27,8 @@ Contracts are non-negotiable:
 - **Iron-law verification gate.** A story cannot be marked `passes: true` until every criterion has a fresh `last_verified_at` from this iteration AND the `expected_output_pattern` was matched in the verification run's captured output.
 - **Termination labels are honest.** Four defined labels cover all reachable exits — never "complete" without evidence. See the Termination Labels table.
 
+**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
 ## Philosophy
 
 Complex tasks fail silently. Partial implementations get declared "done"; tests get skipped; edge cases get forgotten. This loop prevents silent failure by forcing the work to pass through four independent gates before terminating: falsifiability judge (PRD is testable), verifier (criteria pass now), spec-compliance reviewer (implementation matches the plan), and code-quality reviewer (implementation is built well). The coordinator never evaluates.
