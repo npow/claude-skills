@@ -15,31 +15,82 @@ This document covers the mechanical "how do I write good content" layer. Compani
 
 ### Name
 
-- Lowercase letters, numbers, hyphens only
+- Lowercase letters, numbers, hyphens only (no parentheses, special chars)
 - Max 64 characters
-- Use gerund form or action-oriented: `create-skill`, `develop-board-game`, `review-pr`
-- Avoid generic names: `helper`, `utils`, `tool`
+- **Use active voice, verb-first.** Name by what you DO or the core insight, not the category.
+  - ✅ `creating-skills`, `condition-based-waiting`, `flatten-with-flags`, `root-cause-tracing`
+  - ❌ `skill-creation`, `async-test-helpers`, `data-structure-refactoring`, `debugging-techniques`
+- **Gerunds (-ing) work well for processes** (the ongoing action you're taking): `creating-skills`, `testing-skills`, `debugging-with-logs`.
+- **Verb-noun works for one-shot generators**: `create-skill`, `develop-board-game`, `review-pr`.
+- Avoid generic names: `helper`, `utils`, `tool`, `reference`, `details`.
 
 ### Description
 
 The description is a search index entry. Claude uses it to decide whether to load the skill. Write it in third person.
 
-**Formula**: [What it does]. Use when [trigger conditions].
+**Formula**: `Use when [trigger conditions, symptoms, and phrases].`
+
+⚠️ **The description is ONLY triggers, NEVER a workflow summary.** When a description summarizes what the skill does, Claude follows the description as a shortcut and skips the skill body. Empirical example: a description that said "runs two-stage review" caused Claude to do ONE review, because the skill body explaining the two stages was never read. Describe the *when*, not the *how*.
 
 ```yaml
-# Good: specific, keyword-rich, includes triggers
-description: Creates well-structured Claude Code skills from scratch. Use when the user asks to build, design, or scaffold a new skill, slash command, or agent capability.
+# ✅ GOOD: just triggers, no workflow summary
+description: Use when creating, editing, scaffolding, or reviewing a Claude Code skill, slash command, or agent capability.
 
-# Bad: vague, no triggers
+# ✅ GOOD: triggers including symptoms and error messages
+description: Use when tests have race conditions, timing dependencies, or pass/fail inconsistently
+
+# ❌ BAD: summarizes the workflow — Claude will follow this shortcut instead of reading the skill
+description: Use when creating skills — runs RED-GREEN-REFACTOR, writes companion files, closes loopholes.
+
+# ❌ BAD: states what the skill DOES rather than WHEN to use it
+description: Creates well-structured skills by applying harness engineering best practices.
+
+# ❌ BAD: vague, no triggers
 description: Helps with creating things.
 
-# Bad: first person
+# ❌ BAD: first person
 description: I can help you build skills.
 ```
 
-**Keyword coverage**: Include the words a user would actually say. If users might say "slash command" instead of "skill", include both. If they might say "scaffold" or "generate" or "create", include all three.
+**Keyword coverage**: Claude does substring matching on descriptions. If "edit" is missing, a user saying "edit my skill" won't route here. Include every word a user might type.
 
-**Length**: Under 1024 characters. Aim for 1-3 sentences.
+Cover these keyword classes:
+- **Synonyms**: create/build/scaffold/generate/write; edit/modify/update/revise; review/audit/check/verify
+- **Error messages the user might paste**: "Hook timed out", "ENOTEMPTY", "race condition"
+- **Symptoms**: "flaky", "hanging", "intermittent", "pollution"
+- **Tools and file types**: actual CLI names, library names, extensions (`.ipynb`, `.pptx`)
+- **Alternative terminology**: "slash command" vs "skill", "subagent" vs "agent capability"
+
+**Length**: Under 1024 characters total (frontmatter limit). Aim for 1-3 sentences of pure triggers — a workflow summary inflates length without helping routing.
+
+## Token efficiency (critical for hot skills)
+
+Every skill's `name` and `description` load into the system prompt for every conversation. A bloated description burns context across every turn, not just when the skill triggers.
+
+**Word-count targets:**
+
+| Skill type | Target |
+|---|---|
+| Getting-started / always-loaded workflows | <150 words total |
+| Frequently-loaded (5+ hits per session) | <200 words total |
+| Standard workflow skills | <500 words in SKILL.md body |
+| Long-tail skills (loaded rarely) | <1000 words in SKILL.md body; unlimited in companion files |
+
+**Token-efficiency techniques:**
+
+- **Move detail to tool help**: `Run --help for flags` beats listing every flag.
+- **Cross-reference instead of repeat**: `Use [other-skill] for workflow` beats re-stating it.
+- **Compress examples**: one minimal example > three verbose ones.
+- **Eliminate redundancy**: don't repeat what's in cross-referenced skills, don't explain what's obvious from command syntax.
+- **Push heavy content to companion files**: companion files load only when Claude reads them. Use this.
+
+**Verification:**
+
+```bash
+wc -w SKILL.md   # body word count
+```
+
+If SKILL.md exceeds the target, either delete content or move it to a companion file. Never pad for "thoroughness".
 
 ## SKILL.md body: the table of contents
 
@@ -308,6 +359,54 @@ For any code pattern in your skill: could an agent copy it verbatim and get a wo
 ### The diff test
 
 Run the skill twice on the same input. Diff the outputs. Anything that differs between runs indicates an underspecified instruction. Fix the instruction to make it deterministic.
+
+## Anti-patterns to avoid
+
+These are concrete authoring mistakes that produce broken skills. Each has a fix.
+
+### ❌ Narrative example
+"In session 2025-10-03, we found empty projectDir caused..."
+**Why bad:** too specific, non-reusable, degrades over time as the referenced events fade.
+**Fix:** restate as a general pattern: "When projectDir is empty, ..."
+
+### ❌ Multi-language dilution
+`example-js.js`, `example-py.py`, `example-go.go`
+**Why bad:** each implementation is mediocre, maintenance is 3x, no single example is authoritative.
+**Fix:** one excellent example in the most relevant language. Claude ports accurately to other languages.
+
+### ❌ Code blocks in SKILL.md
+A skill whose SKILL.md contains inline code forces every triggered invocation to pay the token cost of that code, even for agents that won't execute it.
+**Fix:** move code to a companion file. SKILL.md points to the file; the file is read only when needed.
+
+### ❌ Code in flowcharts
+```dot
+step1 [label="import fs"];
+step2 [label="read file"];
+```
+**Why bad:** not copy-pasteable, harder to read than a code block, node labels carry no semantics.
+**Fix:** use a numbered list or a code block. Flowcharts are for branching decision points, not linear sequences.
+
+### ❌ Generic labels
+`helper1`, `helper2`, `step3`, `pattern4`, `option-a`, `option-b`
+**Why bad:** labels must carry semantic meaning so the agent knows what it's selecting.
+**Fix:** name each item by what it does: `retry-with-backoff`, `fail-fast`, `lazy-load`.
+
+### ❌ Workflow summary in description
+`description: Use when creating skills — runs RED-GREEN-REFACTOR across N phases`
+**Why bad:** Claude follows the description as a shortcut and skips the skill body. A skill body describing 5 phases becomes a 1-phase skill in practice.
+**Fix:** triggers only. `description: Use when creating, editing, or reviewing a skill.`
+
+### ❌ Soft rules ("consider", "try to", "prefer")
+A rule that says "Consider running tests" is a suggestion agents skip under pressure.
+**Fix:** hard imperative. "Run tests. If `test-output.txt` does not exist, do not claim completion."
+
+### ❌ Iron-law gate weakened to a reminder
+`Verify tests pass before completion` is a reminder, not a gate.
+**Fix:** file-gated check. `Before claiming completion, read test-output.txt and assert it matches 'Tests: \d+ passed, 0 failed' from this session.`
+
+### ❌ Inline table-of-contents in SKILL.md for a flat skill
+A skill under 300 lines that still ships with FORMAT.md + STATE.md + etc. is over-engineered — companion-split is for skills that need it.
+**Fix:** keep flat skills flat. Split only when you cross the 300-line threshold.
 
 ## Technology selection
 

@@ -1,6 +1,6 @@
 ---
 name: create-skill
-description: Creates well-structured Claude Code skills from scratch. Use when the user asks to build, design, or scaffold a new skill, slash command, or agent capability. Applies harness engineering best practices — table-of-contents architecture, golden rules, self-review loops, progressive disclosure, and evaluation.
+description: Use when creating, editing, scaffolding, designing, reviewing, improving, or refactoring a Claude Code skill, slash command, subagent, or agent capability. Trigger phrases include "create skill", "build skill", "scaffold skill", "edit skill", "write skill", "design skill", "improve skill", "fix skill", "review skill", "audit skill", "refactor skill", "new slash command", "new subagent", "turn this workflow into a skill", "add a skill", "authoring skills", "writing skills".
 argument-hint: "[skill purpose or domain]"
 ---
 

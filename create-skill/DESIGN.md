@@ -176,6 +176,27 @@ If a reference file exceeds 100 lines, add a table of contents at the top:
 
 This helps Claude navigate to the right section without reading the entire file.
 
+## Step 3.5: Flowchart usage rules
+
+Flowcharts are expensive (they render inconsistently, take vertical space, and are ultimately read linearly — eliminating their non-linear advantage). Use them only where they pay for themselves.
+
+### ✅ Use flowcharts for
+- **Non-obvious decision points** where an agent might branch the wrong way
+- **Process loops** where an agent might stop too early (pressure-test loops, verification loops, retry limits)
+- **"When to use A vs B"** decisions between similar skills or patterns
+
+### ❌ Never use flowcharts for
+- **Reference material** — use tables or lists
+- **Linear instructions** — use numbered lists
+- **Code examples** — use markdown code blocks (not node labels inside a flowchart)
+- **Labels without semantic meaning** — nodes named `step1`, `helper2`, `branch3` are worse than no flowchart
+
+### Format requirements
+- Every node label carries semantic meaning (no `step1`, `helper2`)
+- Edge labels ("yes" / "no", or specific conditions) are always present
+- Flowchart fits on one screen (≤10 nodes in SKILL.md bodies; ≤20 in reference files)
+- Rendering: use `dot` / graphviz syntax inside a ` ```dot ` code block — Claude parses this reliably
+
 ## Step 4: Decide invocation settings
 
 ### Who invokes the skill?
