@@ -82,6 +82,17 @@ Opinions, framings, and summary sentences are NOT claims.]
 [List 2-5 genuinely novel directions. NOT paraphrases of already-explored topics.]
 [If this is a terminal node: "None — this direction is a terminal node."]
 
+## Unconsumed Leads
+
+[REQUIRED section. Scan your own Findings for every named entity (team, tool, repo, person, framework, project, initiative) that you referenced but did NOT independently research. Each such entity is a lead the coordinator will consider as a new direction.]
+
+- **{entity}**: {why it's worth researching — 1 line}
+
+[Include everything you mentioned in passing but didn't verify or deep-dive. Examples: "a team named X came up in a doc", "tool Y was referenced but not inspected", "person Z has been active in this space".]
+[If there are genuinely no unconsumed leads — every referenced entity was core to your scope and fully researched — write: "None — all referenced entities were core to this direction's scope and independently verified."]
+
+**Why this section exists:** agents routinely mention entities in passing while answering their assigned direction. Without a structured recovery mechanism, those entities silently disappear — even when they're critical to understanding the seed topic. This section forces every agent to surface them so the coordinator can promote, dedup, or consciously drop each one.
+
 ## Exhaustion Assessment
 
 **Score: {1-5}**
@@ -121,6 +132,27 @@ Opinions, framings, and summary sentences are NOT claims.]
 ## Executive Summary
 [3-5 paragraphs for someone who will NOT read the full report.]
 [Include the key finding, the key uncertainty, and the key gap.]
+[If the Time-Sensitive Coordination Windows section below is non-empty, the single earliest deadline MUST appear in paragraph 1 of this summary — the reader should not have to scroll to know if action is required this week.]
+
+---
+
+## Time-Sensitive Coordination Windows
+
+[REQUIRED section. Scan all findings for dated events, deadlines, planning-window closings, meeting dates, draft-memo submission windows, PR merge targets, OKR input windows, or any time-bounded coordination opportunity surfaced by the STRATEGIC-TIMING cross-cutting dimension. Every such item goes here, sorted by earliest deadline first, with the window size computed from the run date.]
+
+| Event / Deadline | Date | Window from run date | Source (direction ID) | Why it matters |
+|------------------|------|---------------------:|-----------------------|----------------|
+| {event description} | YYYY-MM-DD | {N} days | dir_XXX | {1 line — what's won/lost if this window closes unanswered} |
+
+**Window classifications:**
+- `≤ 7 days`: **CRITICAL** — flag in Executive Summary paragraph 1
+- `8–30 days`: **ACTIVE** — surface prominently in Executive Summary
+- `31–90 days`: **PLANNING** — note in Executive Summary closing
+- `> 90 days`: **STRATEGIC** — inline mention only
+
+If this section is empty: write "None — no time-sensitive coordination windows surfaced in findings." (The STRATEGIC-TIMING dimension SHOULD have surfaced at least one item; an empty section may indicate the dimension under-performed — flag for follow-up.)
+
+**Coordinator validation rule:** after the final report is written, the coordinator MUST check that every `CRITICAL`/`ACTIVE` entry in this table appears verbatim or is directly referenced in the Executive Summary. If not, revise the Executive Summary before finalizing.
 
 ---
 

@@ -28,6 +28,19 @@ After each round, write `deep-research-coordinator-summary.md` — a structured 
 - Dimensions not yet explored: {list}
 - Dimensions where findings are shallow (exhaustion <3): {list}
 - Timed-out directions this round: {list or "none"}
+
+### Cross-Cutting Dimension Coverage (REQUIRED — blind-spot gate)
+- PRIOR-FAILURE: covered | pending | uncovered
+- BASELINE: covered | pending | uncovered
+- ADJACENT-EFFORTS: covered | pending | uncovered
+- STRATEGIC-TIMING: covered | pending | uncovered
+- ACTUAL-USAGE: covered | pending | uncovered
+
+### Unconsumed Leads Registry (carried forward across rounds)
+Every entity mentioned in a finding but not yet independently researched:
+- [Entity/concept]: [round first seen] — [status: `frontier` | `deduped_against_X` | `researched_in_Y`]
+
+⚠️ Coverage plateau termination cannot fire while any cross-cutting dimension is `pending`/`uncovered` OR any unconsumed lead is `frontier`.
 ```
 
 **Rules:**
