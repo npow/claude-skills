@@ -1,6 +1,6 @@
 ---
 name: deep-research
-description: Systematic multi-dimensional research on any topic using parallel agents with orthogonal dimension coverage, source quality tiers, and spot-checked verification
+description: Use when researching, investigating, or exploring a topic systematically with orthogonal multi-dimensional coverage and source-quality tiers. Trigger phrases include "research this deeply", "deep research on", "investigate this topic thoroughly", "explore this topic", "systematic research", "multi-dimensional research", "comprehensive research", "cover all angles of", "thorough research on", "deep dive into (research)", "exhaustive research". Spawns parallel agents across WHO/WHAT/HOW/WHERE/WHEN/WHY/LIMITS with risk-stratified spot-checking. Bounded by a user-controlled round budget with honest coverage reporting on what was and wasn't covered.
 user_invocable: true
 argument: The seed topic/question to research deeply
 ---
@@ -11,7 +11,9 @@ Systematically explore a topic using parallel agents across applicable orthogona
 
 ## Execution Model
 
-This skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The shared file is authoritative; the elaborations below are the research-specific applications:
+This skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The shared file is authoritative; the elaborations below are the research-specific applications.
+
+**Subagent watchdog:** every research-direction spawn (Scout, Researcher, Deep Dive) and every verification/summary spawn MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). This is the skill most vulnerable to silent multi-hour hangs (the 18-hour-silent-death failure mode). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for Scout; `STALE=15 min`, `HUNG=45 min` for Researcher and Deep Dive (web fetches on slow sources legitimately sit quiet for a while). Never block on `TaskOutput(block=true)` without a watchdog armed against the spawn's output file.
 
 - **Files not inline:** seed, direction definitions, per-direction research outputs, verification inputs, and fact-check evidence all live under `deep-research-{run_id}/`. Seed and coordinator summary are short enough to fit inline but are still written to disk so resume can reconstruct state.
 - **State before agent spawn:** each research-direction spawn writes `directions.{id}.status = "in_progress"` and `spawn_time_iso` to `state.json` BEFORE the Agent tool call. Spawn failure records `spawn_failed`; resume re-reads state and replays.

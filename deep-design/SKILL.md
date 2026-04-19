@@ -1,6 +1,6 @@
 ---
 name: deep-design
-description: Iterative adversarial design specification — DFS-based flaw-finding with parallel critic agents that stress-test a design until coverage is saturated. Output is a battle-tested design document with an honest coverage report.
+description: Use when designing, specifying, architecting, or drafting a design for any system, feature, product, protocol, game, or workflow, and you want adversarial stress-testing before writing code. Trigger phrases include "design this", "design the system", "architect this", "draft a design", "design a feature", "design spec", "stress-test the design", "battle-test the design", "find flaws in this design", "design review", "harden the design", "pressure-test the design", "think through the design". DFS-based flaw-finding with parallel critic agents that stress-test until coverage saturates. Output is a battle-tested design document with an honest coverage report.
 user_invocable: true
 argument: The design concept or idea to spec out (a game, product, system, protocol, etc.)
 ---
@@ -20,6 +20,8 @@ All operations use Claude Code primitives. The following contracts are non-negot
 - **Termination labels are honest.** "Conditions Met" or "Max Rounds Reached" — never "no critical flaws remain." Coverage fraction includes the denominator caveat. Unverified sections are listed explicitly.
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+**Subagent watchdog:** every `run_in_background=true` spawn (parallel critics, severity judges, rebuttal agents) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=5 min`, `HUNG=20 min` for Sonnet critics; `STALE=3 min`, `HUNG=10 min` for Haiku judges. `TaskOutput` status is not evidence of progress — output-file mtime is.
 
 ## Philosophy
 

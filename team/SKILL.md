@@ -1,7 +1,7 @@
 ---
 name: team
-description: Use when a task needs N coordinated agents on a staged pipeline — plan → PRD → exec → verify → fix. Produces structured handoffs, independent critic/verifier gates, two-stage review on every source modification, and honest termination labels. File-based state; no external MCP deps.
-argument-hint: [N:agent-type] <task description>
+description: Use when coordinating multiple agents on a staged pipeline — plan → PRD → exec → verify → fix — with independent critic/verifier gates and two-stage review on every source modification. Trigger phrases include "spawn a team", "team of agents", "coordinate agents", "staged pipeline", "multi-agent pipeline", "agent team", "run a team on this", "PRD-driven team", "team workflow", "agents working together", "assemble a team", "delegate to a team", "orchestrate agents", "pipeline of agents". File-based state, no external MCP dependencies, honest termination labels, Claude Code native team tools.
+argument-hint: "[N:agent-type] <task description>"
 ---
 
 # Team Skill
@@ -20,6 +20,8 @@ Non-negotiable contracts:
 - **Honest termination labels.** Exactly one of: `complete` | `partial_with_accepted_unfixed` | `blocked_unresolved` | `budget_exhausted` | `cancelled`. Never "no issues remain", "all done", "LGTM".
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+**Subagent watchdog:** every `run_in_background=true` spawn (plan, PRD, exec, verify, fix agents, critic/verifier gates) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for exec/fix agents that may run tests or builds; `STALE=5 min`, `HUNG=20 min` for plan/PRD/verify agents; `STALE=3 min`, `HUNG=10 min` for Haiku critics. `TaskOutput` status is not evidence of progress.
 
 ## Philosophy
 

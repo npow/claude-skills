@@ -1,6 +1,6 @@
 ---
 name: deep-debug
-description: Use when a bug, test failure, or unexpected behavior has resisted quick fixes, surfaced from a production incident, or needs adversarial hypothesis testing — orchestrates parallel competing hypotheses across 8 orthogonal dimensions, independent judge with blind severity protocol, discriminating probes that falsify leaders, fix + verify loop gated by test-driven-development, and mandatory architectural escalation when 3 fix attempts fail. For quick-path debugging of obvious bugs, use superpowers:systematic-debugging instead.
+description: Use when a bug, test failure, or unexpected behavior needs diagnosing — including production incidents, regressions, stack traces, mysterious failures, flaky tests, or any symptom needing root-cause analysis. Trigger phrases include "debug this", "why is this failing", "find the bug", "fix the bug", "root cause", "what's wrong with", "this is broken", "diagnose", "troubleshoot", "investigate this failure", "the test is failing", "this used to work", "why doesn't this work", "where's the bug". Adversarial hypothesis-driven debugging with parallel competing hypotheses across orthogonal dimensions, blind independent judging, discriminating probes that falsify leaders, TDD-gated fix loops, and mandatory architectural escalation after 3 failed attempts.
 user_invocable: true
 argument: The bug description, symptom, error message, or reproduction context
 ---
@@ -21,6 +21,8 @@ All operations use Claude Code primitives. These contracts are non-negotiable:
 - **Hard ceilings are absolute.** `max_cycles = 3`, `max_probes_per_cycle = 3`, `fix_attempt_count ≤ 3`. Three fix attempts is evidence the hypothesis space is wrong — Phase 7 architectural escalation is mandatory, never optional.
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+**Subagent watchdog:** every `run_in_background=true` spawn (hypothesis agents, judges, evidence-gatherer, architect) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=5 min`, `HUNG=20 min` for Sonnet hypothesis agents; `STALE=3 min`, `HUNG=10 min` for Haiku judges and evidence-gatherer. Debugging agents that hang silently are the exact failure mode this skill is meant to prevent — applying it to the skill itself is load-bearing.
 
 ## Philosophy
 

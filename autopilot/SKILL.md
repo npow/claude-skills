@@ -1,6 +1,6 @@
 ---
 name: autopilot
-description: Use when the user wants full-lifecycle autonomous execution from a vague idea to working verified code — auto-detects ambiguity, plans via consensus, executes via staged team pipeline, audits via deep-qa, validates via three fully independent judges, and produces an honest completion report. Iron-law phase gates; no coordinator self-approval. Use when triggers include "autopilot", "build me end to end", "full lifecycle", "idea to working code", "auto-run this project".
+description: Use when running full-lifecycle autonomous execution from a vague idea to working verified code — idea to battle-tested design to consensus plan to executed code to audited defects to three independent judge verdicts to honest completion report. Trigger phrases include "autopilot", "build me end to end", "full lifecycle", "idea to working code", "auto-run this project", "run this autonomously", "just build it", "go from idea to code", "do everything", "autonomous execution", "end-to-end build", "build this for me", "make it real end to end", "full autonomous build". Iron-law phase gates between every stage; no coordinator self-approval; honest termination labels.
 user_invocable: true
 argument: The product idea, feature request, or task description (may be vague — Phase 0 handles ambiguity detection)
 ---
@@ -13,7 +13,7 @@ Full-lifecycle autonomous pipeline: vague idea → battle-tested design → cons
 
 Non-negotiable contracts:
 
-- **All phase work delegated.** Phase 0 → `deep-interview` or `/spec` or `deep-design`. Phase 1 → `/consensus-plan`. Phase 2 → `/team`. Phase 3 → `deep-qa --diff` + `/loop-until-done`. Phase 4 → 3 independent judges. Phase 5 → completion-report writer agent. The autopilot coordinator composes outputs — it does not author or evaluate any load-bearing artifact.
+- **All phase work delegated.** Phase 0 → `deep-interview` or `/spec` or `deep-design`. Phase 1 → `/deep-plan`. Phase 2 → `/team`. Phase 3 → `deep-qa --diff` + `/loop-until-done`. Phase 4 → 3 independent judges. Phase 5 → completion-report writer agent. The autopilot coordinator composes outputs — it does not author or evaluate any load-bearing artifact.
 - **Iron-law phase gate before every transition.** A phase may only advance when the evidence files listed in `STATE.md` for that phase exist on disk, contain `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers where applicable, and the judge/critic verdicts they carry are machine-parseable. Missing or unparseable evidence → phase stays `blocked`; coordinator may not claim the phase complete.
 - **State written before delegation.** `spawn_time_iso` for each phase delegation is written to `state.json` before invoking the delegate skill. Delegation failure is recorded as `delegation_failed`, not silently retried.
 - **No coordinator self-approval at any phase boundary.** The coordinator reads structured fields from evidence files. Approval judgments come from independent agents; the coordinator's role is file aggregation and state transitions only.
@@ -22,9 +22,11 @@ Non-negotiable contracts:
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
+**Subagent watchdog:** every `run_in_background=true` spawn across every phase (plan consensus agents, staged pipeline agents, deep-qa audit, three-judge validation) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for Sonnet exec/validation agents that may run tests or builds; `STALE=5 min`, `HUNG=20 min` for planning/consensus agents; `STALE=3 min`, `HUNG=10 min` for Haiku judges. Multi-hour autopilot runs are the exact case where an unwatched stall is most costly — every phase spawn needs a watchdog. `TaskOutput` status is not evidence of progress.
+
 ## Philosophy
 
-Autopilot is a composition operator. It does not re-implement planning, execution, QA, or validation — those jobs belong to `/consensus-plan`, `/team`, `deep-qa`, `/loop-until-done`, and the independent judges. Autopilot's value is (1) Phase 0 ambiguity routing, (2) iron-law gates between phases, (3) independent Phase 4 validation, (4) honest completion reporting. Anything else is scope creep — if it smells like coordinator-authored content, it belongs in a subagent.
+Autopilot is a composition operator. It does not re-implement planning, execution, QA, or validation — those jobs belong to `/deep-plan`, `/team`, `deep-qa`, `/loop-until-done`, and the independent judges. Autopilot's value is (1) Phase 0 ambiguity routing, (2) iron-law gates between phases, (3) independent Phase 4 validation, (4) honest completion reporting. Anything else is scope creep — if it smells like coordinator-authored content, it belongs in a subagent.
 
 ## Workflow
 
@@ -74,13 +76,13 @@ Autopilot is a composition operator. It does not re-implement planning, executio
 ### Phase 1 — Plan (consensus)
 
 1. Update state: `current_phase: "plan"`. Write `spawn_time_iso`.
-2. Invoke `/consensus-plan` with `--spec autopilot-{run_id}/expand/<spec-or-design>.md --output autopilot-{run_id}/plan/`. The consensus-plan skill internally runs Planner → Architect → Critic independent agents with falsifiability-gated rejection; autopilot does not re-implement any of that logic inline.
+2. Invoke `/deep-plan` with `--spec autopilot-{run_id}/expand/<spec-or-design>.md --output autopilot-{run_id}/plan/`. The deep-plan skill internally runs Planner → Architect → Critic independent agents with falsifiability-gated rejection; autopilot does not re-implement any of that logic inline.
 3. Phase 1 evidence files (required before transition):
    - `autopilot-{run_id}/plan/plan.md` — the approved plan
    - `autopilot-{run_id}/plan/adr.md` — the ADR backing the plan
-   - `autopilot-{run_id}/plan/consensus-termination.md` — consensus-plan's own termination label (`consensus_reached_at_iter_N` | `max_iter_no_consensus` | `user_stopped`)
+   - `autopilot-{run_id}/plan/consensus-termination.md` — deep-plan's own termination label (`consensus_reached_at_iter_N` | `max_iter_no_consensus` | `user_stopped`)
    - `autopilot-{run_id}/plan/phase-gate.md`
-4. If consensus-plan returns `max_iter_no_consensus` or `user_stopped`: Phase 1 gate reports `ADVANCE: false, BLOCKING_REASON: no-consensus`. Autopilot terminates as `blocked_at_phase_1`.
+4. If deep-plan returns `max_iter_no_consensus` or `user_stopped`: Phase 1 gate reports `ADVANCE: false, BLOCKING_REASON: no-consensus`. Autopilot terminates as `blocked_at_phase_1`.
 5. Iron-law gate (Phase 1 → Phase 2): same structure as Phase 0.
 
 ### Phase 2 — Exec (staged team)
@@ -249,7 +251,7 @@ Full list and counter-table in `GOLDEN-RULES.md`. Short form:
 - [ ] Every phase has an evidence directory and `phase-gate.md`
 - [ ] Phase 0 `ambiguity-verdict.md` contains STRUCTURED_OUTPUT markers
 - [ ] Phase 0 routed correctly based on classifier output + availability (not coordinator preference)
-- [ ] Phase 1 did NOT re-implement planner/architect/critic logic inline — delegated to `/consensus-plan`
+- [ ] Phase 1 did NOT re-implement planner/architect/critic logic inline — delegated to `/deep-plan`
 - [ ] Phase 2 did NOT re-implement executor/verifier logic inline — delegated to `/team`
 - [ ] Phase 3 ran `deep-qa --diff` for audit, NOT a generic test-loop
 - [ ] Phase 3 sub-phase 3b invoked `/loop-until-done` only if critical/major defects were found

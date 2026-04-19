@@ -12,31 +12,31 @@ Snapshot of recurring patterns across the skills in `/Users/npow/.claude/skills/
 ## High-value extractions (copy-paste-ready across 7-9 skills)
 
 ### 1. Structured Output Contract (`STRUCTURED_OUTPUT_START/END` markers)
-- **Skills using it (9):** deep-qa, deep-design, deep-debug, proposal-reviewer, consensus-plan, team, autopilot, loop-until-done, flaky-test-diagnoser
+- **Skills using it (9):** deep-qa, deep-design, deep-debug, proposal-reviewer, deep-plan, team, autopilot, loop-until-done, flaky-test-diagnoser
 - **Consistency:** verbatim across all 9. Same phrasing: "Unparseable output → fail-safe critical/worst verdict."
 - **Extraction target:** `_shared/structured-output-contract.md`
 - **Estimated savings:** ~20 lines × 9 skills = ~180 lines of boilerplate removed.
 
 ### 2. Independence Invariant ("Coordinator orchestrates; never evaluates")
-- **Skills using it (7):** deep-qa, deep-design, deep-debug, proposal-reviewer, consensus-plan, team, autopilot
+- **Skills using it (7):** deep-qa, deep-design, deep-debug, proposal-reviewer, deep-plan, team, autopilot
 - **Consistency:** core principle stated identically in 7 skills. Always used to justify delegating severity classification / judge verdicts / approval gates to independent agents.
 - **Extraction target:** `_shared/independence-invariant.md`
 - **Estimated savings:** ~15 lines × 7 skills = ~105 lines.
 
 ### 3. State Written Before Agent Spawn
-- **Skills using it (9):** deep-qa, deep-design, deep-debug, proposal-reviewer, consensus-plan, team, autopilot, loop-until-done, flaky-test-diagnoser
+- **Skills using it (9):** deep-qa, deep-design, deep-debug, proposal-reviewer, deep-plan, team, autopilot, loop-until-done, flaky-test-diagnoser
 - **Consistency:** verbatim contract — "write `spawn_time_iso` BEFORE the Agent tool call; record `spawn_failed` if error."
 - **Extraction target:** `_shared/state-before-spawn-contract.md`
 - **Estimated savings:** ~25 lines × 9 skills = ~225 lines.
 
 ### 4. Honest Termination Labels (exhaustive vocabulary)
-- **Skills using it (9):** deep-qa, deep-design, deep-debug, proposal-reviewer, consensus-plan, team, autopilot, loop-until-done, flaky-test-diagnoser
+- **Skills using it (9):** deep-qa, deep-design, deep-debug, proposal-reviewer, deep-plan, team, autopilot, loop-until-done, flaky-test-diagnoser
 - **Consistency:** each skill has a fixed table of labels; exact phrasing varies by domain but structure is identical. Never "looks good", "no issues remain", "complete" without evidence.
 - **Extraction target:** `_shared/termination-labels-pattern.md` — template + label-selection guidance, skills override the specific labels.
 - **Estimated savings:** ~30 lines × 9 skills = ~270 lines (template savings; domain-specific labels still live in each skill).
 
 ### 5. All Data Passed Via Files, Never Inline
-- **Skills using it (8):** deep-qa, deep-design, deep-debug, proposal-reviewer, consensus-plan, team, autopilot, loop-until-done
+- **Skills using it (8):** deep-qa, deep-design, deep-debug, proposal-reviewer, deep-plan, team, autopilot, loop-until-done
 - **Consistency:** verbatim contract in all 8. "Inline content is silently truncated — warn user."
 - **Extraction target:** `_shared/files-not-inline-contract.md`
 - **Estimated savings:** ~10 lines × 8 skills = ~80 lines.
@@ -57,10 +57,10 @@ Snapshot of recurring patterns across the skills in `/Users/npow/.claude/skills/
 - **Status:** ✅ EXTRACTED (2026-04-18) to `_shared/premortem-blind-spot-seeding.md` — pattern structure + canonical prompt template + per-skill angle lists. Each skill keeps its own 5-angle domain-specific list inline.
 
 ### 8. Iron-Law Gate Before Transition — REJECTED
-- **Skills (4):** consensus-plan, team, autopilot, loop-until-done
+- **Skills (4):** deep-plan, team, autopilot, loop-until-done
 - **Pattern:** "Phase N evidence files must exist on disk + parse cleanly before advancing to Phase N+1. Coordinator reads structured markers; missing evidence → blocked."
 - **Status:** ❌ NOT EXTRACTED (2026-04-18 decision)
-- **Rejection reason:** grep for `iron.law|iron_law` returned 22 files — the phrase is too general. Each skill's gate conditions are domain-specific (consensus-plan: "no verdict until all claims have judge file"; team: "no phase-2 without phase-1 evidence file"; autopilot: "three-judge approval"; loop-until-done: "criterion green before story advance"). The shared pattern would be lowest-common-denominator prose thinner than what each skill already has. Revisit only if a concrete duplication surfaces across 3+ skills with near-identical wording.
+- **Rejection reason:** grep for `iron.law|iron_law` returned 22 files — the phrase is too general. Each skill's gate conditions are domain-specific (deep-plan: "no verdict until all claims have judge file"; team: "no phase-2 without phase-1 evidence file"; autopilot: "three-judge approval"; loop-until-done: "criterion green before story advance"). The shared pattern would be lowest-common-denominator prose thinner than what each skill already has. Revisit only if a concrete duplication surfaces across 3+ skills with near-identical wording.
 
 ### 9. Parallel Critic Pool (orthogonal dimensions + quorum + dedup) — EXTRACTED
 - **Skills (4):** deep-design, deep-qa, deep-research, proposal-reviewer
@@ -68,8 +68,14 @@ Snapshot of recurring patterns across the skills in `/Users/npow/.claude/skills/
 - **Status:** ✅ EXTRACTED (2026-04-18) to `_shared/parallel-critic-quorum.md` — spawn/collect/quorum/dedup/coverage phases + integration checklist. Each skill sets its own N, M, dimension taxonomy, and `is_duplicate` function.
 
 ### 10. Falsifiability Gate (concrete scenario + counter-response) — PARTIALLY EXTRACTED
-- **Skills (4):** deep-design, proposal-reviewer, consensus-plan, loop-until-done
+- **Skills (4):** deep-design, proposal-reviewer, deep-plan, loop-until-done
 - **Status:** counter-response + drop-not-downgrade covered in `_shared/adversarial-judging.md`. Scenario requirement NOT extracted separately (each skill defines scenario shape differently).
+
+### 11. Subagent Watchdog (mtime-based staleness monitor) — EXTRACTED
+- **Skills (10 adopters):** deep-qa, deep-debug, deep-research, deep-design, deep-plan, proposal-reviewer, team, autopilot, loop-until-done, flaky-test-diagnoser
+- **Pattern:** every `run_in_background=true` spawn is paired with a Monitor tail (Flavor A) or in-line stat check (Flavor B) that treats output-file mtime age as ground truth. `TaskOutput` status reports PID liveness only, not progress — a stuck/deadlocked/spinning subagent stays `status: "running"` forever and the completion notification never fires.
+- **Status:** ✅ EXTRACTED and ✅ FULLY WIRED (2026-04-18) to `_shared/subagent-watchdog.md` — contract + two implementation flavors + grading table + state schema additions + integration checklist. Cross-reference wired into all 10 adopters: deep-qa, deep-debug, deep-research, deep-design, deep-plan, proposal-reviewer, team, autopilot, loop-until-done, flaky-test-diagnoser. Tier-appropriate thresholds documented per skill (fast Haiku judges: 3/10 min; Sonnet critics: 5/20 min; long researchers/test-runners: 10-15/30-45 min).
+- **Motivation:** the 18-hour-silent-death bug — coordinator blocked on `TaskOutput(block=true)` against a hung subagent with no path to detect staleness. Closing this gap is load-bearing for any skill that dispatches long-running subagents.
 
 **Medium-value remaining extraction savings: ~600 lines.**
 

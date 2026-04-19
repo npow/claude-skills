@@ -1,6 +1,6 @@
 ---
 name: deep-qa
-description: Quality assurance on any artifact (document/spec, code/system, research report, or skill/prompt) using parallel critic agents across artifact-type-aware QA dimensions. Produces a prioritized defect registry and QA report. Does not fix defects — surfaces them for human triage.
+description: Use when reviewing, auditing, QAing, critiquing, or assessing any artifact — a spec, code change, diff, PR, research report, skill, prompt, or document — and you want parallel adversarial critic agents to find defects. Trigger phrases include "review this", "audit this", "QA this", "find issues", "find defects", "critique this", "check this for problems", "what's wrong with this", "evaluate this", "run QA", "review the diff", "review the PR", "review my code", "deep QA", "defect audit", "code review", "assess this". Produces a prioritized defect registry with severity-rated findings via parallel critic agents across artifact-type-aware QA dimensions. Does not fix defects — surfaces them for human triage.
 user_invocable: true
 argument: |
   Path to artifact file (or inline content), with optional flags:
@@ -29,6 +29,8 @@ Shares deep-design's core execution contracts:
 - **Hard stop is unconditional.** `hard_stop = max_rounds * 2` is set at initialization and checked at the start of every round before any user prompt. No extension can exceed it.
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+**Subagent watchdog:** every `run_in_background=true` spawn in this skill (severity judges, coordinator summaries, batched pass-2 judges) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A (Monitor tail per spawn) with thresholds `STALE=3 min`, `HUNG=10 min` for Haiku judges and summaries — these are short-running tasks and a 30-min quiet period is always pathological. `TaskOutput` status field is not evidence of progress; output-file mtime is.
 
 ## Adversarial judging (3 of 4 mechanisms adopted)
 

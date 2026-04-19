@@ -1,11 +1,11 @@
 ---
-name: consensus-plan
-description: Use when a task is broad, risky, or architecturally ambiguous and must be locked down before execution — runs a strictly sequential Planner → Architect → Critic loop with fully independent file-based agents, falsifiability-gated critic rejections, verification-command-backed acceptance criteria, and honest per-iteration termination labels. Produces an ADR-backed plan with a RALPLAN-DR summary.
+name: deep-plan
+description: Use before touching code for any multi-step task — features, refactors, migrations, architectural decisions, bug fixes, or any work that needs to be broken into verifiable steps. Trigger phrases include "write a plan", "implementation plan", "plan this", "plan the work", "break this down", "how should I approach this", "make a plan", "design the approach", "before I code this", "I need a plan", "write up the plan", "spec to plan", "requirements to plan". Produces an ADR-backed plan with verification-backed acceptance criteria via a Planner → Architect → Critic consensus loop.
 user_invocable: true
-argument: The task description or problem statement to produce a consensus plan for.
+argument: The task description or problem statement to produce a deep plan for.
 ---
 
-# Consensus Plan Skill
+# Deep Plan Skill
 
 Produce an ADR-backed plan that three fully independent agents — Planner, Architect, Critic — agree on, or stop honestly at max iterations. The coordinator never evaluates. All three roles read and write via files only; they do not inherit coordinator context.
 
@@ -23,6 +23,8 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
 - **No coordinator self-approval.** The coordinator cannot author a plan revision or approve one. Every revision is by the Planner; every approval is by the Critic.
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+**Subagent watchdog:** every `run_in_background=true` spawn (Planner, Architect, Critic) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` — planning agents can legitimately sit quiet while they think, but a 30-min silence is pathological. `TaskOutput` status is not evidence of progress.
 
 ## Flags
 
@@ -44,7 +46,7 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
    - Harmful scope (weapon, exploit) — decline
 2. Detect high-risk signals (see `--deliberate`) and set `mode: "short" | "deliberate"`.
 3. Generate `run_id = $(date +%Y%m%d-%H%M%S)`.
-4. Create directory: `consensus-plan-{run_id}/`
+4. Create directory: `deep-plan-{run_id}/`
    - `state.json` (see STATE.md)
    - `task.md` — task description locked verbatim
    - `iterations/iter-{N}/` — one directory per iteration
@@ -56,7 +58,7 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
    - `plan.md` — final plan (written only on consensus or max-iter stop)
    - `logs/decisions.jsonl` — audit trail, one line per decision
 5. Write initial `state.json` with `iteration: 0`, `status: "planner_pending"`, `mode`, `max_iterations` (default 5, capped by `--max-iter`).
-6. Print: `Starting consensus-plan on: {task summary} [run: {run_id}] [mode: {short|deliberate}] [max_iter: {N}]`
+6. Print: `Starting deep-plan on: {task summary} [run: {run_id}] [mode: {short|deliberate}] [max_iter: {N}]`
 
 ### Step 1: Planner Pass (iteration N)
 
@@ -192,7 +194,7 @@ ADR Scribe writes `adr.md` with:
 - **Consequences** — including accepted tradeoffs from Architect
 - **Follow-ups** — surviving non-blocking concerns from critic history
 
-The coordinator then copies the final plan to `consensus-plan-{run_id}/plan.md` (unchanged) and writes the summary header. Summary includes:
+The coordinator then copies the final plan to `deep-plan-{run_id}/plan.md` (unchanged) and writes the summary header. Summary includes:
 - Termination label (never "approved" unless `consensus_reached_at_iter_N`)
 - Iteration count
 - Architect degraded-mode flag if any
@@ -213,7 +215,7 @@ Without `--interactive`: output the final plan path + ADR path + termination lab
 
 ### Step 8: Resume Protocol
 
-Any invocation with an existing `consensus-plan-{run_id}/` directory reads `state.json` and replays from the last committed status. See STATE.md for the status enum and exact replay rules. The coordinator never reconstructs from memory.
+Any invocation with an existing `deep-plan-{run_id}/` directory reads `state.json` and replays from the last committed status. See STATE.md for the status enum and exact replay rules. The coordinator never reconstructs from memory.
 
 ## Golden Rules
 
@@ -247,7 +249,7 @@ Any invocation with an existing `consensus-plan-{run_id}/` directory reads `stat
 ## Planner Prompt Template
 
 ```
-You are the Planner. You are an independent agent spawned by the consensus-plan coordinator. You do NOT inherit any prior conversation. You read from files only.
+You are the Planner. You are an independent agent spawned by the deep-plan coordinator. You do NOT inherit any prior conversation. You read from files only.
 
 **Task file:** {task_file_path}
 Read this first. It contains the verbatim task description.
@@ -294,7 +296,7 @@ You succeed by producing a plan that survives adversarial review. You fail by pr
 ## Architect Prompt Template
 
 ```
-You are the Architect. You are an independent agent spawned by the consensus-plan coordinator. You do NOT inherit any prior conversation. You read from files only.
+You are the Architect. You are an independent agent spawned by the deep-plan coordinator. You do NOT inherit any prior conversation. You read from files only.
 
 **Plan file:** {plan_file_path}
 **Task file:** {task_file_path}
@@ -329,7 +331,7 @@ You succeed by finding real architectural tension. You fail by rubber-stamping o
 ## Critic Prompt Template
 
 ```
-You are the Critic. You are an independent agent spawned by the consensus-plan coordinator. You do NOT inherit any prior conversation. You read from files only.
+You are the Critic. You are an independent agent spawned by the deep-plan coordinator. You do NOT inherit any prior conversation. You read from files only.
 
 **You succeed by REJECTING plans that would fail when implemented. You fail by rubber-stamping.**
 
@@ -379,7 +381,7 @@ You succeed by finding real problems with concrete scenarios. You fail by listin
 ## ADR Scribe Prompt Template
 
 ```
-You are the ADR Scribe. You are an independent agent spawned by the consensus-plan coordinator ONCE at the end of the run. You do NOT inherit any prior conversation. You read from files only.
+You are the ADR Scribe. You are an independent agent spawned by the deep-plan coordinator ONCE at the end of the run. You do NOT inherit any prior conversation. You read from files only.
 
 **Final plan:** {final_plan_path}
 **All architect verdicts:** {architect_verdict_paths}

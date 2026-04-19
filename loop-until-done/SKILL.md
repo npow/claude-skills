@@ -1,6 +1,6 @@
 ---
 name: loop-until-done
-description: Use when a task must be driven to guaranteed completion through a PRD-driven persistence loop — breaks work into user stories with structured acceptance criteria, iterates story-by-story with independent verification, and terminates only when every criterion has fresh passing evidence and an independent reviewer approves.
+description: Use when a task must be driven to guaranteed completion through a PRD-driven persistence loop — breaking work into user stories with structured acceptance criteria, iterating story-by-story with independent verification, and terminating only when every criterion has fresh passing evidence and an independent reviewer approves. Trigger phrases include "keep going until done", "loop until complete", "don't stop until", "finish this completely", "iterate until done", "persistence loop", "PRD-driven execution", "work through all stories", "drive this to completion", "until all tests pass", "keep iterating", "loop this", "self-loop until finished". Honest termination labels; no self-approval.
 user_invocable: true
 argument: |
   Task description, with optional flags:
@@ -28,6 +28,8 @@ Contracts are non-negotiable:
 - **Termination labels are honest.** Four defined labels cover all reachable exits — never "complete" without evidence. See the Termination Labels table.
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+
+**Subagent watchdog:** every `run_in_background=true` spawn (story worker, independent verifier, reviewer) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for story workers (may run tests/builds); `STALE=5 min`, `HUNG=20 min` for verifier/reviewer agents. A hung worker silently blocks the whole persistence loop — `TaskOutput` status is not evidence of progress.
 
 ## Philosophy
 

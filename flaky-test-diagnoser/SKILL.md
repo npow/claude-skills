@@ -9,6 +9,10 @@ Runs competing-hypothesis experiments to isolate the true root cause of a flaky 
 
 This is a tracing skill, not a fixer. The goal is to explain **why** the test is intermittent with falsifiable evidence, not to jump into patching code.
 
+## Execution contracts
+
+**Subagent watchdog:** any time this skill spawns a test-running subagent via `run_in_background=true` (multi-run protocols, ordering bisection, distinguishing experiments), it MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A (Monitor tail per spawn) with thresholds `STALE=15 min`, `HUNG=45 min` — test suites can legitimately take a long time, especially with N≥10 reruns, but a 45-min silent window is pathological. `TaskOutput` status reports PID liveness only; output-file mtime is the ground truth for progress.
+
 ## Workflow
 
 1. **Bootstrap run state** — create `flaky-diag-{run_id}/` in CWD with `state.json`, `hypotheses/`, `runs/`, `experiments/`. See [STATE.md](STATE.md).
