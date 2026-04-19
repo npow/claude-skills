@@ -86,14 +86,14 @@ Parser rules:
 
 ### `plan/plan.md`, `plan/adr.md`
 
-Produced by `/consensus-plan`. Schemas owned by that skill. Autopilot consumes verbatim.
+Produced by `/deep-plan`. Schemas owned by that skill. Autopilot consumes verbatim.
 
 ### `plan/consensus-termination.md`
 
 ```markdown
 # Consensus Termination
 
-**Delegate:** /consensus-plan
+**Delegate:** /deep-plan
 **Iterations:** {n}
 
 STRUCTURED_OUTPUT_START

@@ -1,23 +1,23 @@
 # Phase 2: Design
 
-Architect the project from the approved spec. Delegate consensus architectural work to `/consensus-plan`; produce `DESIGN.md` in Ship-It's canonical shape; freeze the shared types contract for Phase 3.
+Architect the project from the approved spec. Delegate consensus architectural work to `/deep-plan`; produce `DESIGN.md` in Ship-It's canonical shape; freeze the shared types contract for Phase 3.
 
 ## Process
 
 1. Update `state.json`: `current_phase: "design"`, `phases.design.spawn_time_iso = <iso>`, `phases.design.status = "in_progress"`.
-2. Invoke `/consensus-plan` with arguments `--spec ship-it-{run_id}/spec/SPEC.md --output ship-it-{run_id}/design/` per [INTEGRATION.md](INTEGRATION.md). `/consensus-plan` internally runs Planner → Architect → Critic independent agents with falsifiability-gated rejection. Ship-It does not re-implement any of that.
+2. Invoke `/deep-plan` with arguments `--spec ship-it-{run_id}/spec/SPEC.md --output ship-it-{run_id}/design/` per [INTEGRATION.md](INTEGRATION.md). `/deep-plan` internally runs Planner → Architect → Critic independent agents with falsifiability-gated rejection. Ship-It does not re-implement any of that.
 3. After completion, parse `design/consensus-termination.md`:
    - `consensus_reached_at_iter_N` → continue
    - `max_iter_no_consensus` or `user_stopped` → phase gate fails; terminate as `blocked_at_phase_2`
-4. Read the consensus plan output (`design/consensus-plan.md` or equivalent from `/consensus-plan`).
-5. Adapt the consensus plan into `ship-it-{run_id}/design/DESIGN.md` using the Ship-It design schema below. The file tree, shared-types pattern, and packaging layout are Ship-It concerns; the architectural content (module boundaries, API contracts, risk analysis) comes from `/consensus-plan`. Do NOT author architectural content — only reshape the consensus output into the template.
+4. Read the consensus plan output (`design/deep-plan.md` or equivalent from `/deep-plan`).
+5. Adapt the consensus plan into `ship-it-{run_id}/design/DESIGN.md` using the Ship-It design schema below. The file tree, shared-types pattern, and packaging layout are Ship-It concerns; the architectural content (module boundaries, API contracts, risk analysis) comes from `/deep-plan`. Do NOT author architectural content — only reshape the consensus output into the template.
 6. Copy `design/DESIGN.md` to the project root as the live working copy for Phase 3 subagents.
 7. Extract all shared types, interfaces, and enums into `types.ts` (or `types/__init__.py` for Python). This file becomes immutable for the rest of the run — enforced by `invariants.types_ts_immutable_after_design`.
-8. Copy the `/consensus-plan` ADR verbatim to `ship-it-{run_id}/design/adr.md`.
+8. Copy the `/deep-plan` ADR verbatim to `ship-it-{run_id}/design/adr.md`.
 
 ## Degraded-mode fallback
 
-If `/consensus-plan` is unavailable (detected at Phase 1 init), run the inline critic flow per [INTEGRATION.md](INTEGRATION.md). Tag all outputs with `VERIFICATION_MODE: degraded (no /consensus-plan installed)`. Quality is measurably lower; surface in the completion report.
+If `/deep-plan` is unavailable (detected at Phase 1 init), run the inline critic flow per [INTEGRATION.md](INTEGRATION.md). Tag all outputs with `VERIFICATION_MODE: degraded (no /deep-plan installed)`. Quality is measurably lower; surface in the completion report.
 
 ## DESIGN.md structure (Ship-It canonical shape)
 
@@ -67,7 +67,7 @@ project-root/
 - Wave 2: [modules depending on Wave 1]
 - Wave 3: [...]
 
-## Acceptance Criteria (falsifiable, from /consensus-plan)
+## Acceptance Criteria (falsifiable, from /deep-plan)
 [Each one from the consensus plan, with a verification command. Used to seed Phase 4 test criteria if defects are found.]
 ```
 
@@ -101,7 +101,7 @@ Build order: types (already frozen) → utils + db (parallel Wave 1) → analysi
 
 Fresh phase-gate subagent reads evidence. Required:
 - `design/DESIGN.md` with all required sections
-- `design/adr.md` from `/consensus-plan`
+- `design/adr.md` from `/deep-plan`
 - `design/consensus-termination.md` with `CONSENSUS_LABEL|consensus_reached_at_iter_N` (or degraded-mode tag)
 - `types.ts` written to project root and compiling (skeleton must pass `npx tsc --noEmit` / `python -m py_compile`)
 

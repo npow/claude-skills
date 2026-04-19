@@ -1,13 +1,13 @@
 # Golden Rules
 
-The eight cross-cutting rules tailored to `/consensus-plan`, plus the anti-rationalization counter-table. These rules are load-bearing. If you catch yourself writing "this case is an exception," re-read this file before acting.
+The eight cross-cutting rules tailored to `/deep-plan`, plus the anti-rationalization counter-table. These rules are load-bearing. If you catch yourself writing "this case is an exception," re-read this file before acting.
 
 ## The Eight Rules
 
 ### 1. Independence invariant
 The coordinator orchestrates agent spawns; it never evaluates.
 
-**In `/consensus-plan` specifically:**
+**In `/deep-plan` specifically:**
 - The coordinator does NOT decide whether the plan is good.
 - The coordinator does NOT rewrite a Critic rejection ("they probably meant…").
 - The coordinator does NOT paraphrase an Architect tradeoff ("the real concern here is…").
@@ -17,7 +17,7 @@ The coordinator orchestrates agent spawns; it never evaluates.
 ### 2. Iron-law verification gate
 No completion claims without fresh evidence.
 
-**In `/consensus-plan`:**
+**In `/deep-plan`:**
 - "Iteration complete" requires: `plan.md` exists AND parseable structured block, `architect-verdict.md` exists AND parseable, `critic-verdict.md` exists AND parseable.
 - "Consensus reached" requires: a Critic verdict of `APPROVE` (or promoted `APPROVE_AFTER_RUBBER_STAMP_FILTER`) physically on disk in the current iteration.
 - "Plan validated" requires: every acceptance criterion has a `verification_command` AND `expected_output_pattern` — verified post-Planner by the Critic.
@@ -26,7 +26,7 @@ No completion claims without fresh evidence.
 ### 3. Two-stage review — Architect then Critic
 Two independent passes, strictly sequential.
 
-**In `/consensus-plan`:**
+**In `/deep-plan`:**
 - Architect: architectural soundness — does the plan's structure work?
 - Critic: quality gate — are principles, drivers, criteria, risks, and verification commands concrete?
 - These are SEPARATE Agent spawns with disjoint prompts. Architect is spawned first, must complete and write a parseable verdict, THEN Critic is spawned.
@@ -35,7 +35,7 @@ Two independent passes, strictly sequential.
 ### 4. Honest termination labels
 Explicit vocabulary; no "approved" without evidence.
 
-**In `/consensus-plan` the authoritative label set is in STATE.md. Three labels a user will actually see:**
+**In `/deep-plan` the authoritative label set is in STATE.md. Three labels a user will actually see:**
 - `consensus_reached_at_iter_N` — Critic said APPROVE in iter-N.
 - `max_iter_no_consensus` — hit N==max_iterations with the last verdict still ITERATE or REJECT.
 - `user_stopped` — user said stop at an interactive gate.
@@ -47,7 +47,7 @@ Explicit vocabulary; no "approved" without evidence.
 ### 5. State written before agent spawn
 `spawn_time_iso` recorded pre-call; spawn failure recorded as `spawn_failed`; resume retries.
 
-**In `/consensus-plan`:**
+**In `/deep-plan`:**
 - Before calling `Task(subagent_type="general-purpose", ...)` for Planner: write `iterations[N].planner.spawn_time_iso` and bump `generation`.
 - Before external CLI call for `--architect codex` or `--critic codex/gemini`: same rule. State is the single source of truth.
 - On Agent error: mark `spawn_failed`, clear `spawn_time_iso`, record `failure_reason`. Resume retries. Do NOT wait for a ghost output file.
@@ -56,7 +56,7 @@ Explicit vocabulary; no "approved" without evidence.
 ### 6. Structured output is the contract
 Judges, critics, reviewers produce `STRUCTURED_OUTPUT_START/END` blocks. Free-text is ignored.
 
-**In `/consensus-plan`:**
+**In `/deep-plan`:**
 - Planner output must end with a `STRUCTURED_OUTPUT` block containing `ACCEPTANCE_CRITERION`, `PRINCIPLE`, `DRIVER`, `OPTION`, `PREMORTEM` lines.
 - Architect output must end with `VERDICT`, `CONCERN`, `TRADEOFF`, optionally `SYNTHESIS` and `PRINCIPLE_VIOLATION`.
 - Critic output must end with `VERDICT`, `REJECTION`, `APPROVAL_EVIDENCE`.
@@ -66,7 +66,7 @@ Judges, critics, reviewers produce `STRUCTURED_OUTPUT_START/END` blocks. Free-te
 ### 7. All data passed via files
 Task descriptions, plans, verdicts — all via file paths in agent prompts. Never inline.
 
-**In `/consensus-plan`:**
+**In `/deep-plan`:**
 - Planner receives a path to `task.md` and a path to `feedback-bundle.md`. Not the text of those files.
 - Architect receives a path to `plan.md`. Not a summary the coordinator wrote.
 - Critic receives paths to `plan.md`, `architect-verdict.md`, `verification-commands.txt`.
@@ -76,14 +76,14 @@ Task descriptions, plans, verdicts — all via file paths in agent prompts. Neve
 ### 8. No coordinator self-approval
 The author cannot approve their own work.
 
-**In `/consensus-plan`:**
+**In `/deep-plan`:**
 - The Planner cannot serve as Critic. Separate Agent spawns with disjoint prompts.
 - The coordinator cannot mark a plan APPROVE even if "it's obviously correct." Spawn a Critic.
 - If the Critic errors repeatedly, the run terminates — the coordinator does not substitute its own verdict.
 
 ## Anti-Rationalization Counter-Table
 
-These are the specific rationalizations that creep in during `/consensus-plan` runs. When you catch yourself about to say one, STOP and re-read the "Reality" column.
+These are the specific rationalizations that creep in during `/deep-plan` runs. When you catch yourself about to say one, STOP and re-read the "Reality" column.
 
 | Excuse | Reality |
 |---|---|

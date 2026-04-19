@@ -1,19 +1,19 @@
 # Integration
 
-How `/consensus-plan` composes with other skills and how it falls back when optional tooling is unavailable.
+How `/deep-plan` composes with other skills and how it falls back when optional tooling is unavailable.
 
 ## Upstream: Called by `/autopilot` Phase 1
 
-`/autopilot` Phase 1 (Plan) delegates to `/consensus-plan` instead of re-implementing the Planner/Architect/Critic loop inline. Invocation contract:
+`/autopilot` Phase 1 (Plan) delegates to `/deep-plan` instead of re-implementing the Planner/Architect/Critic loop inline. Invocation contract:
 
 ```
-/autopilot spawns /consensus-plan as a subprocess-equivalent with:
+/autopilot spawns /deep-plan as a subprocess-equivalent with:
   - CWD containing autopilot-{run_id}/phase-1/
   - Task description written to phase-1/task.md (copied from Phase 0 output)
   - Flags: --max-iter N (default 5), --deliberate if Phase 0 flagged risk, --interactive never (autopilot is non-interactive by default)
 ```
 
-`/consensus-plan` writes its own subdirectory `phase-1/consensus-plan-{run_id}/` and returns the final `plan.md` + `adr.md` + termination label via file path. `/autopilot` reads the termination label from the consensus-plan `state.json` — does not re-run the consensus logic.
+`/deep-plan` writes its own subdirectory `phase-1/deep-plan-{run_id}/` and returns the final `plan.md` + `adr.md` + termination label via file path. `/autopilot` reads the termination label from the deep-plan `state.json` — does not re-run the consensus logic.
 
 `/autopilot` Phase 2 (Exec) handoff:
 - If `termination.label == consensus_reached_at_iter_N` → proceed to Phase 2 with the final `plan.md`.
@@ -22,13 +22,13 @@ How `/consensus-plan` composes with other skills and how it falls back when opti
 
 ## Downstream: Hands off to `/team` or `/loop-until-done`
 
-Only triggered in `--interactive` mode after user approval at Step 7. `/consensus-plan` does NOT auto-execute.
+Only triggered in `--interactive` mode after user approval at Step 7. `/deep-plan` does NOT auto-execute.
 
 ```
 User chooses "Approve and implement via team":
-  → invoke Skill("/team") with plan_path=consensus-plan-{run_id}/plan.md
+  → invoke Skill("/team") with plan_path=deep-plan-{run_id}/plan.md
 User chooses "Approve and execute via loop":
-  → invoke Skill("/loop-until-done") with plan_path=consensus-plan-{run_id}/plan.md
+  → invoke Skill("/loop-until-done") with plan_path=deep-plan-{run_id}/plan.md
 ```
 
 Both downstream skills must accept:
@@ -45,14 +45,14 @@ Both downstream skills must accept:
 ```bash
 # Architect
 codex --agent-prompt architect \
-      --input-file consensus-plan-{run_id}/iterations/iter-{N}/architect-input.md \
-      --output-file consensus-plan-{run_id}/iterations/iter-{N}/architect-verdict.md \
+      --input-file deep-plan-{run_id}/iterations/iter-{N}/architect-input.md \
+      --output-file deep-plan-{run_id}/iterations/iter-{N}/architect-verdict.md \
       --timeout 180
 
 # Critic
 codex --agent-prompt critic \
-      --input-file consensus-plan-{run_id}/iterations/iter-{N}/critic-input.md \
-      --output-file consensus-plan-{run_id}/iterations/iter-{N}/critic-verdict.md \
+      --input-file deep-plan-{run_id}/iterations/iter-{N}/critic-input.md \
+      --output-file deep-plan-{run_id}/iterations/iter-{N}/critic-verdict.md \
       --timeout 180
 ```
 
@@ -62,8 +62,8 @@ The input file contains ALL prompt content (the same prompt template used for Cl
 
 ```bash
 gemini chat --system-prompt-file critic-system.md \
-            --input-file consensus-plan-{run_id}/iterations/iter-{N}/critic-input.md \
-            --output-file consensus-plan-{run_id}/iterations/iter-{N}/critic-verdict.md \
+            --input-file deep-plan-{run_id}/iterations/iter-{N}/critic-input.md \
+            --output-file deep-plan-{run_id}/iterations/iter-{N}/critic-verdict.md \
             --timeout 180
 ```
 
@@ -84,7 +84,7 @@ External CLIs MUST produce output matching the structured format in FORMAT.md. I
 
 ## Degraded Modes
 
-`/consensus-plan` core logic requires only the Claude Agent tool and file I/O. It has no hard dependency on `deep-design`, `deep-qa`, Codex, Gemini, or any MCP state tools. The following degraded modes are documented:
+`/deep-plan` core logic requires only the Claude Agent tool and file I/O. It has no hard dependency on `deep-design`, `deep-qa`, Codex, Gemini, or any MCP state tools. The following degraded modes are documented:
 
 | Condition | Behavior | Tag in output |
 |---|---|---|
@@ -107,26 +107,26 @@ Warnings:
 - Architect mode: degraded (codex CLI not available in PATH; fell back to Claude Agent for iterations 1-3)
 - 2 Critic rejections were dropped by the falsifiability gate (rubber-stamp phrases)
 
-Final plan: consensus-plan-20260416-153022/plan.md
-ADR: consensus-plan-20260416-153022/adr.md
+Final plan: deep-plan-20260416-153022/plan.md
+ADR: deep-plan-20260416-153022/adr.md
 ```
 
 ## Optional Integration: `deep-design`
 
-`/consensus-plan`'s Architect pass is architectural review. If `deep-design` is installed, callers can optionally run `deep-design` on the Planner's output BEFORE invoking `/consensus-plan` — this is a pre-step, not an internal dependency. `/consensus-plan` does NOT auto-invoke `deep-design`. The distinction:
+`/deep-plan`'s Architect pass is architectural review. If `deep-design` is installed, callers can optionally run `deep-design` on the Planner's output BEFORE invoking `/deep-plan` — this is a pre-step, not an internal dependency. `/deep-plan` does NOT auto-invoke `deep-design`. The distinction:
 
 - `deep-design` adversarially stress-tests a *design concept* over many rounds with dozens of critics.
-- `/consensus-plan` runs a *fixed* 3-role loop on a *plan* to reach consensus.
+- `/deep-plan` runs a *fixed* 3-role loop on a *plan* to reach consensus.
 
-They are orthogonal. A caller doing architecture-heavy work should run `deep-design` first to harden the design, then `/consensus-plan` to produce the ADR-backed implementation plan.
+They are orthogonal. A caller doing architecture-heavy work should run `deep-design` first to harden the design, then `/deep-plan` to produce the ADR-backed implementation plan.
 
 ## Optional Integration: `deep-qa`
 
-Not invoked by `/consensus-plan`. The output plan's `verification_command[]` fields are consumed by `/team`'s verify stage or `/loop-until-done`'s per-story verification, where `deep-qa` may be the chosen verifier. `/consensus-plan` is responsible only for producing the plan with verification commands; it does not run them.
+Not invoked by `/deep-plan`. The output plan's `verification_command[]` fields are consumed by `/team`'s verify stage or `/loop-until-done`'s per-story verification, where `deep-qa` may be the chosen verifier. `/deep-plan` is responsible only for producing the plan with verification commands; it does not run them.
 
 ## Tool Expectations
 
-`/consensus-plan` uses only these primitives:
+`/deep-plan` uses only these primitives:
 
 - **Write** — state.json, plan inputs, feedback bundles, final plan copy, ADR copy, logs
 - **Read** — reading prior iteration files for feedback assembly
@@ -139,34 +139,34 @@ No hard dependency on MCP state tools, TeamCreate/TaskList, or OMC-specific infr
 
 ### Autonomous (non-interactive)
 ```
-/consensus-plan "Migrate user auth from passport.js to JWT with rotation"
+/deep-plan "Migrate user auth from passport.js to JWT with rotation"
 ```
 
 ### Interactive gates enabled
 ```
-/consensus-plan --interactive "Migrate user auth from passport.js to JWT with rotation"
+/deep-plan --interactive "Migrate user auth from passport.js to JWT with rotation"
 ```
 
 ### Deliberate mode forced (high-risk)
 ```
-/consensus-plan --deliberate "Design data-migration for users table with 500M rows"
+/deep-plan --deliberate "Design data-migration for users table with 500M rows"
 ```
 
 ### External providers
 ```
-/consensus-plan --architect codex --critic gemini "Refactor the order-processing pipeline for idempotency"
+/deep-plan --architect codex --critic gemini "Refactor the order-processing pipeline for idempotency"
 ```
 
 ### Max-iteration override
 ```
-/consensus-plan --max-iter 3 "Add rate limiting to the public API"
+/deep-plan --max-iter 3 "Add rate limiting to the public API"
 ```
 
 ### Downstream handoff (via `/autopilot`)
 ```
 /autopilot "Implement two-factor auth"
   → Phase 0: spec / deep-design
-  → Phase 1: /consensus-plan (called internally)
+  → Phase 1: /deep-plan (called internally)
   → Phase 2: /team
   → Phase 3: deep-qa --diff
   → Phase 4: 3 independent judges

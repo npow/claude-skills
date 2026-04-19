@@ -2,7 +2,7 @@
 
 Shared reference for skills that run parallel critics + independent judges on an artifact and need to prevent coordinator rationalization, judge rubber-stamping, or filed-but-useless weaknesses.
 
-**Imported by:** `deep-qa`, `proposal-reviewer`. Candidates for future adoption: `deep-design`, `deep-debug`, `consensus-plan`.
+**Imported by:** `deep-qa`, `proposal-reviewer`. Candidates for future adoption: `deep-design`, `deep-debug`, `deep-plan`.
 
 **Scope:** the four structural mechanisms that make critic output adversarial without drifting into inflation or nitpicking. These are structural — the mechanisms close specific rationalization loopholes, not just state rules.
 

@@ -37,7 +37,6 @@ debug-run
 google-workspace-setup/client_secrets.json
 
 # Netflix-internal skills hosted separately at github.netflix.net/npow/claude-skills
-# Matched without trailing slash so symlinks are also ignored.
 mako-gpu-status
 upload-presentation
 
@@ -46,3 +45,6 @@ upload-presentation
 
 # Google Workspace skills — kept private
 google-*
+
+# Project CLAUDE.md — kept local, not checked into public repo
+CLAUDE.md

@@ -5,7 +5,7 @@ Implement all modules via delegation to `/team`. Ship-It handles scaffolding and
 ## Prerequisites
 
 - SPEC.md approved by user (Phase 1 gate passed)
-- DESIGN.md written and `/consensus-plan` returned `consensus_reached_at_iter_N` (Phase 2 gate passed)
+- DESIGN.md written and `/deep-plan` returned `consensus_reached_at_iter_N` (Phase 2 gate passed)
 - `types.ts` frozen (immutable for Phase 3)
 
 ## Process
@@ -19,7 +19,7 @@ Coordinator runs these steps (mechanical, no evaluation):
 3. Write `tsconfig.json` (or equivalent config).
 4. Run `npm install` (or `pip install -e ".[dev]"`) in the background. Wait for success.
 5. Confirm `types.ts` is present at the canonical path from Phase 2. DO NOT regenerate it — it is frozen.
-6. Verify the skeleton compiles: `npx tsc --noEmit` should pass. If it doesn't, the types.ts is broken; re-open Phase 2 via `/consensus-plan` — do NOT patch types.ts in Phase 3.
+6. Verify the skeleton compiles: `npx tsc --noEmit` should pass. If it doesn't, the types.ts is broken; re-open Phase 2 via `/deep-plan` — do NOT patch types.ts in Phase 3.
 
 ### Step 2: Delegate to `/team`
 

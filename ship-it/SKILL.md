@@ -12,7 +12,7 @@ Transforms a product idea into a shippable project through a 6-phase pipeline wi
 Non-negotiable contracts:
 
 - **Iron-law phase gate between every phase.** A phase may only advance when its evidence files (listed in `STATE.md`) exist on disk, contain required `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers where applicable, and carry machine-parseable judge/critic verdicts. Missing or unparseable evidence → phase stays `blocked`; coordinator may not claim the phase complete.
-- **Delegation to the orchestration suite.** Phase 2 Design delegates to `/consensus-plan` for plan consensus. Phase 3 Build delegates to `/team` for the staged executor pipeline with TDD preamble and two-stage review. Phase 4 Test delegates to `deep-qa --diff` for defect audit. The coordinator does not re-implement planner, executor, or QA logic inline.
+- **Delegation to the orchestration suite.** Phase 2 Design delegates to `/deep-plan` for plan consensus. Phase 3 Build delegates to `/team` for the staged executor pipeline with TDD preamble and two-stage review. Phase 4 Test delegates to `deep-qa --diff` for defect audit. The coordinator does not re-implement planner, executor, or QA logic inline.
 - **Two-stage review on every source modification.** All code emitted during Phase 3 Build passes through spec-compliance review then independent code-quality review, via `/team`'s mandatory two-stage gate. Ship-It does not patch code directly.
 - **State written before any delegation.** `spawn_time_iso` written to `state.json` before invoking each delegate skill. Delegation failure is recorded as `delegation_failed`, not silently retried.
 - **No coordinator self-approval at any phase boundary.** The coordinator reads structured fields from evidence files. Approval judgments come from independent agents; the coordinator's role is file aggregation and state transitions only.
@@ -22,7 +22,7 @@ Non-negotiable contracts:
 
 ## Philosophy
 
-Ship-It is a full-lifecycle composition operator. It preserves the familiar Spec → Design → Build → Test → Integrate → Package phase structure, but every load-bearing judgment is delegated: plan consensus to `/consensus-plan`, execution to `/team`, defect audit to `deep-qa`, defect-fix to `/loop-until-done`, final validation to three independent judges. The coordinator's value is (1) ambiguity-sensitive spec creation, (2) iron-law gates between phases, (3) clean-install reproducibility verification, (4) three-judge shipping validation, (5) honest completion reporting.
+Ship-It is a full-lifecycle composition operator. It preserves the familiar Spec → Design → Build → Test → Integrate → Package phase structure, but every load-bearing judgment is delegated: plan consensus to `/deep-plan`, execution to `/team`, defect audit to `deep-qa`, defect-fix to `/loop-until-done`, final validation to three independent judges. The coordinator's value is (1) ambiguity-sensitive spec creation, (2) iron-law gates between phases, (3) clean-install reproducibility verification, (4) three-judge shipping validation, (5) honest completion reporting.
 
 ## Workflow
 
@@ -37,19 +37,19 @@ Ship-It is a full-lifecycle composition operator. It preserves the familiar Spec
    - `ship-it-{run_id}/spec/phase-gate.md` — iron-law gate verdict
 5. **Iron-law gate (Phase 1 → Phase 2):** fresh `phase-gate` subagent reads evidence files, verifies presence + parseability + freshness, emits `ADVANCE: true|false` per the structured block in [FORMAT.md](FORMAT.md).
 
-### Phase 2 — Design (consensus-plan delegation)
+### Phase 2 — Design (deep-plan delegation)
 
 1. Update state: `current_phase: "design"`. Write `spawn_time_iso`.
-2. Invoke `/consensus-plan` with the spec at `ship-it-{run_id}/spec/SPEC.md`. `/consensus-plan` internally runs Planner → Architect → Critic independent agents with falsifiability-gated rejection. Ship-It does not re-implement any of that logic.
+2. Invoke `/deep-plan` with the spec at `ship-it-{run_id}/spec/SPEC.md`. `/deep-plan` internally runs Planner → Architect → Critic independent agents with falsifiability-gated rejection. Ship-It does not re-implement any of that logic.
 3. Write `DESIGN.md` in the project root from the consensus plan output, adapting to the Ship-It design schema in [DESIGN-PHASE.md](DESIGN-PHASE.md). The design file structure is Ship-It's responsibility; the architectural content is the consensus plan's output.
 4. Write `types.ts` (or equivalent) containing all shared types from DESIGN.md. This file is immutable for Phase 3 coder subagents.
 5. Phase 2 evidence files:
    - `ship-it-{run_id}/design/DESIGN.md` — canonical copy
-   - `ship-it-{run_id}/design/consensus-termination.md` — `/consensus-plan`'s termination label
-   - `ship-it-{run_id}/design/adr.md` — ADR from `/consensus-plan`
+   - `ship-it-{run_id}/design/consensus-termination.md` — `/deep-plan`'s termination label
+   - `ship-it-{run_id}/design/adr.md` — ADR from `/deep-plan`
    - `ship-it-{run_id}/design/phase-gate.md`
-6. If `/consensus-plan` returns `max_iter_no_consensus` or `user_stopped`: phase gate reports `ADVANCE: false`. Ship-It terminates as `blocked_at_phase_2`.
-7. **Degraded-mode fallback** (when `/consensus-plan` unavailable): inline critic subagent per [INTEGRATION.md](INTEGRATION.md). Evidence files tagged `VERIFICATION_MODE: degraded`.
+6. If `/deep-plan` returns `max_iter_no_consensus` or `user_stopped`: phase gate reports `ADVANCE: false`. Ship-It terminates as `blocked_at_phase_2`.
+7. **Degraded-mode fallback** (when `/deep-plan` unavailable): inline critic subagent per [INTEGRATION.md](INTEGRATION.md). Evidence files tagged `VERIFICATION_MODE: degraded`.
 8. Iron-law gate (Phase 2 → Phase 3).
 
 ### Phase 3 — Build (team delegation)
@@ -228,7 +228,7 @@ Calibration:
 - [ ] `ship-it-{run_id}/state.json` is valid JSON after every phase transition; `generation` monotonically increasing
 - [ ] Every phase produced its evidence files this session (mtime after `state.json.created_at`)
 - [ ] Every phase has a `phase-gate.md` with `ADVANCE: true` before advancing
-- [ ] Phase 2 did NOT re-implement planner/architect/critic logic inline — delegated to `/consensus-plan` (or explicitly tagged degraded)
+- [ ] Phase 2 did NOT re-implement planner/architect/critic logic inline — delegated to `/deep-plan` (or explicitly tagged degraded)
 - [ ] Phase 3 did NOT re-implement executor/verifier logic inline — delegated to `/team` (or explicitly tagged degraded)
 - [ ] Phase 4 ran `deep-qa --diff` for audit, NOT a generic test-loop
 - [ ] Phase 4 sub-phase 4b invoked `/loop-until-done` only if critical/major defects OR failing tests
@@ -241,7 +241,7 @@ Calibration:
 - [ ] `complete` label only used when all 6 phases produced evidence this session AND every judge returned approved/conditional
 - [ ] No evidence was copied forward in memory — all agents read from disk
 - [ ] `delegation_failed` recorded on spawn error, not silently retried
-- [ ] Degraded-mode tags present in evidence files when `/consensus-plan`, `/team`, `deep-qa`, or `/loop-until-done` unavailable
+- [ ] Degraded-mode tags present in evidence files when `/deep-plan`, `/team`, `deep-qa`, or `/loop-until-done` unavailable
 - [ ] Completion report lists unverified items explicitly (not silently omitted)
 - [ ] No hardcoded secrets/keys in source files (verified by security judge; not coordinator-claimed)
 
@@ -267,7 +267,7 @@ Ctrl-C at any phase is safe. State is written before every delegation; resume pr
 | File | Contents |
 |------|----------|
 | [SPEC-PHASE.md](SPEC-PHASE.md) | How to write the product spec from an idea |
-| [DESIGN-PHASE.md](DESIGN-PHASE.md) | Design structure and types.ts pattern (consensus-plan delegation details) |
+| [DESIGN-PHASE.md](DESIGN-PHASE.md) | Design structure and types.ts pattern (deep-plan delegation details) |
 | [BUILD-PHASE.md](BUILD-PHASE.md) | Build phase scaffolding and delegation to `/team` |
 | [TEST-PHASE.md](TEST-PHASE.md) | Test requirements and delegation to `deep-qa` + `/loop-until-done` |
 | [INTEGRATE-PHASE.md](INTEGRATE-PHASE.md) | Integration gate and fix-delegation pattern |

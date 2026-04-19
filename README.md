@@ -1,3 +1,7 @@
+---
+description: Documentation index for claude-skills repository (not an invocable skill)
+---
+
 # claude-skills
 
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE) [![Docs](https://img.shields.io/badge/docs-mintlify-18a34a?style=flat-square)](https://mintlify.com/npow/claude-skills)
@@ -41,7 +45,7 @@ Multi-agent coordination with file-based state, independent judges, and iron-law
 - **`/parallel-exec`** — fire N subagents in parallel with tier routing and mandatory verification commands. Independent convergence checker detects cross-task conflicts.
 - **`/team`** — N coordinated agents on a staged pipeline (plan → prd → exec → verify → fix). Two-stage verify via `/deep-qa --diff` and code-quality review.
 - **`/loop-until-done`** — PRD-driven persistence loop. Keeps working until every acceptance criterion has fresh verified evidence.
-- **`/consensus-plan`** — Planner → Architect → Critic loop. All three are fully independent agents. Critic rejections require falsifiable failure scenarios.
+- **`/deep-plan`** — Planner → Architect → Critic loop. All three are fully independent agents. Critic rejections require falsifiable failure scenarios.
 - **`/autopilot`** — idea through five phases (expand → plan → exec → qa → validate). Delegates each phase to the right specialist. Three independent judges at the end.
 
 ### Quality & Audit
@@ -94,7 +98,7 @@ ln -s "$(pwd)/claude-skills" ~/.claude/skills
 
 ## Design
 
-All skills use file-based state, independent judges for any load-bearing evaluation, iron-law verification gates, structured outputs, explicit termination labels, and anti-rationalization counter-tables. The orchestration suite composes bottom-up: `/parallel-exec` → `/team` / `/loop-until-done` / `/consensus-plan` → `/autopilot`. Full spec at [`docs/specs/2026-04-16-orchestration-suite-design.md`](docs/specs/2026-04-16-orchestration-suite-design.md).
+All skills use file-based state, independent judges for any load-bearing evaluation, iron-law verification gates, structured outputs, explicit termination labels, and anti-rationalization counter-tables. The orchestration suite composes bottom-up: `/parallel-exec` → `/team` / `/loop-until-done` / `/deep-plan` → `/autopilot`. Full spec at [`docs/specs/2026-04-16-orchestration-suite-design.md`](docs/specs/2026-04-16-orchestration-suite-design.md).
 
 ## Contributing
 

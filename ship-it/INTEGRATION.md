@@ -7,8 +7,8 @@ Ship-It is a composition operator. It delegates load-bearing work to the orchest
 At Phase 1 initialization (before any delegation), probe for each integration. Write results to `state.integrations`.
 
 ```
-consensus_plan_available = exists(~/.claude/skills/consensus-plan/SKILL.md)
-                            OR exists(~/.claude/plugins/.../skills/consensus-plan/SKILL.md)
+consensus_plan_available = exists(~/.claude/skills/deep-plan/SKILL.md)
+                            OR exists(~/.claude/plugins/.../skills/deep-plan/SKILL.md)
 team_available           = exists(~/.claude/skills/team/SKILL.md)
 deep_qa_available        = exists(~/.claude/skills/deep-qa/SKILL.md)
 loop_until_done_available= exists(~/.claude/skills/loop-until-done/SKILL.md)
@@ -16,15 +16,15 @@ loop_until_done_available= exists(~/.claude/skills/loop-until-done/SKILL.md)
 
 Record each flag. If any required integration is missing, set `degraded_mode_active: true` and populate `degraded_mode_reasons[]`. Surface in the Phase 6 completion report with explicit tags.
 
-## Phase 2 — Design (delegated to `/consensus-plan`)
+## Phase 2 — Design (delegated to `/deep-plan`)
 
 ### Invocation contract
 
 ```
-Spawn Skill("consensus-plan") via Skill tool with:
+Spawn Skill("deep-plan") via Skill tool with:
   Arguments: "--spec ship-it-{run_id}/spec/SPEC.md --output ship-it-{run_id}/design/"
 After completion:
-  Copy the consensus plan output to ship-it-{run_id}/design/consensus-plan.md
+  Copy the consensus plan output to ship-it-{run_id}/design/deep-plan.md
   Adapt it into ship-it-{run_id}/design/DESIGN.md using the Ship-It design schema
     (file tree, shared types, modules, data flow, deps, security)
   Copy adr.md verbatim
@@ -33,13 +33,13 @@ After completion:
   Accept Phase 2 only if label == consensus_reached_at_iter_N
 ```
 
-The Ship-It design schema is a refinement — the file tree and types.ts pattern are Ship-It concerns. The architectural content (module boundaries, API contracts, risk analysis) comes from `/consensus-plan`. The coordinator does NOT author architectural content; it reshapes the consensus output into the Ship-It DESIGN.md template.
+The Ship-It design schema is a refinement — the file tree and types.ts pattern are Ship-It concerns. The architectural content (module boundaries, API contracts, risk analysis) comes from `/deep-plan`. The coordinator does NOT author architectural content; it reshapes the consensus output into the Ship-It DESIGN.md template.
 
-### Degraded-mode fallback (no `/consensus-plan`)
+### Degraded-mode fallback (no `/deep-plan`)
 
 Run an inline critic subagent with prompt:
 ```
-"Read SPEC.md. Produce DESIGN.md covering: file tree, shared types (types.ts), per-module responsibility + public API + dependencies + error handling, data flow, external dependencies table, security considerations. Then review your own DESIGN.md and list missing error handling, API inconsistencies, circular dependencies, unclear module boundaries, missing data validation. Revise once. Tag output with VERIFICATION_MODE: degraded (no /consensus-plan installed). Max 2 revisions; if still flagged, surface issues in DESIGN.md and halt."
+"Read SPEC.md. Produce DESIGN.md covering: file tree, shared types (types.ts), per-module responsibility + public API + dependencies + error handling, data flow, external dependencies table, security considerations. Then review your own DESIGN.md and list missing error handling, API inconsistencies, circular dependencies, unclear module boundaries, missing data validation. Revise once. Tag output with VERIFICATION_MODE: degraded (no /deep-plan installed). Max 2 revisions; if still flagged, surface issues in DESIGN.md and halt."
 ```
 
 Output quality is lower (single-agent, no independent critic, no falsifiability gate). Phase 6 surfaces the degradation tag.
@@ -133,7 +133,7 @@ None for the three judges themselves — they are always spawned fresh. If `/loo
 
 | Phase | Integration | Required | Degrades To |
 |---|---|---|---|
-| 2 | `/consensus-plan` | Recommended by default | Inline critic subagent (single-pass + self-review) |
+| 2 | `/deep-plan` | Recommended by default | Inline critic subagent (single-pass + self-review) |
 | 3 | `/team` | **Hard required** by default | Refuse unless `--skip-team`; if skipped, inline coder+reviewer per module (lossy) |
 | 4a | `deep-qa` | Recommended by default | Single code-reviewer subagent |
 | 4b | `/loop-until-done` | Required when defects/failing tests | `/team` team-fix OR skip-with-blocked-label |
@@ -150,7 +150,7 @@ Every degraded fallback writes a line to `ship-it-{run_id}/degraded-mode.log` at
 ## Verification Mode: DEGRADED
 
 The following integrations were unavailable; fallbacks were used:
-- /consensus-plan: not installed — Phase 2 ran inline critic (single-pass + self-review).
+- /deep-plan: not installed — Phase 2 ran inline critic (single-pass + self-review).
 - deep-qa: not installed — Phase 4a ran single-pass code-reviewer fallback.
 
 Output quality is measurably lower than the fully-integrated path. Consider installing the missing skills and re-running critical work.
@@ -162,7 +162,7 @@ Never silently substitute. The tag is the contract.
 
 Ship-It composes the orchestration suite:
 
-- `/consensus-plan` — Phase 2 exclusively
+- `/deep-plan` — Phase 2 exclusively
 - `/team` — Phase 3 exclusively (indirectly uses `/parallel-exec`, `deep-qa`, `/loop-until-done` internally)
 - `deep-qa` — Phase 4a
 - `/loop-until-done` — Phase 4b, Phase 5 fixes, Phase 6 re-validation fixes
@@ -173,7 +173,7 @@ Bugs in any lower-level skill surface in Ship-It output via the completion repor
 ## When NOT to Use Ship-It
 
 - User has an existing codebase and wants a single-feature change → use `/team` directly with a tight plan
-- User wants interactive control between phases → use `/consensus-plan` + `/team` manually
+- User wants interactive control between phases → use `/deep-plan` + `/team` manually
 - User's idea is still vague and needs ambiguity disambiguation → use `/autopilot` (Ship-It assumes Phase 1 spec is authorable; `/autopilot` has Phase 0 ambiguity routing)
 - Task is a one-file fix → delegate to a coder subagent directly
 - Project is non-code (docs, designs, analysis) → use artifact-appropriate skills

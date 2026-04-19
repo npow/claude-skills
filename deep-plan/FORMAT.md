@@ -1,6 +1,6 @@
 # Output Formats
 
-All files listed are absolute paths under `consensus-plan-{run_id}/`. Coordinator reads structured blocks only; all free-text is advisory.
+All files listed are absolute paths under `deep-plan-{run_id}/`. Coordinator reads structured blocks only; all free-text is advisory.
 
 ## Planner Output: `iterations/iter-{N}/plan.md`
 

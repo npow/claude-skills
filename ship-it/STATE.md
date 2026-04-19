@@ -34,7 +34,7 @@
     },
     "design": {
       "status": "pending",
-      "delegate": "consensus-plan",
+      "delegate": "deep-plan",
       "spawn_time_iso": null,
       "completed_at": null,
       "evidence_files": [
@@ -251,9 +251,9 @@ The iron-law gate validates these files exist, contain required markers, and hav
 
 | File | Required? | Producer |
 |---|---|---|
-| `design/DESIGN.md` | yes | `/consensus-plan` output adapted by coordinator |
-| `design/adr.md` | yes | `/consensus-plan` |
-| `design/consensus-termination.md` | yes | `/consensus-plan` |
+| `design/DESIGN.md` | yes | `/deep-plan` output adapted by coordinator |
+| `design/adr.md` | yes | `/deep-plan` |
+| `design/consensus-termination.md` | yes | `/deep-plan` |
 | `design/phase-gate.md` | yes | fresh phase-gate subagent |
 
 Plus: `types.ts` (or equivalent) written to project root. Immutability enforced via `invariants.types_ts_immutable_after_design`.

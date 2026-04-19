@@ -10,7 +10,7 @@ The eight cross-cutting rules apply to every orchestration skill in this suite. 
 
 Every load-bearing judgment in ship-it is produced by a fresh independent subagent reading from disk:
 - **Phase 1 user approval** — the user, not the coordinator. Coordinator records the response verbatim.
-- **Phase 2 plan consensus** — `/consensus-plan` independent Planner/Architect/Critic. Coordinator reads `CONSENSUS_LABEL` only.
+- **Phase 2 plan consensus** — `/deep-plan` independent Planner/Architect/Critic. Coordinator reads `CONSENSUS_LABEL` only.
 - **Phase 3 code review** — `/team`'s two-stage reviewer pipeline (spec-compliance → code-quality). Coordinator never reviews code.
 - **Phase 4 defect audit** — `deep-qa`. Coordinator reads defect registry only.
 - **Phase 5 integration fix decisions** — `/loop-until-done` per failing smoke test. Coordinator never hand-patches integration bugs.
@@ -73,7 +73,7 @@ Ship-It-specific: the completion report has its own structured block. `TERMINATI
 ### 7. All data passed via files
 
 Phase delegates receive paths, not content. Examples:
-- `/consensus-plan --spec ship-it-{run_id}/spec/SPEC.md` — spec content read from disk
+- `/deep-plan --spec ship-it-{run_id}/spec/SPEC.md` — spec content read from disk
 - `/team --plan ship-it-{run_id}/design/DESIGN.md --output ship-it-{run_id}/build/` — plan read from disk
 - `deep-qa --diff ship-it-{run_id}/build/modified-files.txt` — file list read from disk
 - Judges receive `judge-input.md` containing paths; each judge reads contents itself
@@ -107,14 +107,14 @@ When the coordinator notices it is starting to think any of these thoughts, stop
 | "Phase 6 judge said rejected but I think they missed context — I'll override" | Overriding a judge is coordinator self-approval. Fix the context (e.g., add a conditional requirement), re-spawn a fresh judge, let the new verdict decide. 2-round cap. |
 | "The security judge always finds something — one low-severity finding is fine to dismiss" | Aggregation is mechanical. A low-severity finding that maps to `conditional` does not block; one that maps to `rejected` does. Let the structured output decide, not the coordinator's tolerance. |
 | "The coordinator can aggregate the three judge verdicts — that's just counting" | True — mechanical aggregation is allowed. But the coordinator may NOT add rationale ("all three approved because the code is clean"). Apply the table in FORMAT.md verbatim; no commentary. |
-| "types.ts needs a quick tweak during build — it's still early" | `types.ts` is immutable after Phase 2 ends. Type changes mid-build cause integration failures that appear later as mysterious build errors. If the type is wrong, re-open Phase 2 via `/consensus-plan`; do not patch during Phase 3. |
+| "types.ts needs a quick tweak during build — it's still early" | `types.ts` is immutable after Phase 2 ends. Type changes mid-build cause integration failures that appear later as mysterious build errors. If the type is wrong, re-open Phase 2 via `/deep-plan`; do not patch during Phase 3. |
 | "The clean-install test failed with a transient network error — let me mark it passed" | Transient ≠ absent. Re-run the clean-install until it passes deterministically OR investigate the flakiness. Never paper over a failed clean-install; reproducibility is the shipping gate. |
 | "Phase 5 smoke test failed but the unit tests all pass — this is fine" | Smoke tests exist because unit-passing integration-failing is the classic ship-it bug. Smoke failure → fix via `/loop-until-done`. Not optional. |
 | "I already read the spec earlier in this session — no need to re-read for Phase 6" | Rule 7 / Rule 5 combined: every agent reads from disk fresh. Prior reads are stale. Judges read the judge-input paths themselves. |
 | "We're past budget — let me skip Phase 6 to deliver something" | Skipping Phase 6 is not an option. Budget-exhausted mid-run produces `budget_exhausted` label with honest reporting. Half-validated code shipped as `complete` is worse than nothing — misrepresents the work. |
 | "The completion report says `unverified_count > 0` but the items are minor — I'll drop them" | Minor or not, `UNVERIFIED_COUNT > 0` forces label `partial_with_accepted_tradeoffs`. User must see the unverified list. Dropping items is coordinator evaluation. |
 | "Re-validation round 2 rejected; let me try a third round" | Max 2 re-validation rounds. Round 3 is forbidden. After 2 rounds, `blocked_at_phase_6` is the honest label. |
-| "Consensus plan hit `max_iter_no_consensus` — I'll patch the plan and continue" | Coordinator patching a plan is authoring Phase 2 output — forbidden. Re-invoke `/consensus-plan` with tighter scope, or terminate as `blocked_at_phase_2`. |
+| "Consensus plan hit `max_iter_no_consensus` — I'll patch the plan and continue" | Coordinator patching a plan is authoring Phase 2 output — forbidden. Re-invoke `/deep-plan` with tighter scope, or terminate as `blocked_at_phase_2`. |
 | "The TODO is a known limitation, not a blocker" | If the TODO is intentional, annotate it in-line so the grep-scan finds it AND the comment explains why. Then `stub-scan.txt` reports it as `ANNOTATED_INTENTIONAL`, not `UNANNOTATED`. Annotation is evidence; "known to me" is not. |
 | "Git init is optional for this project" | Phase 6 evidence requires an initial commit. No commit → no audit trail → cannot establish what shipped. Commit always; push only on explicit user request. |
 

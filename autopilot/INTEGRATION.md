@@ -11,7 +11,7 @@ deep_interview_available = exists(~/.claude/plugins/.../skills/deep-interview/SK
                             OR exists(~/.claude/skills/deep-interview/SKILL.md)
 spec_available           = exists(~/.claude/skills/spec/SKILL.md)
 deep_design_available    = exists(~/.claude/skills/deep-design/SKILL.md)
-consensus_plan_available = exists(~/.claude/skills/consensus-plan/SKILL.md)
+consensus_plan_available = exists(~/.claude/skills/deep-plan/SKILL.md)
 team_available           = exists(~/.claude/skills/team/SKILL.md)
 deep_qa_available        = exists(~/.claude/skills/deep-qa/SKILL.md)
 loop_until_done_available= exists(~/.claude/skills/loop-until-done/SKILL.md)
@@ -56,26 +56,26 @@ Spawn an `architect` agent (opus) with the prompt:
 
 Output quality is lower (single-pass, no adversarial stress-test, no ambiguity gate). Phase 5 surfaces the degradation tag.
 
-## Phase 1 — Plan (delegated to `/consensus-plan`)
+## Phase 1 — Plan (delegated to `/deep-plan`)
 
-**Always required** for autopilot runs. If `/consensus-plan` isn't installed, autopilot refuses to run and prompts the user to install it or use `--skip-consensus` (degraded).
+**Always required** for autopilot runs. If `/deep-plan` isn't installed, autopilot refuses to run and prompts the user to install it or use `--skip-consensus` (degraded).
 
 **Invocation contract:**
 
 ```
-Spawn Skill("consensus-plan") via Skill tool with:
+Spawn Skill("deep-plan") via Skill tool with:
   Argument: "--direct (spec at autopilot-{run_id}/expand/spec.md)"
-  Note: --direct flag skips consensus-plan's interview phase because
+  Note: --direct flag skips deep-plan's interview phase because
         Phase 0 already did the requirements gathering.
 After completion:
-  Copy .omc/plans/ralplan-*.md → autopilot-{run_id}/plan/consensus-plan.md
+  Copy .omc/plans/ralplan-*.md → autopilot-{run_id}/plan/deep-plan.md
   Parse trailing labels for consensus_reached_at_iter_N | max_iter_no_consensus | user_stopped
   Reject if label != consensus_reached_at_iter_N (Phase 1 gate)
 ```
 
-**Degraded-mode fallback (no `/consensus-plan`):**
+**Degraded-mode fallback (no `/deep-plan`):**
 
-Spawn 3 agents sequentially (Planner → Architect → Critic) with fixed prompts modeled on `/consensus-plan`'s contract. Accept if the Critic's structured output has `VERDICT|APPROVE`. Reject and halt Phase 1 otherwise. Surface `VERIFICATION_MODE: degraded (consensus-plan not installed)` in Phase 5.
+Spawn 3 agents sequentially (Planner → Architect → Critic) with fixed prompts modeled on `/deep-plan`'s contract. Accept if the Critic's structured output has `VERDICT|APPROVE`. Reject and halt Phase 1 otherwise. Surface `VERIFICATION_MODE: degraded (deep-plan not installed)` in Phase 5.
 
 ## Phase 2 — Exec (delegated to `/team`)
 
@@ -85,7 +85,7 @@ Spawn 3 agents sequentially (Planner → Architect → Critic) with fixed prompt
 
 ```
 Spawn Skill("team") via Skill tool with:
-  Argument: "auto (plan at autopilot-{run_id}/plan/consensus-plan.md)"
+  Argument: "auto (plan at autopilot-{run_id}/plan/deep-plan.md)"
 After completion:
   Copy team-{run_id}/SUMMARY.md → autopilot-{run_id}/exec/team-summary.md
   Copy team-{run_id}/state.json  → autopilot-{run_id}/exec/team-state.json
@@ -166,7 +166,7 @@ Fall back to `/team` team-fix stage (inline fix loop bounded by max_fix_loops=3)
 Spawn Task(subagent_type: general-purpose, model: opus) with:
   Input files:
     - autopilot-{run_id}/expand/spec.md
-    - autopilot-{run_id}/plan/consensus-plan.md
+    - autopilot-{run_id}/plan/deep-plan.md
     - autopilot-{run_id}/exec/team-diff.patch
   Output file:
     - autopilot-{run_id}/validate/correctness-verdict.md
@@ -238,7 +238,7 @@ After report written:
 | 0 | `deep-interview` | Optional (routing preference on high ambiguity) | `/spec` or `deep-design` |
 | 0 | `/spec` | Optional (fallback on medium ambiguity) | `deep-design` or inline architect agent |
 | 0 | `deep-design` | Optional (preferred on low ambiguity) | `/spec` or inline architect agent |
-| 1 | `/consensus-plan` | Required by default | 3-agent inline sequence (degraded) |
+| 1 | `/deep-plan` | Required by default | 3-agent inline sequence (degraded) |
 | 2 | `/team` | **Hard required** — refuses to run if missing | n/a (halt with explicit error) |
 | 3a | `deep-qa` | Required by default | single-pass `code-reviewer` agent |
 | 3b | `/loop-until-done` | Required when defects found | `/team` team-fix or skip-with-blocked-label |
@@ -266,7 +266,7 @@ Never silently substitute. The tag is the contract.
 
 `/autopilot` composes the full orchestration suite. Direct dependencies:
 
-- `/consensus-plan` — Phase 1 exclusively
+- `/deep-plan` — Phase 1 exclusively
 - `/team` — Phase 2 exclusively
 - `/loop-until-done` — Phase 3b when defects found
 - `/parallel-exec` — not directly invoked; `/team` uses it internally for team-exec fanout
@@ -276,7 +276,7 @@ The suite is designed to be composable: `/autopilot` dogfoods the whole stack. B
 ## When NOT to Use Autopilot
 
 - User has a detailed spec and plan already → skip Phase 0+1, invoke `/team` directly
-- User wants interactive control → use `/consensus-plan --interactive` then `/team`
+- User wants interactive control → use `/deep-plan --interactive` then `/team`
 - Task is a single-file fix → delegate directly to an executor agent
 - Task needs human review gates between phases → autopilot is intentionally non-interactive; use `/team ralph` for a gated persistence loop
 

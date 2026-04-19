@@ -64,13 +64,13 @@ In standalone mode, the convergence-checker pass is the complete quality gate. C
 
 ### With `deep-design`
 
-Not directly integrated. `/parallel-exec` is an execution engine; `deep-design` is a design-critique engine. If a caller (e.g., `/autopilot` Phase 1 via `/consensus-plan`) used `deep-design` to stress-test the plan before dispatch, that happens upstream of `/parallel-exec`.
+Not directly integrated. `/parallel-exec` is an execution engine; `deep-design` is a design-critique engine. If a caller (e.g., `/autopilot` Phase 1 via `/deep-plan`) used `deep-design` to stress-test the plan before dispatch, that happens upstream of `/parallel-exec`.
 
 ---
 
-### With `/consensus-plan`
+### With `/deep-plan`
 
-Not directly integrated. `/consensus-plan` produces an ADR that can then be decomposed into `/parallel-exec` task specs (typically by `/team`'s `team-prd` stage). The decomposition preserves acceptance criteria and verification commands from the ADR so `/parallel-exec` receives specs with falsifiable verification intact.
+Not directly integrated. `/deep-plan` produces an ADR that can then be decomposed into `/parallel-exec` task specs (typically by `/team`'s `team-prd` stage). The decomposition preserves acceptance criteria and verification commands from the ADR so `/parallel-exec` receives specs with falsifiable verification intact.
 
 ---
 
@@ -100,7 +100,7 @@ Not directly integrated. Different failure modes: `/parallel-exec` fans N indepe
 
 Explicit non-goals so callers know where to route work:
 
-- **Does not plan.** Task specs must be provided. If the user has an idea and needs decomposition into tasks, route to `/consensus-plan` first.
+- **Does not plan.** Task specs must be provided. If the user has an idea and needs decomposition into tasks, route to `/deep-plan` first.
 - **Does not design.** If the batch is experimental and needs adversarial pressure before execution, route to `deep-design` first.
 - **Does not loop.** If tasks fail and must be retried until success, route to `/loop-until-done`. `/parallel-exec` runs one pass and reports evidence.
 - **Does not fix.** If the convergence checker surfaces failures, `/parallel-exec` reports them; it does not spawn fix tasks. Looping back is the caller's responsibility.

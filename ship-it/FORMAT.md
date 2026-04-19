@@ -80,18 +80,18 @@ Parser rules:
 
 ### `design/DESIGN.md`
 
-Structure defined in [DESIGN-PHASE.md](DESIGN-PHASE.md). Produced from `/consensus-plan` output; Ship-It writes it in the canonical shape (File Tree, Shared Types, Module sections, Data Flow, External Dependencies, Security Considerations).
+Structure defined in [DESIGN-PHASE.md](DESIGN-PHASE.md). Produced from `/deep-plan` output; Ship-It writes it in the canonical shape (File Tree, Shared Types, Module sections, Data Flow, External Dependencies, Security Considerations).
 
 ### `design/adr.md`
 
-Inherited from `/consensus-plan`. Ship-It copies verbatim; requires the ADR structure (context, decision, consequences).
+Inherited from `/deep-plan`. Ship-It copies verbatim; requires the ADR structure (context, decision, consequences).
 
 ### `design/consensus-termination.md`
 
 ```markdown
 # Consensus Termination
 
-**Delegate:** /consensus-plan
+**Delegate:** /deep-plan
 **Iterations:** {n}
 
 STRUCTURED_OUTPUT_START

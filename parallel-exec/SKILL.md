@@ -1,6 +1,6 @@
 ---
 name: parallel-exec
-description: Use when the user has multiple independent tasks that can be executed concurrently and wants tier-routed parallel fanout with per-task verification. Fires N subagents in parallel with explicit dependency handling, each carrying a mandatory verification command, then runs an independent convergence-checker agent to detect conflicts, flaky tasks, and unverified claims before any aggregate completion is reported.
+description: Use when running multiple independent tasks in parallel with per-task verification — batch edits, multi-file refactors, independent subtasks across a codebase, multi-module updates, parallel research, or any fanout work. Trigger phrases include "run these in parallel", "parallel tasks", "fanout", "do these tasks concurrently", "parallel execution", "run all of these at once", "batch these tasks", "execute in parallel", "dispatch in parallel", "multiple subagents", "parallel subagents", "parallelize this work", "run N agents", "concurrent task execution". Fires N subagents in parallel with model-tier routing, mandatory per-task verification, and an independent convergence-checker agent to detect conflicts, flaky tasks, and unverified claims before any aggregate completion is claimed.
 argument-hint: A batch of task specs (JSON array) or a natural-language description of parallel work with per-task verification targets
 ---
 

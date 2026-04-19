@@ -64,7 +64,7 @@ Autopilot-specific: the completion report has its own structured block. `TERMINA
 ### 7. All data passed via files
 
 Phase delegates receive paths, not content. Examples:
-- `/consensus-plan --spec {path}` — spec content read from disk by consensus-plan
+- `/deep-plan --spec {path}` — spec content read from disk by deep-plan
 - `deep-qa --diff {modified-files-path}` — file list read from disk
 - Judges receive `judge-input.md` containing paths; each judge reads the contents itself
 - `/loop-until-done --prd {path}` — PRD JSON read from disk
@@ -95,14 +95,14 @@ When the coordinator notices it is starting to think any of these thoughts, stop
 | "The security judge always finds something — one low-severity finding is fine to dismiss." | The aggregation rule is mechanical. A low-severity finding that translates to `conditional` does not block; one that translates to `rejected` does. Let the structured output decide, not the coordinator's tolerance for the judge. |
 | "The coordinator can aggregate the three verdicts — that's just counting." | True — mechanical aggregation is allowed. But the coordinator may NOT add rationale ("all three approved because the code is clean"). The rule for aggregation: apply the table in FORMAT.md verbatim; no commentary. |
 | "The phase-gate subagent said blocked, but I can see the evidence file exists, so I'll mark it complete." | Evidence existing is necessary but not sufficient. The gate checks parseability and freshness. Trust the gate; re-spawn it if you think it was wrong. |
-| "Consensus plan hit `max_iter_no_consensus` — I'll patch the plan and continue." | Coordinator patching a plan is authoring Phase 1 output — forbidden. Re-invoke `/consensus-plan` with tighter scope, or terminate as `blocked_at_phase_1`. |
+| "Consensus plan hit `max_iter_no_consensus` — I'll patch the plan and continue." | Coordinator patching a plan is authoring Phase 1 output — forbidden. Re-invoke `/deep-plan` with tighter scope, or terminate as `blocked_at_phase_1`. |
 | "The fix loop is blocked on story 3; I'll just implement that story directly." | Phase 3 fix loop runs inside `/loop-until-done`. Coordinator directly implementing a story violates both Rule 3 (two-stage review) and Rule 8 (self-approval). Terminate as `blocked_at_phase_3` or reduce scope in `/loop-until-done`. |
 | "I already read the spec earlier in this session — no need to re-read for Phase 4." | Rule 7 / Rule 5 combined: every agent reads from disk fresh. Prior reads are stale. Judges read the judge-input paths themselves. |
 | "We're past budget — let me skip Phase 4 to deliver something." | Skipping Phase 4 is not an option. Budget-exhausted mid-run produces `budget_exhausted` label with honest reporting. Half-validated code shipped as `complete` is worse than nothing — it misrepresents the work. |
 | "The completion report says `unverified_count > 0` but the items are minor — I'll drop them." | Minor or not, `UNVERIFIED_COUNT > 0` forces label `partial_with_accepted_tradeoffs`. The user must see the unverified list. Dropping items is coordinator evaluation. |
 | "Re-validation round 2 rejected; let me just try a third round." | Max 2 re-validation rounds. Round 3 is forbidden by the rules. After 2 rounds, `blocked_at_phase_4` is the honest label. |
 | "Phase 0 routed to `deep-design` but the user really wanted a quick spec — I'll swap it." | Routing is classifier-decided. Coordinator overriding routing = classifying ambiguity, which is evaluation. If the classifier was wrong, re-invoke the classifier with more context; do not swap the route. |
-| "I can use the OMC autopilot's Phase 0 shortcut — `.omc/plans/ralplan-*.md` exists." | We are not OMC. Autopilot runs the full pipeline. If the user wants to re-use a prior plan, they can invoke `/consensus-plan` directly and pass its output as the spec — but autopilot's Phase 0 still produces an ambiguity verdict + phase gate for audit trail. |
+| "I can use the OMC autopilot's Phase 0 shortcut — `.omc/plans/ralplan-*.md` exists." | We are not OMC. Autopilot runs the full pipeline. If the user wants to re-use a prior plan, they can invoke `/deep-plan` directly and pass its output as the spec — but autopilot's Phase 0 still produces an ambiguity verdict + phase gate for audit trail. |
 
 ---
 

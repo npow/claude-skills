@@ -2,15 +2,15 @@
 
 State is fully file-based. The coordinator is the only writer of `state.json`. Agents read it for reference but never mutate it. Every write increments `generation` for optimistic concurrency; resume relies on on-disk state, never in-memory reconstruction.
 
-## State File: `consensus-plan-{run_id}/state.json`
+## State File: `deep-plan-{run_id}/state.json`
 
 ```json
 {
   "run_id": "20260416-153022",
-  "skill": "consensus-plan",
+  "skill": "deep-plan",
   "generation": 0,
   "created_at": "2026-04-16T15:30:22Z",
-  "task_file": "consensus-plan-{run_id}/task.md",
+  "task_file": "deep-plan-{run_id}/task.md",
   "task_sha256": "sha256-hex-of-task-text",
   "mode": "short | deliberate",
   "flags": {
@@ -29,7 +29,7 @@ State is fully file-based. The coordinator is the only writer of `state.json`. A
         "status": "pending | in_progress | complete | spawn_failed | unparseable | timed_out",
         "spawn_time_iso": "2026-04-16T15:31:05Z",
         "completion_time_iso": null,
-        "plan_path": "consensus-plan-{run_id}/iterations/iter-1/plan.md",
+        "plan_path": "deep-plan-{run_id}/iterations/iter-1/plan.md",
         "structured_output_parsed": false,
         "acceptance_criteria_ids": [],
         "principle_ids": [],
@@ -43,7 +43,7 @@ State is fully file-based. The coordinator is the only writer of `state.json`. A
         "status": "pending | in_progress | complete | spawn_failed | unparseable | timed_out",
         "spawn_time_iso": null,
         "completion_time_iso": null,
-        "verdict_path": "consensus-plan-{run_id}/iterations/iter-1/architect-verdict.md",
+        "verdict_path": "deep-plan-{run_id}/iterations/iter-1/architect-verdict.md",
         "architect_mode": "claude | codex | degraded",
         "verdict": null,
         "concerns": [],
@@ -57,7 +57,7 @@ State is fully file-based. The coordinator is the only writer of `state.json`. A
         "status": "pending | in_progress | complete | spawn_failed | unparseable | timed_out | blocked_architect_not_complete",
         "spawn_time_iso": null,
         "completion_time_iso": null,
-        "verdict_path": "consensus-plan-{run_id}/iterations/iter-1/critic-verdict.md",
+        "verdict_path": "deep-plan-{run_id}/iterations/iter-1/critic-verdict.md",
         "critic_mode": "claude | codex | gemini | degraded",
         "verdict": null,
         "verdict_promoted": false,
@@ -170,14 +170,14 @@ Optimistic concurrency:
 3. Write back with `generation += 1`.
 4. Re-read; if new generation != expected, a concurrent writer existed → log `generation_conflict_detected` and retry the full read-mutate-write cycle.
 
-Since `consensus-plan` is single-coordinator per run, concurrency conflicts should not occur; the counter is a correctness check, not primary synchronization.
+Since `deep-plan` is single-coordinator per run, concurrency conflicts should not occur; the counter is a correctness check, not primary synchronization.
 
 ## Lock File
 
-On startup: write `consensus-plan-{run_id}.lock` with process timestamp. If a lock file <15 minutes old exists with a different process id, print:
+On startup: write `deep-plan-{run_id}.lock` with process timestamp. If a lock file <15 minutes old exists with a different process id, print:
 
 ```
-Another consensus-plan session appears active on this run_id. Continue anyway? [y/N]
+Another deep-plan session appears active on this run_id. Continue anyway? [y/N]
 ```
 
 On clean exit: delete lock file. On unclean exit: stale lock is overwritten after 15 minutes.
@@ -220,7 +220,7 @@ For every agent spawn (Planner, Architect, Critic, ADR Scribe):
 
 ## Resume Protocol
 
-On any invocation whose CWD contains a `consensus-plan-{run_id}/` directory with a `state.json`:
+On any invocation whose CWD contains a `deep-plan-{run_id}/` directory with a `state.json`:
 
 1. Read `state.json`. Validate invariants. If invariant 3 fails (task_sha256 mismatch), halt with `aborted_by_error`.
 2. Determine replay point via `status` field:
@@ -256,7 +256,7 @@ These are informational warnings written to the final plan header, not hard fail
 ```json
 {
   "run_id": "20260416-153022",
-  "skill": "consensus-plan",
+  "skill": "deep-plan",
   "generation": 12,
   "status": "complete",
   "current_iteration": 1,
@@ -273,7 +273,7 @@ These are informational warnings written to the final plan header, not hard fail
     "iteration_at_termination": 1,
     "ts": "2026-04-16T15:42:11Z"
   },
-  "final_plan_path": "consensus-plan-20260416-153022/plan.md",
-  "adr_path": "consensus-plan-20260416-153022/adr.md"
+  "final_plan_path": "deep-plan-20260416-153022/plan.md",
+  "adr_path": "deep-plan-20260416-153022/adr.md"
 }
 ```

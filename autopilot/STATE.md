@@ -42,7 +42,7 @@
     },
     "plan": {
       "status": "pending",
-      "delegate": "consensus-plan",
+      "delegate": "deep-plan",
       "spawn_time_iso": null,
       "completed_at": null,
       "evidence_files": [
@@ -228,9 +228,9 @@ The iron-law gate validates these files exist, contain required markers, and hav
 
 | File | Required? | Producer |
 |---|---|---|
-| `plan/plan.md` | yes | `/consensus-plan` |
-| `plan/adr.md` | yes | `/consensus-plan` |
-| `plan/consensus-termination.md` | yes | `/consensus-plan` |
+| `plan/plan.md` | yes | `/deep-plan` |
+| `plan/adr.md` | yes | `/deep-plan` |
+| `plan/consensus-termination.md` | yes | `/deep-plan` |
 | `plan/phase-gate.md` | yes | fresh phase-gate subagent |
 
 ### Phase 2 — Exec
