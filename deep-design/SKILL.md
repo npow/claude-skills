@@ -21,7 +21,7 @@ All operations use Claude Code primitives. The following contracts are non-negot
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
-**Subagent watchdog:** every `run_in_background=true` spawn (parallel critics, severity judges, rebuttal agents) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=5 min`, `HUNG=20 min` for Sonnet critics; `STALE=3 min`, `HUNG=10 min` for Haiku judges. `TaskOutput` status is not evidence of progress — output-file mtime is.
+**Subagent watchdog:** every `run_in_background=true` spawn (parallel critics, severity judges, rebuttal agents) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=5 min`, `HUNG=20 min` for Sonnet critics; `STALE=3 min`, `HUNG=10 min` for Haiku judges. `TaskOutput` status is not evidence of progress — output-file mtime is. Contract inheritance: `timed_out_heartbeat` joins this skill's per-angle termination vocabulary; `stalled_watchdog` / `hung_killed` join `angles.{id}.status`. A watchdog-killed critique angle is reported as coverage-lost in the final coverage fraction — never silently dropped.
 
 ## Philosophy
 

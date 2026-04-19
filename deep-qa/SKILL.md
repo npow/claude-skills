@@ -30,7 +30,7 @@ Shares deep-design's core execution contracts:
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
-**Subagent watchdog:** every `run_in_background=true` spawn in this skill (severity judges, coordinator summaries, batched pass-2 judges) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A (Monitor tail per spawn) with thresholds `STALE=3 min`, `HUNG=10 min` for Haiku judges and summaries — these are short-running tasks and a 30-min quiet period is always pathological. `TaskOutput` status field is not evidence of progress; output-file mtime is.
+**Subagent watchdog:** every `run_in_background=true` spawn in this skill (severity judges, coordinator summaries, batched pass-2 judges) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A (Monitor tail per spawn) with thresholds `STALE=3 min`, `HUNG=10 min` for Haiku judges and summaries — these are short-running tasks and a 30-min quiet period is always pathological. `TaskOutput` status field is not evidence of progress; output-file mtime is. This contract adds `timed_out_heartbeat` to this skill's termination vocabulary (per-lane watchdog kill) and `stalled_watchdog` / `hung_killed` to per-lane state — see shared doc §"State schema additions" + §"Termination-label addition".
 
 ## Adversarial judging (3 of 4 mechanisms adopted)
 

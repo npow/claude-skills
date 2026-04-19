@@ -20,7 +20,7 @@ Non-negotiable contracts (same spine as `deep-design`, `deep-qa`, `/team`):
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
-**Subagent watchdog:** every `run_in_background=true` spawn (fact-check agents, credibility judges, competitor-research agents) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for research/fact-check agents (web fetches legitimately take time); `STALE=3 min`, `HUNG=10 min` for Haiku judges. `TaskOutput` status is not evidence of progress.
+**Subagent watchdog:** every `run_in_background=true` spawn (fact-check agents, credibility judges, competitor-research agents) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for research/fact-check agents (web fetches legitimately take time); `STALE=3 min`, `HUNG=10 min` for Haiku judges. `TaskOutput` status is not evidence of progress. Contract inheritance: `timed_out_heartbeat` joins this skill's per-claim / per-competitor termination vocabulary; `stalled_watchdog` / `hung_killed` join per-lane state. A watchdog-killed fact-check or competitor-research lane leaves its claims `insufficient_evidence_to_review` at the lane level — never silently marked `VERIFIED`.
 
 ## Adversarial judging (full adoption)
 

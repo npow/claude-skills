@@ -24,7 +24,7 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
-**Subagent watchdog:** every `run_in_background=true` spawn (Planner, Architect, Critic) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` — planning agents can legitimately sit quiet while they think, but a 30-min silence is pathological. `TaskOutput` status is not evidence of progress.
+**Subagent watchdog:** every `run_in_background=true` spawn (Planner, Architect, Critic) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` — planning agents can legitimately sit quiet while they think, but a 30-min silence is pathological. `TaskOutput` status is not evidence of progress. Contract inheritance: `timed_out_heartbeat_<role>` joins this skill's iteration-level termination vocabulary (e.g. `planner_timed_out_heartbeat_at_iter_N`); `stalled_watchdog` / `hung_killed` join per-role state. A watchdog-killed Planner/Architect/Critic pass terminates the iteration honestly — never silently rolls forward into consensus.
 
 ## Flags
 

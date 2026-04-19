@@ -11,7 +11,7 @@ This is a tracing skill, not a fixer. The goal is to explain **why** the test is
 
 ## Execution contracts
 
-**Subagent watchdog:** any time this skill spawns a test-running subagent via `run_in_background=true` (multi-run protocols, ordering bisection, distinguishing experiments), it MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A (Monitor tail per spawn) with thresholds `STALE=15 min`, `HUNG=45 min` — test suites can legitimately take a long time, especially with N≥10 reruns, but a 45-min silent window is pathological. `TaskOutput` status reports PID liveness only; output-file mtime is the ground truth for progress.
+**Subagent watchdog:** any time this skill spawns a test-running subagent via `run_in_background=true` (multi-run protocols, ordering bisection, distinguishing experiments), it MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A (Monitor tail per spawn) with thresholds `STALE=15 min`, `HUNG=45 min` — test suites can legitimately take a long time, especially with N≥10 reruns, but a 45-min silent window is pathological. `TaskOutput` status reports PID liveness only; output-file mtime is the ground truth for progress. Contract inheritance: `timed_out_heartbeat` joins this skill's termination vocabulary as a peer of `blocked_by_environment` (watchdog kill is a different failure class — the test-runner subagent hung, not the test environment). A watchdog-killed experiment contributes zero runs to the N≥10 count; the skill must retry or escalate.
 
 ## Workflow
 

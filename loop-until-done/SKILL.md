@@ -29,7 +29,7 @@ Contracts are non-negotiable:
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
-**Subagent watchdog:** every `run_in_background=true` spawn (story worker, independent verifier, reviewer) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for story workers (may run tests/builds); `STALE=5 min`, `HUNG=20 min` for verifier/reviewer agents. A hung worker silently blocks the whole persistence loop — `TaskOutput` status is not evidence of progress.
+**Subagent watchdog:** every `run_in_background=true` spawn (story worker, independent verifier, reviewer) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for story workers (may run tests/builds); `STALE=5 min`, `HUNG=20 min` for verifier/reviewer agents. A hung worker silently blocks the whole persistence loop — `TaskOutput` status is not evidence of progress. Contract inheritance: `timed_out_heartbeat` joins this skill's per-iteration story-level termination vocabulary; `stalled_watchdog` / `hung_killed` join per-worker state. A watchdog-killed worker's criteria stay `passes: false` regardless of partial output — iron-law verification gate blocks story completion until the story is retried or the run terminates as `blocked_unresolved`.
 
 ## Philosophy
 
