@@ -94,8 +94,12 @@ When `--diff [ref]` is present, the artifact is built from the git diff rather t
 6. **Size check:** same as normal mode (~80k token warning).
 
 **Automatic angle seeding in diff mode** — in addition to normal dimension angles, always add these high-priority angles before round 1:
+- "**Legacy-symbol sweep (MANDATORY, CRITICAL priority).** Enumerate every pre-change name, string literal, dict key, constant, attribute, env var, or magic value that this PR is *replacing* (e.g. old function names, hardcoded strings like `\"start\"`/`\"end\"`, old config keys, old sentinels). Then `grep -rn` the **entire repository** — NOT just changed files — for each one. For every remaining occurrence, classify as: (a) correctly updated in this PR, (b) legitimate legacy-compat path with a documented fallback, (c) stale docstring/comment referencing the old contract, or (d) a MISSED UPDATE. Report every (c) and (d). This angle must spawn its own critic; do not fold it into another dimension. Missed updates in unchanged files are the highest-impact latent defects and they are invisible to diff-scope review."
+- "**Asymmetric read/write paths in integrations (CRITICAL priority for any PR touching deployer / scheduler / serializer code).** For every integration that both WRITES external state (generates a deployment, serializes an artifact, emits events) and READS it back (inspects an existing deployment, deserializes an artifact, consumes events): audit BOTH the write path and the read path for the contract change. Code refactors typically update the write path and miss the read path (`get_existing_*`, `deserialize_*`, `from_dict`, `parse_*`). Confirm every `get_existing_*` / `list_*` / `describe_*` function reading the legacy shape."
+- "**Docstring / comment contract consistency.** Grep for docstrings, inline comments, and user-facing error messages that reference the OLD contract by name. For a PR making a backward-compat claim, docstrings that still say `run['end']` when end steps can now be renamed ARE user-facing defects — they mislead readers who trust documented contracts. File as minor but DO file."
 - "For every new conditional expression in the diff (`if`, `elif`, `while`): what are the False/empty/None/zero branches? Are they all safe?"
 - "For every changed function signature or return type: do all callers handle the new contract?"
+- "For every attribute, return value, or method that the PR newly makes `Optional[X]` (previously always non-None): grep every consumer in the repo and verify each handles `None` without crash, `KeyError`, or silent wrong-behavior. Do not assume lint or validation catches it earlier — audit the consumer's code."
 - "For every new subprocess, file handle, network connection, or lock opened in the diff: is it always closed/drained/released on all exit paths?"
 - "For every security-sensitive path touched (auth, subprocess args, file paths, serialization): what are the injection/bypass edge cases introduced by the change?"
 
@@ -427,6 +431,10 @@ These are excuses critics and judges use to suppress, downgrade, or ignore real 
 | "The critic said 'looks good overall' — accept the pass" | A critic that says "looks good" has failed. Re-spawn with a sharper angle or mark the dimension uncovered. |
 | "I read the critique file directly to write the final report" | Forbidden. Phase 6 uses coordinator summary + mini-syntheses + state.json only. Raw critique files are not the contract. |
 | "The coordinator can classify severity here — the judge is slow" | Independence invariant violation. Severity is delegated to independent judge agents, always. Coordinator orchestrates; it does not evaluate. |
+| "I found one instance in this file — time to move on" | Second and third occurrences in the same file are the most common missed defect. After finding a defect, `grep` that file for structurally identical patterns (same hardcoded string, same missing guard, same stale docstring) before leaving it. Report each separately. |
+| "I only need to check files the PR touches" | For contract-replacing PRs (renamed functions, changed string keys, fields newly made Optional), `grep -rn` the ENTIRE repo for the OLD symbol. Missed updates in unchanged files are invisible to diff-scope review and are the highest-impact latent defects. |
+| "This is just a stale docstring / comment — not a real defect" | For a PR making a backward-compat or contract claim, docstrings referencing the OLD contract mislead readers who trust documented behavior. File as minor but DO file. Aggregated docstring drift is a contract-consistency defect, not polish. |
+| "The write path is updated, so the integration is fine" | Deployer/scheduler/serializer integrations have asymmetric read and write paths. Audit both. `get_existing_*`, `describe_*`, `deserialize_*`, and similar read-path functions typically lag behind write-path updates and produce KeyError or silent wrong-value on redeploy / resume / introspect. |
 
 When you catch ANY of these in your reasoning, stop and re-read the relevant Golden Rule.
 
@@ -454,6 +462,9 @@ When you catch ANY of these in your reasoning, stop and re-read the relevant Gol
 - [ ] Background severity judges and coordinator summaries spawned with `run_in_background=true`
 - [ ] Phase 5.5 drain completed before Phase 6: no `judge_status: "pending"` remaining in state.json
 - [ ] `background_tasks` registry in state.json tracks all background spawns with correct status
+- [ ] For code artifacts in diff mode: a **legacy-symbol sweep** angle ran as round-1 CRITICAL priority with its own critic — the critic actually `grep -rn`'d the whole repo for every pre-change symbol the PR replaces, not just the changed files
+- [ ] For code artifacts touching deployers/schedulers/serializers: a **read-path audit** angle ran covering `get_existing_*`, `describe_*`, `deserialize_*` functions alongside the write-path audit
+- [ ] For PRs making a backward-compat claim: a **docstring / comment sweep** surfaced stale references to the old contract (filed as minor but filed)
 
 ---
 
@@ -538,6 +549,23 @@ AVOID THESE COMMON QA MISTAKES:
 - Don't assume the author's intent is wrong — identify what is ACTUALLY broken for a REAL consumer
 - **Do critique what's MISSING.** Underspecified components are often the highest-severity defects.
   A label is not a specification. A referenced-but-undefined component is a critical defect.
+- **Be exhaustive per file, not per defect.** When you find ONE instance of a defect pattern in a file
+  (a hardcoded legacy string, a missing None-guard, a stale docstring, a missing read-path update),
+  SCAN THAT FILE for every other structurally similar occurrence before moving on. Second and third
+  occurrences in the same file are the single most common class of missed defect. Example: if you
+  find `["States"]["start"]` on line 243 of a file, grep the same file for `States` or `"start"` or
+  `"end"` and enumerate every remaining hit.
+- **For contract-replacing PRs, grep the whole repo for legacy symbols — not just changed files.**
+  If your angle involves a contract change (e.g., replacing a hardcoded string with an attribute,
+  renaming a function, changing a dict key, making a field Optional), `grep -rn` every occurrence
+  of the OLD symbol across the ENTIRE codebase. Files that didn't change in the diff may still
+  reference the old contract and break silently. Missed updates in unchanged files are the
+  highest-impact latent defects.
+- **For integrations (deployers, schedulers, serializers), audit BOTH write AND read paths.**
+  Refactors typically update the write/generate side and miss the read/introspect side
+  (`get_existing_*`, `describe_*`, `deserialize_*`). These asymmetries produce KeyError /
+  silent-wrong-value on realistic operations (redeploy, resume, introspect) and are easy to miss
+  with generation-focused review.
 - Don't flag "defensive code is missing" as a defect if the condition being defended against cannot
   occur given the surrounding code's invariants. Defensive code is good practice but its absence
   is a defect only if the undefended condition can actually be triggered.
