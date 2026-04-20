@@ -40,6 +40,12 @@ google-workspace-setup/client_secrets.json
 mako-gpu-status
 upload-presentation
 
+# Netflix-internal skills (Kragle MCP / Netflix Data Auditor dpcli — not portable)
+data-auditor-create/
+data-auditor-validate-run/
+dbt-data-test-gen/
+dbt-unit-test-gen/
+
 # Local OMC runtime state (sessions, project memory, agent replay logs) — per-machine, auto-generated
 .omc/
 
