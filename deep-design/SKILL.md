@@ -380,6 +380,18 @@ Read this file to get the full spec.
 **Known flaws file:** {known_flaws_file_path}
 Read this file for flaw IDs and titles. Do NOT repeat any flaw with these IDs.
 
+**Before filing flaws — Diagnostic Inquiry (REQUIRED):**
+
+Answer each of these through the lens of your critique dimension BEFORE producing flaws. These MUST appear as a "Diagnostic Answers" section in your output file, above the Flaws section.
+
+1. What is the mechanism this dimension depends on, and does the spec specify it (vs. merely name it)?
+2. What is the most realistic consumer/user scenario in this dimension, and what does that scenario require that the spec must provide?
+3. What assumption does the design make about this dimension that is not stated in the spec?
+4. If this dimension's worst-case scenario occurs, which specific component in the spec absorbs the impact — and does the spec actually give that component the mechanism to do so?
+5. What does the spec claim about this dimension that, if wrong, invalidates the core mechanism?
+
+The Diagnostic Answers section forces you off auto-pilot before proposing flaws. Flaws that contradict your own diagnostic answers are likely misdiagnosed and will be dropped at validation.
+
 **Instructions:**
 1. Read the design carefully through the lens of your specific critique dimension
 2. Think about real users — what would they ACTUALLY do? (not what the designer hopes)
@@ -418,6 +430,10 @@ CRITICAL — AVOID THESE COMMON CRITIC MISTAKES:
 - **Ask whether the feature should exist.** Before proposing a fix, consider: would cutting it produce a better design?
 - **Your suggested fix is a suggestion, not a prescription.** Focus on clearly identifying the PROBLEM.
 - **Critique what's missing, not just what's there.** If a component is referenced but not designed, that's an underspecification flaw. A label is not a design.
+
+**Calibration:**
+- **Good application**: Constructing a realistic consumer scenario that breaks a specific invariant in the spec. Identifying a load-bearing component referenced by name but never specified — a label, not a design. Finding a contradiction between two sections that both claim to govern the same behavior. Flagging a mechanism the spec describes by outcome but not by how the outcome is produced.
+- **Taken too far**: Treating every unstated edge case as a critical flaw — specs cannot enumerate every case and shouldn't try. Flagging every aspirational claim ("scalable", "robust") as a false guarantee. Rejecting the design because it makes a conscious tradeoff that favors one axis over another — tradeoffs are design choices, not flaws. Demanding implementation detail at the design layer. Inflating "could be clearer" to critical.
 ```
 
 ## Outside-Frame Critic Prompt Template
