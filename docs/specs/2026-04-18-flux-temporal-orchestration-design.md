@@ -1,8 +1,8 @@
 # Flux: Temporal-backed orchestration for Claude Code skills
 
-**Status:** design, approved — pending user spec review
+**Status:** SUPERSEDED 2026-04-21 by [`2026-04-21-deep-qa-temporal-design.md`](2026-04-21-deep-qa-temporal-design.md). The user re-scoped the work from a hook-adapter (keep SKILL.md coordinator, add Temporal guarantees via hooks) to a full workflow rewrite (coordinator logic moves into Python Temporal workflows). Flux's non-goal #1 (cross-session workflow durability) became an in-scope goal; the hook approach can't deliver it. Do NOT implement this spec.
 **Author:** npow + Claude (brainstorming session 2026-04-18)
-**Type:** committed implementation (P2 in path analysis)
+**Type:** superseded
 **Companion:** `2026-04-18-custom-harness-evaluation-design.md` (P4 eval)
 
 ## Context
