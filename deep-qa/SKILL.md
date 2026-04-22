@@ -394,6 +394,44 @@ elif depth == 1 and priority == "high":     → Researcher (sonnet)
 else:                                       → Scout (haiku)
 ```
 
+**Numeric-precision override (MANDATORY — deterministic-tool protocol):** Any critic task whose success depends on exact counting, tallying, recount-against-claim, or aggregating numerical results from an API response, JSON array, or structured list MUST use a deterministic tool (`jq`, `wc -l`, `grep -c`, SQL `COUNT(*)`) applied to a file on disk — NOT eyeball-counting, NOT prose-estimation, NOT "let me list them out" loops. Model tier does not save you here: empirical failures observed on Haiku, Sonnet, AND Opus 4.7 when asked to count 100-item JSON arrays inline. They all confabulate plausible totals after scrolling; off-by-5-to-50 errors occur silently and propagate into the report as "verified" numbers.
+
+Required protocol for any numeric verification step:
+1. Fetch the data via tool (JQL, `gh api`, etc.) — full response into agent context.
+2. `Write` the entire response verbatim to a path (e.g., `/tmp/count-<subject>-p<N>.<ext>`). Do NOT summarize before writing — the file contents are the ground truth.
+3. If paginated (`isLast: false`, `next_page_token`, `Link: next`, etc.), fetch the next page, write to `p2`, `p3`, ... until the API reports the last page.
+4. `Bash` with the counting tool that matches the file shape (see Counting-substrate hierarchy below). Sum across pages via `awk '{s+=$1} END {print s}'`.
+5. Report only the integer from step 4. No prose, no narrative count, no re-derivation from memory.
+
+Agent prompts for counting tasks MUST include the literal instruction: **"DO NOT count by reading. Use a deterministic tool."** File-size variance (full 30KB response vs. summarized 3KB) does not affect correctness — the tool counts the anchor pattern regardless of whether inner objects are intact.
+
+**Counting-substrate hierarchy (pick the first that matches the artifact shape):**
+
+| Shape | Tool | Example |
+|---|---|---|
+| JSON array | `jq '.<path> \| length'` | `jq '.issues \| length' resp.json` |
+| JSONL (one object per line) | `wc -l` | `wc -l < resp.jsonl` |
+| Markdown table rows | `awk '/^\|/{c++} END{print c-2}'` (subtract header + separator) | `awk '/^\|/{c++} END{print c-2}' report.md` |
+| Bulleted / numbered list | `grep -cE '^[[:space:]]*([-*•]\|[0-9]+\.)' file.md` | — |
+| HTML table rows | `pup 'tr' -p \| grep -c '<tr>'` or `xmllint --xpath 'count(//tr)' file.html` | — |
+| CSV/TSV | `wc -l` (minus header) or `awk -F, 'END{print NR-1}'` | — |
+| Delimited blob (commas, pipes) | `tr ',' '\n' \| wc -l` | — |
+| Line-per-item text | `grep -c <anchor>` where anchor uniquely marks each item | `grep -cE 'PR #[0-9]+' notes.txt` |
+| Structured prose with identifiable anchor | `grep -cE '<regex>'` on the anchor token | ticket IDs, URLs, timestamps, usernames |
+| **Truly unstructured prose** (narrative with no regular item-marker) | **NOT deterministically countable — see fallback below** | — |
+
+**Fallback for unstructured blobs (no regular anchor exists):**
+
+Option A — **extract-then-count (preferred).** Spawn an extraction subagent whose only job is to transform the blob into a structured list (one item per line) and write to a file. Then count the extracted file with `wc -l`. The extraction step is verifiable (human or second-pass agent can spot-check sample lines against the blob); the counting step is deterministic.
+
+Option B — **flag as unverifiable.** If the artifact claims "N items" against a blob with no extractable anchor pattern, the claim itself is a defect (`unverifiable_count`). File it as a medium-severity finding: the author must either restructure the source into countable form, or downgrade the claim from "N" to "approximately N" with explicit uncertainty.
+
+**Never** eyeball-count a blob and accept the result as verified. The confabulation rate on 30+ items is ~100% across all model tiers — and prose blobs are worse than JSON arrays because there's no syntactic anchor to latch onto.
+
+This applies at critic-spawn time AND during final-report numeric verification. Any integer in the output that was not produced by a deterministic tool is suspect.
+
+Model tier: prefer Opus for orchestration (pagination logic, error recovery) but the count itself comes from `jq`, not the model. Haiku + `jq` beats Opus + eyeball every time.
+
 ---
 
 ## Golden Rules
@@ -408,6 +446,11 @@ else:                                       → Scout (haiku)
 8. **Termination means coverage is saturated, not zero defects.** The report is honest about what wasn't covered.
 9. **Artifact type shapes dimensions.** Don't apply code security analysis to a research report. Dimensions must match the artifact.
 10. **Never suppress disputed defects.** Disputed defects are documented, not silently dropped.
+11. **QA verdicts only apply to the artifact version they ran on.** Any post-QA modification (enrichment, integration, reorganization, data join, re-export) invalidates prior QA and requires a fresh pass on the current version. A clean QA on draft v1 says nothing about v2. Verify the artifact hash or modification time matches the QA run when citing prior verdicts.
+12. **For subject-attribution claims, trust the source of truth, not the chain of evidence.** "X did Y" must be verified by querying Y's system of record for X — not by reading the report, not by matching content patterns, not by inferring from adjacent citations. Every intermediate data stage between source and report is a place the attribution can silently corrupt.
+13. **Source-of-truth queries must be semantically equivalent to the claim — not weaker.** A query that returns results does not validate a claim unless the predicate matches. "X owns Y" → `assignee = X`, NOT `assignee = X OR reporter = X`. "Merged on date D" → `mergedAt = D`, NOT `createdAt = D`. "In window W" → `resolved IN W` for completion claims, NOT `created IN W`. "Currently open" → re-query at QA time, NOT trust the snapshot. A weaker predicate produces a query that succeeds and looks like it confirmed the claim — silently passing the bug. The QA's job is to construct the strict predicate and use it.
+14. **Independent re-counting beats trusting reported totals — AND the recount itself must be tool-derived, not eyeball-derived.** If the report claims N items and shows a table, count the table rows via deterministic mechanism: `grep -c '^|' file.md` for markdown rows, `jq '.issues | length'` for JSON arrays, `wc -l` for line-per-item lists. Never "let me count them: 1, 2, 3..." — all models confabulate on arrays >30 items. Counts in narrative summaries drift from underlying data after edits — and the drift is invisible because the narrative looks consistent with itself. After every QA round that fixes defects (deletions, additions, reassignments), recount via tool. See Numeric-precision override above for the full Write→jq protocol.
+15. **Hallucinated proper nouns are silent defects.** Sample unusual proper nouns (project names, person names, tool names, codenames) and verify each has at least one backing citation. A confidently-named tool or teammate that has zero supporting URL/ticket/Slack/doc citation is a likely hallucination — verify by querying source systems for the noun. Pleasing-sounding plausibility is not evidence.
 
 ---
 
@@ -438,6 +481,14 @@ These are excuses critics and judges use to suppress, downgrade, or ignore real 
 | "I updated the obvious call sites — the rest can't matter" | Contract changes fan out across producers and consumers that are usually NOT co-located with the change. The distant call sites — different file, different plugin, different subsystem, different language — are where defects hide. Before claiming completeness, enumerate every producer and every consumer of the changed contract across the full artifact surface, not the diff scope. |
 | "The scope of the review is the scope of the diff / the files the PR touches" | Scope of review = scope of *contract impact*, not scope of diff. A one-file change that alters a shared contract implicates every producer and consumer of that contract anywhere in the artifact, in any language or format. Treat the diff as a pointer to what changed, not as a boundary on what needs checking. |
 | "This state looks locally scoped (module-level / class-level / file-local)" | State that appears locally scoped at *write* time is often globally scoped at *read* time — registries populated by class/decorator side effects at import time, singletons, shared caches, environment variables, ambient config, process-wide mutable defaults. Construct the concrete scenario where code that did NOT write the state reads it anyway; that's where silent wrong-value defects live. |
+| "Reporter and assignee are basically the same thing — both mean involvement" | They are NOT the same. Reporter = filed/scoped; Assignee = owns/executes. A report claiming "X did Y" verified only by `reporter=X` confirmed nothing about ownership. Use the strict-ownership predicate (`assignee = X`); if it fails, file 'reported but not owned' as a separate, lower-strength claim. |
+| "I'll trust the report's date — it cited a Slack thread" | Slack-message timestamp ≠ PR merge date ≠ ticket resolution date. Re-query the canonical terminal-event timestamp from the source system (`mergedAt`, `resolved`, `released_at`). Do not propagate Slack timestamps as artifact dates. |
+| "PR status hasn't changed since the report was generated" | Snapshot age ≥ 1 day = unverified status. Re-query open/closed/merged at QA time. PR labeled 'open' three weeks ago is routinely now closed or merged. |
+| "The report's PR title sounds right; I don't need to fetch the canonical title" | Title-from-paraphrase ≠ canonical PR title. Fetch via `gh pr view` or equivalent. Reports drift from PR titles especially for PRs whose scope changed during review. |
+| "Total claimed in the summary matches what I'd expect from the per-section breakdowns" | Don't expect — count, and count via tool, not eyeball. Use `jq '.issues \| length'` for JSON, `grep -c '^\|'` for markdown rows, `wc -l` for line-per-item. All model tiers confabulate plausible totals when enumerating 30+ items inline. Reports drift after edits delete or merge items without updating the totals. |
+| "The proper noun sounds like a real Netflix tool" | Plausibility is not evidence. If a project/tool/teammate name has zero backing citation in the artifact, query the source system to verify it exists. LLMs confabulate convincing names from training-time priors. |
+| "X is on the team and worked on Y, so it's safe to say X did Y" | Team membership is not authorship. Re-query who actually authored/owned/assigned/committed the specific artifact. Cross-team work routinely surfaces as ownership confusion in attribution reports. |
+| "The handle is consistent across the report — that's enough" | Handles differ across systems (GHE vs GitHub.com vs Slack vs email). Build the cross-platform identity map; a query under the wrong handle returns zero results and looks like 'no work,' silently masking real activity (or vice versa). |
 
 When you catch ANY of these in your reasoning, stop and re-read the relevant Golden Rule.
 
