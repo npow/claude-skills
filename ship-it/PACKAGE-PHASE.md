@@ -1,6 +1,6 @@
 # Phase 6: Package
 
-Generate README, LICENSE, .gitignore. Verify packaging metadata. Run the clean-install reproducibility gate. Spawn three independent judges (correctness, security, quality) for final validation. Aggregate verdicts mechanically. Write the completion report.
+Generate README, LICENSE, .gitignore. Verify packaging metadata. Run the clean-install reproducibility gate. Spawn 4-reviewer parallel panel (spec-compliance, code-quality, smoke-test, integration-coherence) + meta-reviewer for final validation per `_shared/parallel-review-panel.md`. Write the completion report.
 
 ## Process
 
@@ -114,34 +114,31 @@ timeout 5 node dist/cli.js --connection fake://fake 2>&1 || true
 
 Capture output as evidence.
 
-### Step 6: Three-judge validation
+### Step 6: 4-reviewer parallel panel validation
 
-This is Phase 6's final gate. The three judges are fresh Agent invocations with no shared context, no coordinator orchestration.
+This is Phase 6's final gate. The panel uses fresh Agent invocations per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md).
 
-1. Write `ship-it-{run_id}/package/judge-input.md` per [FORMAT.md](FORMAT.md). Contains ONLY file paths.
-2. Update `state.json`: write `spawn_time_iso` for each judge separately (three writes; three independent pre-records).
-3. **Spawn three judges in parallel**:
-   - `correctness_judge` → writes `package/correctness-verdict.md`
-   - `security_judge` → writes `package/security-verdict.md`
-   - `quality_judge` → writes `package/quality-verdict.md`
-4. Judge prompts are in the main SKILL.md "Judge Prompt Templates" section. Each judge reads input paths from the judge-input file itself (not from the coordinator's context).
-5. After all three verdicts are on disk, coordinator reads them and writes `package/aggregation.md` using the mechanical aggregation rule from [FORMAT.md](FORMAT.md). NO commentary, NO rationale — just the rule applied verbatim.
+1. Write `ship-it-{run_id}/package/panel-input.md` per [FORMAT.md](FORMAT.md). Contains ONLY file paths.
+2. Update `state.json`: write `spawn_time_iso` for each reviewer separately (four writes + meta-reviewer; five independent pre-records).
+3. **Spawn 4 reviewers in parallel** (spec-compliance, code-quality, smoke-test, integration-coherence), each writing to `package/{lens}-review.md`.
+4. After all 4 reviewer files are on disk, spawn the **meta-reviewer** which reads all 4 review files and writes `package/panel-verdict.md` with `PANEL_VERDICT|{approved|rejected_fixable|rejected_unfixable}`.
+5. Coordinator reads `panel-verdict.md` only. NO commentary, NO rationale — just the structured verdict.
 
 ### Step 7: Handle rejection
 
-If any judge returns `VERDICT|rejected`:
+If the meta-reviewer returns `PANEL_VERDICT|rejected_fixable` or `PANEL_VERDICT|rejected_unfixable`:
 
 1. Extract the blocking scenarios from the rejected verdict.
 2. Synthesize each scenario into an acceptance criterion with the judge's suggested verification command.
 3. Write the PRD at `ship-it-{run_id}/package/revalidation-{N}/prd.json`.
 4. Invoke `/loop-until-done --prd <path> --max-iter=2 --critic=deep-qa`.
-5. After the fix loop, rename current verdict files to `{dimension}-verdict.v{N}.md`, increment `phases.package.revalidation_round`.
-6. **Re-spawn FRESH judge agents** for round N+1. NEVER reuse the rejecting judge — stale context.
+5. After the fix loop, rename current review files to `{lens}-review.v{N}.md`, increment `phases.package.revalidation_round`.
+6. **Re-spawn FRESH panel** for round N+1. NEVER reuse rejecting reviewers — stale context.
 7. Maximum 2 re-validation rounds. After 2 rounds still-rejected: gate fails; terminate as `blocked_at_phase_6`.
 
 ### Step 8: Completion report
 
-After `AGGREGATE|approved` (or `conditional` with user-acknowledged conditions):
+After `PANEL_VERDICT|approved` (or `approved` with conditions user-acknowledged):
 
 1. Update `state.json`: `current_phase: "cleanup"`.
 2. Spawn a completion-report subagent that reads all Phase 1–6 evidence files and writes `ship-it-{run_id}/completion-report.md` per the schema in [FORMAT.md](FORMAT.md).
@@ -162,13 +159,13 @@ After `AGGREGATE|approved` (or `conditional` with user-acknowledged conditions):
 
 Required:
 - `package/clean-install-output.txt` — every step exit 0
-- `package/correctness-verdict.md`, `package/security-verdict.md`, `package/quality-verdict.md` — all parseable
-- `package/aggregation.md` with `AGGREGATE ∈ {approved, conditional}`
+- `package/{lens}-review.md` for all 4 panel reviewers — all parseable
+- `package/panel-verdict.md` with `PANEL_VERDICT ∈ {approved, rejected_fixable, rejected_unfixable}`
 - `package/phase-gate.md` with `ADVANCE: true`
 - Git repo initialized with initial commit
 - `completion-report.md` exists with parseable structured block
 
-`AGGREGATE|rejected` after 2 re-validation rounds → `ADVANCE: false` → terminate as `blocked_at_phase_6`.
+`PANEL_VERDICT|rejected_unfixable` or `rejected_fixable` after 2 re-validation rounds → `ADVANCE: false` → terminate as `blocked_at_phase_6`.
 
 ## What "done" looks like
 
@@ -184,7 +181,7 @@ Summary:
 - [X] source files, [Y] test files
 - [Z] tests passing
 - Clean install verified
-- 3/3 judges approved
+- Phase 6 panel approved
 
 To publish:
   npm publish          # to npm

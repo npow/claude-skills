@@ -175,8 +175,10 @@ VERDICT|rejected|{one_line_reason}
 REASON|{defect_id}|{story_id_or_"quality"}|{criterion_id_or_"NONE"_or_file_path}|{severity}|{description}
 ```
 
-For 7a (spec compliance): field 3 is `story_id`, field 4 is `criterion_id` (or `NONE` for story-level defects).
-For 7b (code quality): field 3 is the literal `quality`, field 4 is the affected file path.
+For spec-compliance lens: field 3 is `story_id`, field 4 is `criterion_id` (or `NONE` for story-level defects).
+For code-quality lens: field 3 is the literal `quality`, field 4 is the affected file path.
+For smoke-test lens: field 3 is the literal `smoke`, field 4 is the test scenario path.
+For integration-coherence lens: field 3 is the literal `coherence`, field 4 is the affected module boundary.
 
 ## Falsifiability Judge Verdict File: `loop-{run_id}/judge/falsifiability-{iso_timestamp}.md`
 

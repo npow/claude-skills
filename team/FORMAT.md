@@ -52,7 +52,7 @@ STRUCTURED_OUTPUT_END
 |---|---|---|
 | plan | task decomposition rationale; dependency ordering | `handoffs/plan-verdict.md`; `handoffs/plan-adversarial-review.md` (if deep-design ran) |
 | prd | scope boundary; acceptance criteria count + IDs | `prd/prd-final.md`; `prd/falsifiability-verdict.md`; `prd/critique.md` |
-| exec | worker assignments; per-AC test coverage | `exec/{worker}-AC-{id}-red.txt`, `-green.txt`, `-verify.txt` for every AC; `verify/per-worker/` per-worker two-stage review outputs |
+| exec | worker assignments; per-AC test coverage | `exec/{worker}-AC-{id}-red.txt`, `-green.txt`, `-verify.txt` for every AC; `verify/per-worker/` per-worker parallel panel review outputs |
 | verify | spec-compliance verdict summary; code-quality verdict summary | `verify/spec-compliance/defect-registry.md`; `verify/code-quality/review.md`; `verify/verdict.md` |
 | fix | per-defect fix strategy; per-defect verifier verdicts | `fix/iter-{N}/defect-{id}-verdict.md` for every defect |
 
@@ -149,45 +149,49 @@ STRUCTURED_OUTPUT_END
 
 Any `unfalsifiable` blocks advancement. `conditionally_falsifiable` must be upgraded to `falsifiable` in PRD revision or blocks.
 
-## Per-Worker Two-Stage Review (team-exec)
+## Per-Worker Parallel Panel Review (team-exec)
 
 Written to `verify/per-worker/{worker_name}-task-{id}/`.
 
-**Stage A — spec-compliance (deep-qa --diff output OR degraded fallback):**
-See `verify/per-worker/{worker_name}-task-{id}/spec-compliance.md` with `STRUCTURED_OUTPUT` fields:
+**4 lens reviews run in parallel** per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md):
+
+**spec-compliance** (deep-qa --diff output OR degraded fallback):
+See `verify/per-worker/{worker_name}-task-{id}/spec-compliance-review.md` with `STRUCTURED_OUTPUT` fields:
 ```
 DEFECT|critical|{id}|{title}|{ac_reference}
 DEFECT|major|{id}|{title}|{ac_reference}
 DEFECT|minor|{id}|{title}|{ac_reference}
-VERDICT|passed|failed_fixable|failed_unfixable
+PANEL_VERDICT|approved|rejected_fixable|rejected_unfixable
 ```
 
-**Stage B — code-quality:**
-See `verify/per-worker/{worker_name}-task-{id}/code-quality.md`:
+**code-quality:**
+See `verify/per-worker/{worker_name}-task-{id}/code-quality-review.md`:
 ```
 DEFECT|critical|{id}|{title}|{file}:{line}
 DEFECT|major|{id}|{title}|{file}:{line}
 DEFECT|minor|{id}|{title}|{file}:{line}
-VERDICT|passed|failed_fixable|failed_unfixable
+PANEL_VERDICT|approved|rejected_fixable|rejected_unfixable
 ```
 
-Both files MUST be authored by separate independent agents (different spawn calls, not the same context). The lead verifies this by checking `spawn_time_iso` values differ.
+**smoke-test** and **integration-coherence** lenses follow the same structured format, written to `{lens}-review.md`.
 
-## Stage-Level Verify Verdict
+All 4 files MUST be authored by separate independent agents (different spawn calls, not the same context). The lead verifies this by checking `spawn_time_iso` values differ. A 5th meta-reviewer reads all 4 and writes `panel-verdict.md`.
 
-Written by independent verify-judge to `verify/verdict.md` (aggregates Stage A + Stage B for the full diff).
+## Stage-Level Verify Panel Verdict
+
+Written by independent meta-reviewer to `verify/panel-verdict.md` (aggregates all 4 lens reviews for the full diff).
 
 ```markdown
-# Verify Verdict (iteration {iter})
-**Judge:** {agent_id}
-**Reviewed:** `verify/spec-compliance/defect-registry.md`, `verify/code-quality/review.md`
+# Panel Verdict (iteration {iter})
+**Meta-Reviewer:** {agent_id}
+**Reviewed:** `verify/{lens}-review.md` for all 4 lenses
 **Diff:** `verify/diff.patch`
 
 ## Summary
 {narrative summary of what passed, what failed}
 
 STRUCTURED_OUTPUT_START
-VERDICT|passed|failed_fixable|failed_unfixable
+PANEL_VERDICT|approved|rejected_fixable|rejected_unfixable
 CRITICAL_COUNT|{n}
 MAJOR_COUNT|{n}
 MINOR_COUNT|{n}

@@ -7,8 +7,7 @@ How `/loop-until-done` composes with other skills and what happens when they are
 | Where | Calls | Why |
 |---|---|---|
 | Step 5 (per-criterion verification) — optional upgrade | `deep-qa --diff` on the story's file delta | Adds structured defect registry per story instead of trusting the single `verification_command` exit status. Activated when `--critic=deep-qa` is set. |
-| Step 7a (spec compliance review) | Selected by `--critic=` | Independent reviewer reads PRD + verification evidence + diff and renders verdict |
-| Step 7b (code quality review) | Selected by `--critic=`, separate spawn | Independent reviewer reads diff and renders structural verdict |
+| Step 7 (4-reviewer parallel panel) | Selected by `--critic=` | 4 independent reviewers (spec-compliance, code-quality, smoke-test, integration-coherence) per `_shared/parallel-review-panel.md` read PRD + verification evidence + diff and render panel verdict |
 | Step 8 (deslop pass) | `oh-my-claudecode:ai-slop-cleaner` (standard mode) | Removes AI-slop patterns (verbose comments, dead branches, over-engineered abstractions) on session file delta |
 | Step 8 (post-deslop regression) | Re-runs every story's `verification_command` | Iron-law gate that deslop did not break verified criteria |
 
@@ -16,12 +15,14 @@ How `/loop-until-done` composes with other skills and what happens when they are
 
 ### Primary integration: `--critic=deep-qa`
 
-When the run is launched with `--critic=deep-qa`, both reviewer passes in Step 7 run `deep-qa --diff` against the session file delta. Two separate invocations:
+When the run is launched with `--critic=deep-qa`, the 4-reviewer parallel panel in Step 7 runs `deep-qa --diff` against the session file delta for applicable lenses. Four separate invocations per `_shared/parallel-review-panel.md`:
 
-- **Step 7a (spec compliance):** invoke `deep-qa --diff --type code` with a metadata hint identifying the PRD path. Deep-qa's critics assess: correctness, error_handling, edge_cases — dimensions that map to "does this satisfy the PRD?"
-- **Step 7b (code quality):** invoke `deep-qa --diff --type code` with the code-quality prompt variant. Deep-qa's critics assess: security, testability, maintainability — structural concerns.
+- **spec-compliance lens:** invoke `deep-qa --diff --type code` with a metadata hint identifying the PRD path. Deep-qa's critics assess: correctness, error_handling, edge_cases — dimensions that map to "does this satisfy the PRD?"
+- **code-quality lens:** invoke `deep-qa --diff --type code` with the code-quality prompt variant. Deep-qa's critics assess: security, testability, maintainability — structural concerns.
+- **smoke-test lens:** invoke `deep-qa --diff --type code` with the smoke-test prompt variant. Validates runtime behavior and integration points.
+- **integration-coherence lens:** invoke `deep-qa --diff --type code` with the coherence prompt variant. Checks cross-module consistency.
 
-Both invocations produce structured defect registries. The coordinator converts the defect registry to the reviewer verdict format:
+All invocations produce structured defect registries. The coordinator converts the defect registry to the panel verdict format:
 
 - If the registry contains ANY `severity: critical` defect: `VERDICT|rejected|<defect count> critical defects`
 - If the registry contains only `severity: major` or `minor` defects: `VERDICT|approved|<summary>` (majors/minors are logged as advisory, not blocking)
@@ -94,7 +95,7 @@ Each integration has a documented fallback when the dependency is not installed.
 
 | `--critic` setting | Fallback | Output tag |
 |---|---|---|
-| `architect` (default) and architect agent missing | Spawn a generic `subagent_type: general-purpose` Sonnet agent with the spec-compliance / code-quality prompt templates from SKILL.md. Separate spawns for 7a and 7b remain mandatory. | `reviewer_mode: "degraded_general_purpose"` |
+| `architect` (default) and architect agent missing | Spawn a generic `subagent_type: general-purpose` Sonnet agent with the per-lens prompt templates from SKILL.md. Separate spawns for each of the 4 panel lenses remain mandatory. | `reviewer_mode: "degraded_general_purpose"` |
 | `critic` and critic agent missing | Same as above — fall back to general-purpose Sonnet | `reviewer_mode: "degraded_general_purpose"` |
 | `codex` and `omc ask codex` unavailable | Abort with a clear error (user explicitly asked for a cross-model opinion) | N/A (abort) |
 
@@ -153,13 +154,11 @@ User invokes /loop-until-done "task" --critic=deep-qa
  └────────┘  loop until all stories passed
           │
           ▼
- ┌─ Step 7a: spec-compliance reviewer                         (deep-qa --diff --type code,
- │                                                              spec-compliance variant)
- │  Step 7b: code-quality reviewer                            (deep-qa --diff --type code,
- │                                                              code-quality variant)
- │        │    (run in parallel, separate spawns)
+ ┌─ Step 7: 4-reviewer parallel panel                          (spec-compliance, code-quality,
+ │          per _shared/parallel-review-panel.md                smoke-test, integration-coherence)
+ │        │    (all 4 lenses run in parallel, separate spawns)
  │        ▼
- │    Step 7c: gate — both must return VERDICT|approved|
+ │    Step 7c: gate — meta-reviewer must return PANEL_VERDICT|approved|
  │        │  either rejected? → increment reviewer_rejection_count, re-queue, Step 3
  └────────┘
           │

@@ -27,9 +27,9 @@ No aggregate "all tasks complete" claim is made until `convergence/convergence-c
 
 ---
 
-## 3. Two-Stage Review on Source Modifications — applies to `/parallel-exec` via convergence check + optional quality pass
+## 3. 4-Reviewer Parallel Panel on Source Modifications — applies to `/parallel-exec` via convergence check + outer skill panel
 
-The design spec's two-stage review (spec-compliance → code-quality) is enforced at the wave level via the convergence check. The convergence checker validates spec compliance (exit code, pattern match, path bounds). When `/parallel-exec` is invoked by `/team` or `/autopilot`, those outer skills add the second-stage code-quality review via `deep-qa`.
+The design spec's 4-reviewer parallel panel per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md) is enforced at the wave level via the convergence check and outer skill review. The convergence checker validates spec compliance (exit code, pattern match, path bounds). When `/parallel-exec` is invoked by `/team` or `/autopilot`, those outer skills add the full parallel panel review (code-quality, smoke-test, integration-coherence) via `deep-qa` and the panel protocol.
 
 **Concrete for `/parallel-exec` standalone:**
 - Convergence checker IS the spec-compliance review.

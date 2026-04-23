@@ -21,6 +21,8 @@ All operations use Claude Code primitives. The following contracts are non-negot
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
+**Cross-finding coherence:** this skill applies the coherence-integrator pattern from [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md) at Step 5, after all critics complete and BEFORE severity judges are spawned. The integrator reads all deduped critic output files simultaneously and annotates each flaw with cross-finding relationships (contradictions, emergent patterns, coverage gaps). These annotations are included in judge input files so judges see the cross-finding context when classifying severity.
+
 **Subagent watchdog:** every `run_in_background=true` spawn (parallel critics, severity judges, rebuttal agents) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=5 min`, `HUNG=20 min` for Sonnet critics; `STALE=3 min`, `HUNG=10 min` for Haiku judges. `TaskOutput` status is not evidence of progress — output-file mtime is. Contract inheritance: `timed_out_heartbeat` joins this skill's per-angle termination vocabulary; `stalled_watchdog` / `hung_killed` join `angles.{id}.status`. A watchdog-killed critique angle is reported as coverage-lost in the final coverage fraction — never silently dropped.
 
 ## Philosophy
@@ -151,9 +153,21 @@ For each round's flaws before redesign:
   This must be the **final structured line** of the agent's output. Coordinator reads ONLY this line; unparseable = empty list (not coordinator fallback text).
 - When evaluating `RECOVERY_MECHANISM_CITED` in judge output: the component field must appear in the RECOVERY_BEHAVIORS list. Names not in the list are treated as hallucinated → `mechanism_applies: false`.
 
+**Cross-finding coherence integrator (fires after critics complete, before severity judges):**
+
+Per [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md):
+
+1. Collect all parseable critic output files from this round (post-dedup).
+2. Write integrator input manifest to `deep-design-{run_id}/coherence/round-{N}-input.md`.
+3. Spawn Sonnet coherence-integrator agent. Output: `deep-design-{run_id}/coherence/round-{N}-coherence.md`. Timeout: 120s.
+4. Parse structured annotations. Attach `FINDING|{id}|{annotation}` to each flaw in state.json as `flaws.{id}.coherence_annotation`.
+5. Feed `GAP` lines into frontier as CRITICAL-priority angles for the next round.
+6. Store `PATTERN` lines in `state.json.emergent_patterns[]` for Step 8 final spec.
+7. If unparseable/timed out: proceed in degraded mode (judges run without annotations). Log `COHERENCE_DEGRADED`.
+
 **Severity judge (independent) — two-pass blind severity protocol:**
 1. The coordinator strips the `SEVERITY_CLAIM` block from the raw critic file to produce `judge_input/{flaw_id}.md`. The original critic file remains immutable. The stripping is recorded in state.json as `judge_input_stripped: true`.
-2. A judge agent receives only: `{flaw_id, judge_input_file_path, fact_sheet_path}` — a strict schema enforced by a validator before spawn. If validator fails: conservative enforcement (reject unknown fields, continue).
+2. A judge agent receives: `{flaw_id, judge_input_file_path, fact_sheet_path, coherence_annotation}` — a strict schema enforced by a validator before spawn. The coherence_annotation (from the integrator) gives the judge cross-finding context: PATTERN_MEMBER suggests aggregate severity consideration; CONTRADICTS suggests evidence scrutiny. If coherence ran in degraded mode, this field is `STANDALONE` for all flaws. If validator fails: conservative enforcement (reject unknown fields, continue).
 3. The judge first classifies severity without knowing the critic's severity claim (pass 1), writes an independent verdict to `judge_verdicts/{flaw_id}.md`.
 4. The coordinator then provides the critic's severity claim (from `severity_claims/{flaw_id}.txt`) as a second-pass prompt. The judge confirms, upgrades, or downgrades with rationale in a second-pass addendum.
 5. See "Judge Prompt Template" section below for required adversarial mandate.
@@ -274,6 +288,7 @@ Note: "frontier empty" is NOT a termination condition. The frontier fill rate (u
 - Termination label: "Conditions Met" or "Max Rounds Reached" — never "no critical flaws remain"
 - Coverage report must include: dimensions covered, required categories covered, honest coverage caveats section, list of unverified sections, list of open issues at termination
 - Includes: resolved flaws, disputed flaws, accepted tradeoffs, open questions, implementation notes
+- If coherence integrator ran: include a 'Cross-Dimensional Patterns' section listing emergent patterns with member flaws, shared root causes, and aggregate implications
 
 ### Step 9: QA Pass (automatic offer)
 
@@ -359,6 +374,10 @@ When you catch ANY of these in your reasoning, stop and apply the relevant valid
 - [ ] Prospective gate uses turn-boundary model (not blocking prompt)
 - [ ] Concept summary sent to critics matches core claim verbatim
 - [ ] Frontier pop decisions logged in `logs/frontier_pop_log.jsonl`
+- [ ] Coherence integrator ran after each critique round's critics completed and before severity judges (or degraded mode logged)
+- [ ] Coherence annotations attached to flaws in state.json before judge input files were written
+- [ ] Coverage gaps from integrator fed into frontier as CRITICAL-priority angles
+- [ ] Emergent patterns surfaced in Step 8 final spec
 - [ ] Outside-frame critic spawned this round
 
 ## Critic Agent Prompt Template

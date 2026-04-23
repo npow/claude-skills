@@ -14,7 +14,7 @@ argument: |
 
 # Loop Until Done
 
-PRD-driven persistence loop. Given a task, decompose it into user stories with structured, falsifiable acceptance criteria, iterate story-by-story until every criterion has fresh passing evidence, then gate completion behind two-stage independent review. Output is working, verified code plus an honest termination label.
+PRD-driven persistence loop. Given a task, decompose it into user stories with structured, falsifiable acceptance criteria, iterate story-by-story until every criterion has fresh passing evidence, then gate completion behind a 4-reviewer parallel panel review per `_shared/parallel-review-panel.md`. Output is working, verified code plus an honest termination label.
 
 ## Execution Model
 
@@ -153,47 +153,28 @@ When every criterion in the current story has fresh matching evidence:
 - Append a `progress.jsonl` entry: `story_passed` event with `story_id`, `iteration`, `files_modified` (captured from the executor's output)
 - Loop back to Step 3 (pick next story)
 
-### Step 7: Two-Stage Reviewer Verification
+### Step 7: 4-Reviewer Parallel Panel Verification
 
 Fired once all stories are `passed`. The coordinator does NOT approve the run itself — two independent reviewers read from files and render verdicts.
 
-**Step 7a — Spec-Compliance Review (matches the plan?):**
+**Step 7-panel — Parallel Review Panel:**
 
-Spawn a reviewer agent selected by `--critic`:
-- `--critic=architect` (default): `subagent_type: oh-my-claudecode:architect` if available, else Sonnet `general-purpose`
-- `--critic=critic`: `subagent_type: oh-my-claudecode:critic`
-- `--critic=codex`: `omc ask codex --agent-prompt critic`
-- `--critic=deep-qa`: invoke deep-qa in `--diff` mode against the session's file delta (see INTEGRATION.md)
+Per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md), the previous sequential spec-compliance + code-quality review is replaced with a 4-reviewer parallel panel.
 
-Reviewer receives:
-- `loop-{run_id}/prd.json` path
-- `loop-{run_id}/verify/` directory path (all verification evidence)
-- Git diff of the session's modifications
-- Spec-compliance reviewer prompt (see Reviewer Prompt Template below)
+1. Write `loop-{run_id}/reviews/repro-instructions.md` with commands to run/test the artifact.
+2. Spawn all 4 reviewers in parallel, each receiving: `prd.json`, `verify/` directory, git diff of session modifications, `repro-instructions.md`.
+   - **Spec-compliance**: selected by `--critic` flag (architect/critic/codex/deep-qa). Primary focus: every AC has matching evidence.
+   - **Code-quality**: independent agent. Primary focus: dead code, duplication, error handling, security, test adequacy.
+   - **Smoke-test** (300s timeout): executes golden-path scenarios from `repro-instructions.md`. Reports actual behavior vs. spec.
+   - **Integration-coherence**: checks cross-story consistency, no inter-story regressions, data flows end-to-end.
+3. Each reviewer writes to `loop-{run_id}/reviews/{lens}-review-{iter}.md` with structured markers.
+4. Spawn **meta-reviewer** reading all 4 review files. Output: `loop-{run_id}/reviews/panel-verdict-{iter}.md`.
 
-Reviewer writes verdict to `loop-{run_id}/reviews/spec-compliance-{iter}.md` with structured markers:
-
-```
-STRUCTURED_OUTPUT_START
-VERDICT|approved|
-VERDICT|rejected|{one_line_reason}
-REASON|{defect_id}|{story_id}|{criterion_id_or_NONE}|{severity}|{description}
-STRUCTURED_OUTPUT_END
-```
-
-**Step 7b — Code-Quality Review (built well?):**
-
-Spawned in parallel with 7a (independent agent, different prompt). Same reviewer tier but a distinct prompt focusing on structural quality:
-- Unused code, dead branches, duplication
-- Error handling completeness
-- Obvious security issues (input validation, injection surfaces)
-- Test adequacy against the criterion set
-
-Reviewer writes verdict to `loop-{run_id}/reviews/code-quality-{iter}.md` with the same structured marker format.
+Quorum: 3 of 4 reviewers must return parseable output. Smoke-test timeout → degraded mode with prominent flag.
 
 **Step 7c — Gate:**
 
-Both verdicts must parse AND return `VERDICT|approved|` for the loop to proceed. If either returns `VERDICT|rejected|` or is unparseable:
+Panel verdict must parse AND return `PANEL_VERDICT|approved` for the loop to proceed. If `PANEL_VERDICT|rejected_fixable` or `PANEL_VERDICT|rejected_unfixable` or unparseable:
 - Increment `state.json.reviewer_rejection_count`
 - Append the rejection reasons to the current iteration's `progress.jsonl` entry
 - If `reviewer_rejection_count > 5`: abort with label `reviewer_rejected_5_times`
@@ -229,7 +210,7 @@ Four labels cover all reachable exits. Never "complete" without matching evidenc
 
 | Label | Meaning | Required evidence |
 |---|---|---|
-| `all_stories_passed` | Every story `passes: true`, both reviewers approved, post-deslop regression green | All of: all criteria `passes: true` with fresh `last_verified_at`; both reviewer files contain `VERDICT\|approved\|`; post-deslop re-verification matches pre-deslop |
+| `all_stories_passed` | Every story `passes: true`, panel approved, post-deslop regression green | All of: all criteria `passes: true` with fresh `last_verified_at`; `panel-verdict.md` contains `PANEL_VERDICT\|approved`; post-deslop re-verification matches pre-deslop |
 | `blocked_on_story_{id}` | One or more stories cannot be made to pass; includes PRD gate failures (`prd_not_falsifiable_after_3_attempts`) and executor-reported infeasibility (`STORY_INFEASIBLE` note) | The blocked story's progress entries show ≥ 3 failed iterations or an explicit `STORY_INFEASIBLE` note |
 | `budget_exhausted` | `current_iteration > max_iterations` before all stories passed | `state.json.budget.current_iteration > max_iterations` |
 | `reviewer_rejected_{count}_times` | Reviewer produced `VERDICT\|rejected\|` more than 5 times on the same iteration's full story set | `state.json.reviewer_rejection_count > 5` |
@@ -238,16 +219,16 @@ The coordinator MUST write one of these labels — not "complete", "done", or "f
 
 ## Reviewer Selection
 
-The `--critic` flag chooses the reviewer tier for Step 7:
+The `--critic` flag chooses the reviewer tier for the Step 7 parallel review panel's 4 reviewers:
 
-| Flag | Spec-compliance reviewer | Code-quality reviewer | When to use |
-|---|---|---|---|
-| `--critic=architect` (default) | oh-my-claudecode:architect or Sonnet general-purpose | same tier, separate spawn | Balanced default for most runs |
-| `--critic=critic` | oh-my-claudecode:critic | oh-my-claudecode:critic | Heavier critique; security/arch-sensitive |
-| `--critic=codex` | omc ask codex --agent-prompt critic | omc ask codex --agent-prompt critic | Cross-model second opinion |
-| `--critic=deep-qa` | deep-qa --diff (parallel critics across QA dimensions) | deep-qa --diff second pass on code-quality dimensions | Highest-rigor audit; many files; production code |
+| Flag | Reviewer model tier | When to use |
+|---|---|---|
+| `--critic=architect` (default) | oh-my-claudecode:architect or Sonnet general-purpose | Balanced default for most runs |
+| `--critic=critic` | oh-my-claudecode:critic | Heavier critique; security/arch-sensitive |
+| `--critic=codex` | omc ask codex --agent-prompt critic | Cross-model second opinion |
+| `--critic=deep-qa` | deep-qa --diff (parallel critics across QA dimensions) | Highest-rigor audit; many files; production code |
 
-The two reviewer passes (7a and 7b) ALWAYS run as separate independent agent spawns, even when the same critic tier is selected. A single spawn cannot author both verdicts. If `--critic=deep-qa`, the two passes are two distinct `deep-qa` invocations with different angle pools.
+All 4 panel reviewers (spec-compliance, code-quality, smoke-test, integration-coherence) spawn in parallel per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md). The meta-reviewer is always an independent Sonnet agent regardless of `--critic` flag.
 
 ## Falsifiability Judge Prompt
 
@@ -278,70 +259,27 @@ Failure modes you MUST reject (not warn, reject):
 - Criterion requires network access to a service the command cannot reach
 ```
 
-## Reviewer Prompt Template (Step 7a — Spec Compliance)
+## Review Panel Prompt Templates (Step 7 — Parallel Review)
 
-```
-You are an independent spec-compliance reviewer. Your job is to REJECT if the implementation does not match the PRD.
+The Step 7 parallel review panel follows [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md). Four reviewers (spec-compliance, code-quality, smoke-test, integration-coherence) spawn in parallel, each receiving full context with a primary lens. The meta-reviewer resolves conflicts and produces `PANEL_VERDICT`.
 
-You succeed by finding genuine mismatches. You fail by rubber-stamping.
+Spec-compliance and code-quality reviewers use the checklists below as their primary-lens focus. Smoke-test and integration-coherence reviewers follow the shared pattern's templates.
 
-Inputs (read from files, do not ask the user):
-- PRD: {prd_path}
-- Verification evidence directory: {verify_dir}
-- Git diff of session changes: {diff_path}
+**Spec-compliance reviewer checklist (primary lens):**
+- For each story: does verification output genuinely match `expected_output_pattern`?
+- Fabrication detection: empty files, "PASS" echoed by executor, tests skipped
+- Test-gaming: implementation satisfies the test but not the story description
+- Stale evidence: `last_verified_at` earlier than current iteration start
+- Tests deleted or skipped to make criteria pass
 
-For each story in the PRD:
-1. Read the story's acceptance criteria and their `expected_output_pattern`
-2. Read the corresponding verification output in {verify_dir}/{criterion_id}-{iter}.txt
-3. Check: does the output genuinely match the pattern, or is there fake evidence (empty file, "PASS" echoed by the executor, tests skipped)?
-4. Check: does the git diff implement what the story describes, or only the test-surface?
+**Code-quality reviewer checklist (primary lens):**
+- Dead/unused code introduced by this session
+- Error handling: failure paths handled or swallowed?
+- Input validation and injection surfaces (SQL, shell, path, regex)
+- Test adequacy: tests cover the criterion, or only the happy path?
+- Duplication: code duplicates existing utilities?
 
-Output:
-
-STRUCTURED_OUTPUT_START
-VERDICT|approved|
-VERDICT|rejected|{one_line_reason}
-REASON|{defect_id}|{story_id}|{criterion_id_or_NONE}|{critical|major|minor}|{description}
-STRUCTURED_OUTPUT_END
-
-You MUST reject (not warn) if:
-- A criterion's verification output was fabricated (empty, or obviously not produced by running the command)
-- The implementation satisfies the test but not the story description (test-gaming)
-- A criterion is marked `passes: true` but its `last_verified_at` is earlier than the current iteration start
-- Tests were deleted or skipped to make criteria pass
-```
-
-## Reviewer Prompt Template (Step 7b — Code Quality)
-
-```
-You are an independent code-quality reviewer. Your job is to REJECT if the implementation has structural defects, even when it passes the spec.
-
-You succeed by finding structural defects. You fail by rubber-stamping.
-
-Inputs:
-- Git diff of session changes: {diff_path}
-- File contents: read directly from working tree
-
-Review dimensions (weight each equally; any critical finding rejects):
-1. Dead/unused code introduced by this session
-2. Error handling: are failure paths handled, or swallowed?
-3. Input validation and injection surfaces (SQL, shell, path, regex)
-4. Test adequacy: do the tests cover the criterion, or only the happy path?
-5. Duplication: does this session add code that duplicates existing utilities?
-
-Output:
-
-STRUCTURED_OUTPUT_START
-VERDICT|approved|
-VERDICT|rejected|{one_line_reason}
-REASON|{defect_id}|quality|{file_path}|{critical|major|minor}|{description}
-STRUCTURED_OUTPUT_END
-
-Out of scope (do NOT reject for):
-- Spec compliance (that is the 7a reviewer's job)
-- Style preferences that do not affect correctness
-- Refactoring opportunities that the PRD did not request
-```
+**Cross-lane empowerment:** both reviewers can flag findings outside their primary lens (tagged `CROSS_LANE`). Out of scope for all reviewers: style preferences, refactoring the PRD did not request.
 
 ## Final Summary Template
 
@@ -385,8 +323,8 @@ Written by a Sonnet subagent reading from `state.json`, `prd.json`, and `progres
 - [ ] Falsifiability judge ran on every new criterion (including those added mid-run) before the story's first iteration
 - [ ] Every `passes: true` criterion has `last_verified_at > state.json.iteration_started_at` for the iteration that marked it passed
 - [ ] No story marked `status: passed` without every criterion having fresh passing evidence this iteration
-- [ ] Spec-compliance reviewer (7a) and code-quality reviewer (7b) ran as separate independent spawns
-- [ ] Both reviewer files contain `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers and a parseable `VERDICT` line
+- [ ] All 4 panel reviewers (spec-compliance, code-quality, smoke-test, integration-coherence) spawned per `_shared/parallel-review-panel.md`
+- [ ] All reviewer files + `panel-verdict.md` contain `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers; meta-reviewer produced parseable `PANEL_VERDICT` line
 - [ ] Deslop pass ran (or `--no-deslop` set) AND post-deslop regression re-verification produced fresh passing evidence
 - [ ] `state.json.termination` is one of the four defined labels — never "complete" or "done"
 - [ ] `progress.jsonl` has one line per iteration event, all with structured fields (no freeform prose)
@@ -399,7 +337,7 @@ See GOLDEN-RULES.md for the full set and the anti-rationalization counter-table.
 
 1. **Independence invariant.** Coordinator orchestrates; never evaluates. Falsifiability, verification match, reviewer approval — all delegated to independent agents reading from files.
 2. **Iron-law verification gate.** No `passes: true` without fresh evidence from THIS iteration matching `expected_output_pattern` in captured output.
-3. **Two-stage review on source modifications.** Spec-compliance (7a) and code-quality (7b) ALWAYS run as separate independent spawns.
+3. **4-reviewer parallel panel on source modifications.** Spec-compliance, code-quality, smoke-test, integration-coherence per `_shared/parallel-review-panel.md`. No exceptions.
 4. **Honest termination labels.** Four defined labels. Never "complete" without matching evidence in files.
 5. **State written before agent spawn.** `spawn_time_iso` recorded before Agent call. Spawn failure = `spawn_failed`, not "spawned."
 6. **Structured output is the contract.** `STRUCTURED_OUTPUT_START/END` markers are mandatory. Unparseable = fail-safe rejected.

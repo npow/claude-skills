@@ -69,7 +69,7 @@ Applied in every skill's GOLDEN-RULES.md. Absorbed from npow/deep-design + super
 
 1. **Independence invariant.** Coordinator orchestrates; never evaluates. Severity, completeness, approval are delegated to independent judge agents with no stake in the outcome.
 2. **Iron-law verification gate.** No completion claims without fresh evidence. Each stage must produce an evidence file (test output, lint exit code, judge verdict) before transition.
-3. **Two-stage review on source modifications.** Every stage that modifies source files gets spec-compliance review (matches the plan?) then code-quality review (built well?). Separate independent agents. Applies to team-exec, team-fix, loop-until-done story completion, autopilot Phase 2.
+3. **4-reviewer parallel panel on source modifications.** Every stage that modifies source files gets a 4-reviewer parallel panel (spec-compliance, code-quality, smoke-test, integration-coherence) per [`_shared/parallel-review-panel.md`](../../_shared/parallel-review-panel.md). Separate independent agents per lens. Applies to team-exec, team-fix, loop-until-done story completion, autopilot Phase 2.
 4. **Honest termination labels.** Explicit per-skill vocabulary. Never use "no issues remain" or "all complete" as a label. Each skill's SKILL.md defines the exhaustive label table.
 5. **State written before agent spawn.** `spawn_time_iso` recorded before Agent call; spawn failure recorded as `spawn_failed`, not "spawned but silent." Resume retries spawn; does not wait.
 6. **Structured output is the contract.** Judges, critics, reviewers produce machine-parseable lines between `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers. Free-text is ignored by coordinator. Unparseable → fail-safe critical.
@@ -86,7 +86,7 @@ Tailored per skill. Common entries:
 | "Verifier already ran earlier" | Fresh stage = fresh verification. |
 | "I read the output in a previous round" | Previous output is stale state. Read current. |
 | "Coordinator can call this one" | No. Independent agent. Always. |
-| "Two-stage review is overkill here" | No exceptions. Separate agents, every modification. |
+| "Parallel panel review is overkill here" | No exceptions. Separate agents per lens, every modification. |
 
 ### Deep integration with existing npow skills
 
@@ -119,7 +119,7 @@ Skills still work without the integrations; quality is lower but advertised expl
 | team-plan agent | explore + planner | explore + planner + optional deep-design pass for adversarial plan review |
 | team-prd agent | analyst (critic optional) | analyst + mandatory independent critic with falsifiability gate |
 | team-exec worker | executor (no TDD enforcement) | executor with TDD preamble in every worker prompt |
-| team-verify | single verifier agent | deep-qa --diff (parallel critics across QA dimensions) + independent code-quality reviewer (two-stage) |
+| team-verify | single verifier agent | deep-qa --diff (parallel critics across QA dimensions) + 4-reviewer parallel panel per `_shared/parallel-review-panel.md` |
 | team-fix | executor loop | bounded by fix_budget; each fix verified independently before merge |
 | Handoff docs | freeform markdown at `.omc/handoffs/` | structured schema (`decided`, `rejected`, `risks`, `files`, `remaining`) at `team-{run_id}/handoffs/` with required fields |
 | State | OMC MCP `state_write` | file-based at `team-{run_id}/state.json` (portable) |
@@ -144,7 +144,7 @@ Skills still work without the integrations; quality is lower but advertised expl
 | Dimension | OMC ralph | npow `/loop-until-done` |
 |---|---|---|
 | PRD validation | coordinator refines scaffold criteria | independent judge agent validates each criterion is falsifiable |
-| Story verification | architect agent checks criteria | deep-qa + two-stage review (spec compliance → code quality) per story |
+| Story verification | architect agent checks criteria | deep-qa + 4-reviewer parallel panel (spec-compliance, code-quality, smoke-test, integration-coherence) per story |
 | Acceptance criteria format | prose | structured: `criterion, verification_command, expected_output` |
 | Deslop pass | mandatory (good) | preserved |
 | Reviewer selection | `--critic=architect\|critic\|codex` | same + add `--critic=deep-qa` for full audit |

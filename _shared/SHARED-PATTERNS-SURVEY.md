@@ -2,10 +2,10 @@
 
 Snapshot of recurring patterns across the skills in `/Users/npow/.claude/skills/`, captured on 2026-04-18 by an Explore agent. Purpose: preserve the extraction candidates so they survive context compaction.
 
-**Status:** survey complete. Only `adversarial-judging.md` extracted so far. The remaining candidates are pending user approval per bucket — extraction touches 7-9 skills per pattern and should be done in a controlled batch, not incidentally.
+**Status:** survey complete. Extracted patterns: `adversarial-judging.md`, `cross-finding-coherence.md`, `execution-model-contracts.md`, `parallel-review-panel.md`, `premortem-blind-spot-seeding.md`, `parallel-critic-quorum.md`, `subagent-watchdog.md`. Remaining candidates are pending user approval per bucket — extraction touches 7-9 skills per pattern and should be done in a controlled batch, not incidentally.
 
-**Last updated:** 2026-04-18
-**Source agent:** Explore survey (medium thoroughness)
+**Last updated:** 2026-04-23
+**Source agent:** Explore survey (medium thoroughness) + Org-Bench coordination research (2026-04-23)
 
 ---
 
@@ -47,9 +47,9 @@ Snapshot of recurring patterns across the skills in `/Users/npow/.claude/skills/
 
 ## Medium-value extractions (repeat across 3-4 skills with divergent wording)
 
-### 6. Blind Severity Protocol (two-pass judge) — EXTRACTED
-- **Skills (3):** deep-design, deep-debug, proposal-reviewer
-- **Status:** ✅ extracted to `_shared/adversarial-judging.md` as mechanism #1.
+### 6. Adversarial Judging (4 mechanisms) — EXTRACTED
+- **Skills (4 adopters, partial):** deep-qa (3 of 4 mechanisms), deep-design, deep-debug, proposal-reviewer
+- **Status:** ✅ extracted to `_shared/adversarial-judging.md` — blind severity protocol, mandatory author counter-response, rationalization auditor, falsifiability drop. Adoption varies per skill (deep-qa adopts 3 of 4, intentionally diverges on falsifiability drop).
 
 ### 7. Pre-Mortem Blind-Spot Seeding — EXTRACTED
 - **Skills (4):** deep-design (step 0), deep-qa (phase 0e), deep-research (phase 0e), deep-debug (phase 0e)
@@ -78,6 +78,20 @@ Snapshot of recurring patterns across the skills in `/Users/npow/.claude/skills/
 - **Motivation:** the 18-hour-silent-death bug — coordinator blocked on `TaskOutput(block=true)` against a hung subagent with no path to detect staleness. Closing this gap is load-bearing for any skill that dispatches long-running subagents.
 
 **Medium-value remaining extraction savings: ~600 lines.**
+
+---
+
+### 12. Cross-Finding Coherence Integrator — EXTRACTED
+- **Skills (4):** deep-qa (Phase 5.5.a-coherence), deep-design (Step 5 pre-judge), deep-debug (Phase 3 Step 3a-coherence), deep-research (Phase 3.7 post-rounds)
+- **Pattern:** after parallel critics/hypothesis-agents/researchers complete and before severity judges or synthesis, spawn a Sonnet integrator that reads ALL output simultaneously and annotates cross-finding relationships (contradictions, emergent patterns, coverage gaps). Research variant uses adapted vocabulary (CONVERGES replaces PATTERN_MEMBER, adds SOURCE_CONFLICT).
+- **Status:** ✅ EXTRACTED (2026-04-23) to `_shared/cross-finding-coherence.md` — full pattern + research variant + prompt template + failure modes + integration checklist. Wired into deep-qa, deep-design, deep-debug, deep-research.
+- **Motivation:** Org-Bench (Kun Chen, April 2026) showed Google's bipartite integrator layer (4 parallel middle reviewers seeing ALL worker output) outscored every other topology. Our parallel critics were intentionally isolated (preventing groupthink) but this created blind spots: contradictory findings survived independently, emergent patterns across dimensions were invisible, and inter-dimensional coverage gaps were unchecked. The integrator is the bipartite middle layer.
+
+### 13. Parallel Review Panel — EXTRACTED
+- **Skills (3 wired):** team (Step 5), loop-until-done (Step 7), ship-it (Phase 6)
+- **Pattern:** replaces two-stage sequential review (spec-compliance → code-quality) with 4 parallel reviewers, each getting full context (spec + code + tests + build output) with a primary lens (spec-compliance, code-quality, smoke-test, integration-coherence). Cross-lane findings are tagged. Meta-reviewer resolves conflicts.
+- **Status:** ✅ EXTRACTED (2026-04-23) to `_shared/parallel-review-panel.md` — full pattern + panel composition + smoke-test prompt template + meta-reviewer protocol + integration checklist. Wired into team, loop-until-done, ship-it. Autopilot NOT YET WIRED — listed as candidate consumer but still uses its own review protocol.
+- **Motivation:** Org-Bench showed three failures in review structures: (1) Oracle's lane-specific reviewers all passed while the product didn't work (no end-to-end usage verification — addressed by smoke-test lens), (2) Google's 4 parallel integrators outperformed Apple's 1 serial reviewer (addressed by parallel execution), (3) sequential specialized review creates partial-context blindness (addressed by giving every reviewer full context with a primary lens, not a scope boundary).
 
 ---
 

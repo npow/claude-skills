@@ -20,12 +20,12 @@ No story is marked `passes: true` until every criterion has fresh `last_verified
 - **Concrete:** Story US-003 had AC-003-1 and AC-003-2 pass in iteration 5. In iteration 8, we touched the code for US-003 again. BOTH criteria must re-run in iteration 8 — stale passing evidence from iteration 5 does NOT count.
 - **Corollary:** If the executor claims "I ran the tests, they pass," the coordinator MUST still run `verification_command` and read the captured output. Executor claims are not evidence.
 
-### 3. Two-stage review on source modifications
+### 3. 4-reviewer parallel panel on source modifications
 
-Every completion gate runs BOTH spec-compliance review (7a) and code-quality review (7b) as SEPARATE INDEPENDENT agent spawns. Same critic tier is fine; same spawn is not.
+Every completion gate runs a 4-reviewer parallel panel (spec-compliance, code-quality, smoke-test, integration-coherence) per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md) as SEPARATE INDEPENDENT agent spawns. Same critic tier is fine; same spawn is not.
 
-- **Concrete:** `--critic=architect` runs two architect spawns with two different prompts reading from two different files. Not one architect spawn that "also checks quality."
-- **Corollary:** If the task modifies only a single file with < 100 lines, the two reviews still both run. The rule has no "small change" exception.
+- **Concrete:** `--critic=architect` runs four architect spawns with four different lens prompts reading from files. Not one architect spawn that "covers everything."
+- **Corollary:** If the task modifies only a single file with < 100 lines, all four lens reviews still run. The rule has no "small change" exception.
 
 ### 4. Honest termination labels
 

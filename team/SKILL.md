@@ -1,12 +1,12 @@
 ---
 name: team
-description: Use when coordinating multiple agents on a staged pipeline — plan → PRD → exec → verify → fix — with independent critic/verifier gates and two-stage review on every source modification. Trigger phrases include "spawn a team", "team of agents", "coordinate agents", "staged pipeline", "multi-agent pipeline", "agent team", "run a team on this", "PRD-driven team", "team workflow", "agents working together", "assemble a team", "delegate to a team", "orchestrate agents", "pipeline of agents". File-based state, no external MCP dependencies, honest termination labels, Claude Code native team tools.
+description: Use when coordinating multiple agents on a staged pipeline — plan → PRD → exec → verify → fix — with independent critic/verifier gates and 4-reviewer parallel panel on every source modification. Trigger phrases include "spawn a team", "team of agents", "coordinate agents", "staged pipeline", "multi-agent pipeline", "agent team", "run a team on this", "PRD-driven team", "team workflow", "agents working together", "assemble a team", "delegate to a team", "orchestrate agents", "pipeline of agents". File-based state, no external MCP dependencies, honest termination labels, Claude Code native team tools.
 argument-hint: "[N:agent-type] <task description>"
 ---
 
 # Team Skill
 
-Spawn N coordinated agents on a staged pipeline using Claude Code's native team tools. The coordinator orchestrates; it never evaluates. Every stage gate is approved by an independent agent reading from files. Every source modification gets a two-stage review (spec-compliance then code-quality). Every worker writes a failing test first. Termination labels are exhaustive and honest.
+Spawn N coordinated agents on a staged pipeline using Claude Code's native team tools. The coordinator orchestrates; it never evaluates. Every stage gate is approved by an independent agent reading from files. Every source modification gets a 4-reviewer parallel panel review per `_shared/parallel-review-panel.md`. Every worker writes a failing test first. Termination labels are exhaustive and honest.
 
 ## Execution Model
 
@@ -25,7 +25,7 @@ Non-negotiable contracts:
 
 ## Philosophy
 
-A team is only as trustworthy as its weakest review step. OMC's `/team` skill lets the coordinator mark stages complete, allows single-pass verification, and does not enforce test-first execution. This skill fixes each of those: the coordinator is a librarian, not a judge. Verification is two-stage by mandate. Workers write a failing test before implementation and attach the test-run output as evidence.
+A team is only as trustworthy as its weakest review step. OMC's `/team` skill lets the coordinator mark stages complete, allows single-pass verification, and does not enforce test-first execution. This skill fixes each of those: the coordinator is a librarian, not a judge. Verification uses a 4-reviewer parallel panel by mandate. Workers write a failing test before implementation and attach the test-run output as evidence.
 
 ## Workflow
 
@@ -120,7 +120,7 @@ If exit fails: do not transition. Re-spawn `planner` with the validator's reject
    - TDD mandate (see Worker Preamble below)
 5. Before spawn, state write: `state.stages[2].workers[N].spawn_time_iso = <ISO>`, `status: "spawned"`, `generation += 1`.
 6. Lead spawns N workers in parallel: `Task(subagent_type=<worker-type>, team_name=..., name=worker-N, prompt=<preamble + assignment file path>)`.
-7. Monitor loop: lead reads `TaskList`, inbound `SendMessage`. On task completion, the lead runs the **two-stage review on that worker's diff** before marking the task truly complete in state (see Step 5 team-verify for the same two-stage protocol applied per-worker).
+7. Monitor loop: lead reads `TaskList`, inbound `SendMessage`. On task completion, the lead runs the **parallel panel review on that worker's diff** before marking the task truly complete in state (see Step 5 team-verify for the panel protocol applied per-worker).
 
 **Worker Preamble (TDD-enforced, injected into every worker prompt):**
 
@@ -168,47 +168,59 @@ For each acceptance criterion assigned to you, follow this exact order:
 
 **Per-worker completion gate (enforced by the lead, NOT by the worker):**
 
-When a worker reports completion, the lead runs the two-stage review protocol on that worker's diff before accepting completion into `state.json`:
+When a worker reports completion, the lead runs a lightweight per-worker review on that worker's diff before accepting completion into `state.json`:
 
-- Stage A: spec-compliance — spawn `deep-qa --diff` (if available) or a single code-reviewer (degraded mode; see INTEGRATION.md) on the worker's diff vs PRD.
-- Stage B: code-quality — spawn a separate `code-reviewer` agent on the diff for code-quality defects.
+- Spawn a single code-reviewer agent on the worker's diff vs PRD, checking both spec-compliance and code-quality in one pass.
+- If `deep-qa --diff` is available, use it instead (degraded mode: see INTEGRATION.md).
 
-Both reviewers write structured output. Lead reads only `STRUCTURED_OUTPUT` lines. Any `critical` defect → task status reverts to `in_progress`, worker receives a `SendMessage` with the defect file path, loops to fix and re-verify.
+Reviewer writes structured output. Lead reads only `STRUCTURED_OUTPUT` lines. Any `critical` defect → task status reverts to `in_progress`, worker receives a `SendMessage` with the defect file path, loops to fix and re-verify.
+
+Note: this per-worker gate is a lightweight single-reviewer check. The full 4-reviewer parallel review panel (Step 5) fires once on the aggregate output of all workers — see [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md).
 
 **Exit gate (all must pass):**
 - All non-internal tasks have `status: completed` in `TaskList`.
 - For every AC in `prd-final.md`: an `exec/{worker}-AC-{id}-red.txt`, `-green.txt`, and `-verify.txt` file exists; each has non-empty content; `-verify.txt` matches `expected_output_pattern`.
-- Two-stage per-worker review passed for each completed task (evidence files in `verify/per-worker/`).
+- Per-worker parallel panel review passed for each completed task (evidence files in `verify/per-worker/`).
 - `handoffs/exec.md` written summarizing what changed + pointers to evidence.
 - `state.stages[2].evidence_files` populated with all the above paths.
 
 ### Step 5: Stage 4 — team-verify
 
-**Agents:** `deep-qa --diff` (parallel critics across QA dimensions: correctness, error_handling, security, testability) OR single code-reviewer in degraded mode + **independent code-quality reviewer** (opus) as a separate second stage. Two-stage review by mandate.
+**Agents:** 4-reviewer parallel panel per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md): spec-compliance, code-quality, smoke-test, integration-coherence — each as an independent spawn. Uses `deep-qa --diff` for spec-compliance lens when available, or single code-reviewer in degraded mode.
 
 **Entry gate:** Stage 3 exit-gate passed, all worker evidence files present.
 
-**Work — mandatory two-stage protocol:**
+**Work — parallel review panel:**
 
-**Stage A — spec-compliance (deep-qa --diff):**
+Per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md), the previous two-stage sequential review (spec-compliance → code-quality) is replaced with a 4-reviewer parallel panel. Each reviewer gets full context (spec + diff + tests + build output) and has a primary lens but can flag cross-lane findings.
+
 1. Write `team-{run_id}/verify/diff.patch` capturing the full change set from exec.
-2. Invoke `deep-qa --diff` on `diff.patch` with `prd-final.md` as the reference spec. Output directory: `team-{run_id}/verify/spec-compliance/`. See INTEGRATION.md for the exact invocation contract and degraded-mode fallback.
-3. Read `team-{run_id}/verify/spec-compliance/defect-registry.md`. Categorize by severity: critical / major / minor.
+2. Write `team-{run_id}/verify/repro-instructions.md` with commands to run/test the artifact.
+3. Spawn all 4 reviewers in parallel:
+   - **Spec-compliance** (Sonnet): reads `diff.patch` + `prd-final.md` + test evidence. Primary focus: every AC has matching evidence.
+   - **Code-quality** (Sonnet): reads `diff.patch` + `prd-final.md` + test evidence. Primary focus: maintainability, duplication, error handling, security surfaces.
+   - **Smoke-test** (Sonnet, 300s timeout): receives `repro-instructions.md`. Executes golden-path scenarios end-to-end. Reports what actually works vs. what the spec says should work.
+   - **Integration-coherence** (Sonnet): reads all worker diffs together. Primary focus: cross-worker contract consistency, API boundary alignment, no stubs left in integration paths.
+4. Each reviewer writes to `team-{run_id}/verify/{lens}-review.md` with `STRUCTURED_OUTPUT` markers.
+5. Spawn **meta-reviewer** (Sonnet, independent agent) reading all 4 review files. Meta-reviewer resolves contradictions and produces `team-{run_id}/verify/panel-verdict.md`:
+   ```
+   STRUCTURED_OUTPUT_START
+   PANEL_VERDICT|{approved|rejected_fixable|rejected_unfixable}
+   DEFECT_FINAL|{id}|{severity}|{status}
+   COVERAGE|{lens}|{status}
+   STRUCTURED_OUTPUT_END
+   ```
 
-**Stage B — code-quality reviewer (runs AFTER Stage A completes; separate independent agent):**
-1. Spawn `code-reviewer` (opus) with: `diff.patch`, `prd-final.md`, `verify/spec-compliance/defect-registry.md` (so the reviewer can see but cannot dilute spec-compliance findings).
-2. Reviewer prompt: "Focus on code quality — readability, maintainability, idiomatic use, duplication, error handling, test coverage structural issues. Do NOT re-litigate spec compliance (that was Stage A's job). File only code-quality defects."
-3. Reviewer writes `team-{run_id}/verify/code-quality/review.md` with structured output.
+Quorum: 3 of 4 reviewers must return parseable output. Smoke-test timeout does not block the other three (panel proceeds in degraded mode with `SMOKE_TEST_UNAVAILABLE` flagged).
 
-**Aggregate verdict:**
-- Spawn an **independent verify-judge** (opus, separate context) reading both `verify/spec-compliance/defect-registry.md` and `verify/code-quality/review.md`. Judge writes `team-{run_id}/verify/verdict.md` with structured output: `VERDICT: passed | failed_fixable | failed_unfixable`. See FORMAT.md verdict schema.
+Per-worker completion gates (the lightweight per-diff checks in Step 4) remain unchanged — those are fast inline checks, not full panel reviews.
 
 **Exit gate:**
-- Both stage outputs exist with structured markers.
-- `verify/verdict.md` written by independent judge.
-- If `VERDICT: passed` and no critical/major defects: proceed to termination at Step 7 (skip team-fix).
-- If `VERDICT: failed_fixable`: proceed to Step 6 (team-fix).
-- If `VERDICT: failed_unfixable`: terminate with label `blocked_unresolved`.
+- All reviewer outputs and panel verdict exist with structured markers.
+- `verify/panel-verdict.md` written by independent meta-reviewer.
+- If `PANEL_VERDICT: approved`: proceed to termination at Step 7 (skip team-fix).
+- If `PANEL_VERDICT: rejected_fixable`: proceed to Step 6 (team-fix).
+- If `PANEL_VERDICT: rejected_unfixable`: terminate with label `blocked_unresolved`.
 - `handoffs/verify.md` written.
 - `state.stages[3].evidence_files` populated.
 
@@ -216,7 +228,7 @@ Both reviewers write structured output. Lead reads only `STRUCTURED_OUTPUT` line
 
 **Agents:** `executor` (sonnet; opus for complex) or `debugger` (sonnet) selected per defect type; **plus independent per-fix verifier**.
 
-**Entry gate:** Stage 4 produced `VERDICT: failed_fixable` with a non-empty defect registry.
+**Entry gate:** Stage 4 produced `PANEL_VERDICT|rejected_fixable` with a non-empty defect registry.
 
 **Budget:** `fix_budget` (default 3 iterations). Each iteration handles the full remaining defect set; retries per individual defect are tracked in `state.stages[4].defects[].fix_attempts`.
 
@@ -233,7 +245,7 @@ Both reviewers write structured output. Lead reads only `STRUCTURED_OUTPUT` line
 - `fix_budget` exhausted → label `budget_exhausted` with honest defect report, OR
 - New critical defect introduced by fixes AND no fresh budget → label `blocked_unresolved`.
 
-After a successful fix iteration: **return to Step 5 (team-verify) for a fresh two-stage review of the updated diff**. Previous verify results do NOT carry forward. This enforces the "fresh evidence every stage" rule.
+After a successful fix iteration: **return to Step 5 (team-verify) for a fresh parallel panel review of the updated diff**. Previous verify results do NOT carry forward. This enforces the "fresh evidence every stage" rule.
 
 ### Step 7: Termination
 
@@ -241,7 +253,7 @@ Exactly one of:
 
 | Label | Condition |
 |---|---|
-| `complete` | All PRD AC have green `-verify.txt` matching `expected_output_pattern`; team-verify `VERDICT: passed`; no unresolved critical/major defects. |
+| `complete` | All PRD AC have green `-verify.txt` matching `expected_output_pattern`; team-verify `PANEL_VERDICT|approved`; no unresolved critical/major defects. |
 | `partial_with_accepted_unfixed` | All critical defects fixed; some major/minor defects explicitly accepted with rationale in `handoffs/fix.md`; team-verify verdict references acceptance list. |
 | `blocked_unresolved` | Critical defect unfixed with no path forward (e.g., external blocker, invariant contradiction) AND `fix_budget` not exhausted. |
 | `budget_exhausted` | `fix_budget` reached with unresolved critical/major defects. Honest report lists which. |
@@ -249,7 +261,7 @@ Exactly one of:
 
 "Complete" requires ALL of:
 - `state.stages[0..4].evidence_files` all non-empty and all listed files exist on disk.
-- `verify/verdict.md` final iteration `VERDICT: passed`.
+- `verify/panel-verdict.md` final iteration `PANEL_VERDICT|approved`.
 - Zero open defects with severity `critical` or `major` in any verify/fix output.
 
 **Write final output:**
@@ -279,7 +291,7 @@ See GOLDEN-RULES.md for the full 8 cross-cutting rules + anti-rationalization co
 
 1. **Independence invariant.** Coordinator never evaluates.
 2. **Iron-law verification gate.** No stage advances without evidence files on disk.
-3. **Two-stage review on every source modification.** Spec-compliance THEN code-quality. Separate agents. No exceptions.
+3. **4-reviewer parallel panel on every source modification.** Spec-compliance, code-quality, smoke-test, integration-coherence per `_shared/parallel-review-panel.md`. No exceptions.
 4. **Honest termination labels.** Exhaustive 5-label table only.
 5. **State written before agent spawn.** `spawn_failed` ≠ "spawned but silent."
 6. **Structured output is the contract.** Unparseable = fail-safe critical.
@@ -296,8 +308,8 @@ Before declaring `complete`:
 - [ ] `prd/prd-final.md` every AC has populated `verification_command` and `expected_output_pattern`.
 - [ ] `prd/falsifiability-verdict.md` has zero `unfalsifiable` criteria.
 - [ ] For every AC: `exec/{worker}-AC-{id}-red.txt`, `-green.txt`, `-verify.txt` exist + non-empty.
-- [ ] `verify/spec-compliance/defect-registry.md` + `verify/code-quality/review.md` both written by independent agents with `STRUCTURED_OUTPUT` markers.
-- [ ] `verify/verdict.md` authored by independent verify-judge (not coordinator).
+- [ ] `verify/{lens}-review.md` files written by independent panel reviewers with `STRUCTURED_OUTPUT` markers.
+- [ ] `verify/panel-verdict.md` authored by independent meta-reviewer (not coordinator).
 - [ ] If `team-fix` ran: every defect has a per-fix verifier verdict file; no critical/major defect has verdict `not_fixed` or `partial` at termination.
 - [ ] Termination label is NOT "no issues remain"; it is one of the exhaustive five.
 - [ ] All workers received the TDD preamble; every worker completion has red-test evidence.

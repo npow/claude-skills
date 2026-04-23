@@ -51,7 +51,7 @@ If the probe fails: route via `/loop-until-done` with the failure as a new accep
 
 ### Step 3: Smoke tests
 
-Write 2-3 end-to-end tests exercising the ACTUAL PRODUCT, not just individual functions. These tests are added by a fresh `/team` or `/loop-until-done` invocation — not by the coordinator — to maintain the two-stage-review discipline.
+Write 2-3 end-to-end tests exercising the ACTUAL PRODUCT, not just individual functions. These tests are added by a fresh `/team` or `/loop-until-done` invocation — not by the coordinator — to maintain the parallel-panel-review discipline.
 
 1. Synthesize a one-story PRD: "Add smoke tests that exercise the public interface end-to-end with real code (no mocks)". Include concrete verification commands.
 2. Invoke `/loop-until-done --prd ship-it-{run_id}/integrate/smoke-prd.json --max-iter=2`.
@@ -94,7 +94,7 @@ Any missing/unparseable → `ADVANCE: false`.
 
 ## Anti-patterns
 
-- Coordinator hand-patching an import path in integrate/. Violation of rule 3 (two-stage review on source modifications). Route via `/loop-until-done`.
+- Coordinator hand-patching an import path in integrate/. Violation of rule 3 (4-reviewer parallel panel on source modifications). Route via `/loop-until-done`.
 - Coordinator deciding a TODO is fine without annotating it. Violation of rule 8 (no self-approval). Either annotate or remove.
 - Coordinator running smoke tests with mocks to get them to pass. Violation of smoke-test charter. Smoke tests use real code.
 - Accepting a flaky smoke test. If it's not reproducibly passing, it's failing. Fix the flakiness or remove the test (and document why).

@@ -43,10 +43,10 @@ Claude Code skills. Each skill is a directory of markdown files that Claude load
 Multi-agent coordination with file-based state, independent judges, and iron-law verification gates. Composes with `/deep-design` and `/deep-qa`. Ordered bottom-up:
 
 - **`/parallel-exec`** — fire N subagents in parallel with tier routing and mandatory verification commands. Independent convergence checker detects cross-task conflicts.
-- **`/team`** — N coordinated agents on a staged pipeline (plan → prd → exec → verify → fix). Two-stage verify via `/deep-qa --diff` and code-quality review.
+- **`/team`** — N coordinated agents on a staged pipeline (plan → prd → exec → verify → fix). 4-reviewer parallel panel verify via `/deep-qa --diff` and independent lens reviewers per [`_shared/parallel-review-panel.md`](_shared/parallel-review-panel.md).
 - **`/loop-until-done`** — PRD-driven persistence loop. Keeps working until every acceptance criterion has fresh verified evidence.
 - **`/deep-plan`** — Planner → Architect → Critic loop. All three are fully independent agents. Critic rejections require falsifiable failure scenarios.
-- **`/autopilot`** — idea through five phases (expand → plan → exec → qa → validate). Delegates each phase to the right specialist. Three independent judges at the end.
+- **`/autopilot`** — idea through five phases (expand → plan → exec → qa → validate). Delegates each phase to the right specialist. 4-reviewer parallel panel validation at the end.
 
 ### Quality & Audit
 

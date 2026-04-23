@@ -99,7 +99,7 @@ Pure file-based state. No MCP state tools. All persistence lives in `team-{run_i
   "invariants": {
     "coordinator_never_evaluated": true,
     "all_evidence_fresh_this_session": true,
-    "two_stage_review_enforced": true,
+    "parallel_panel_review_enforced": true,
     "every_worker_received_tdd_preamble": true
   },
   "handoffs": {
@@ -198,8 +198,8 @@ Lives at `state.stages[team-exec].workers`. Each entry updated by the lead (neve
 | Before `Task` spawn | `status: "not_spawned" → "spawned"`, `spawn_time_iso: <ISO>` |
 | `Task` returned spawn error | `status: "spawn_failed"`, `failure_reason: <error>` |
 | Worker `SendMessage` "task #X complete" | `status: "task_complete_pending_review"`, evidence_files populated |
-| Per-worker two-stage review `VERDICT: passed` | `status: "task_complete_approved"` |
-| Per-worker two-stage review `VERDICT: failed_*` | `status: "task_complete_rejected"`, worker re-sent to work via SendMessage |
+| Per-worker parallel panel `PANEL_VERDICT|approved` | `status: "task_complete_approved"` |
+| Per-worker parallel panel `PANEL_VERDICT|rejected_*` | `status: "task_complete_rejected"`, worker re-sent to work via SendMessage |
 | Worker `shutdown_response` approve=true | `status: "shutdown_confirmed"`, `completion_time_iso: <ISO>` |
 | Shutdown 30s timeout (2x) | `status: "shutdown_timeout"` |
 
@@ -248,7 +248,7 @@ On re-invocation in the same CWD:
 5. Every `handoffs[<stage>]` non-null path exists on disk.
 6. Every `stages[<stage>].evidence_files` path exists on disk and is non-empty.
 7. `invariants.coordinator_never_evaluated`: every verdict file has `written_by != "coordinator"` in its metadata.
-8. `invariants.two_stage_review_enforced`: in `team-exec` and `team-verify`, for every reviewed diff, there are TWO independent verdict files (spec-compliance + code-quality) with distinct `agent_id` and distinct `spawn_time_iso`.
+8. `invariants.parallel_panel_review_enforced`: in `team-exec` and `team-verify`, for every reviewed diff, there are FOUR independent verdict files (spec-compliance + code-quality + smoke-test + integration-coherence) per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md), with distinct `agent_id` and distinct `spawn_time_iso`, plus a `panel-verdict.md` from the meta-reviewer.
 9. `termination` is either null or one of the five enum values.
 
 Any invariant violation: log to `logs/gate_decisions.jsonl` with `event: invariant_violation`; halt run pending operator input; surface a human-readable summary.

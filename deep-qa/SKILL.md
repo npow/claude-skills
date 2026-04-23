@@ -30,6 +30,8 @@ Shares deep-design's core execution contracts:
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
+**Cross-finding coherence:** this skill applies the coherence-integrator pattern from [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md) at Phase 5.5.a-coherence — after draining pass-1 judges and BEFORE pass-2 informed judges. The integrator reads all deduped critic output files simultaneously and annotates each finding with cross-finding relationships (contradictions, emergent patterns, coverage gaps). These annotations are included in pass-2 judge input files so judges see the cross-finding context when confirming/upgrading/downgrading severity.
+
 **Subagent watchdog:** every `run_in_background=true` spawn in this skill (severity judges, coordinator summaries, batched pass-2 judges) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A (Monitor tail per spawn) with thresholds `STALE=3 min`, `HUNG=10 min` for Haiku judges and summaries — these are short-running tasks and a 30-min quiet period is always pathological. `TaskOutput` status field is not evidence of progress; output-file mtime is. This contract adds `timed_out_heartbeat` to this skill's termination vocabulary (per-lane watchdog kill) and `stalled_watchdog` / `hung_killed` to per-lane state — see shared doc §"State schema additions" + §"Termination-label addition".
 
 ## Adversarial judging (3 of 4 mechanisms adopted)
@@ -302,10 +304,26 @@ Before proceeding to Phase 5.6 (rationalization audit) and Phase 6 (final report
    - Write `"generation": += 1`
 4. **Handle pass-1 timeouts:** If any pass-1 batch timed out, retain critic-proposed severity for those defects. Set `judge_status: "pass_1_timed_out"`. Log `JUDGE_TIMEOUT_BACKGROUND_PASS_1: {defect_ids}`.
 
+**5.5.a-coherence — Cross-finding coherence integrator (fires after pass-1 drain, before pass-2):**
+
+Per [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md):
+
+1. Collect all parseable critic output files from all rounds (post-dedup).
+2. Write integrator input manifest to `deep-qa-{run_id}/coherence/input-manifest.md` containing: list of all critic output file paths, artifact path, known-defects path, dimension taxonomy.
+3. Spawn Sonnet coherence-integrator agent with the manifest. Output: `deep-qa-{run_id}/coherence/round-all-coherence.md`. Timeout: 120s.
+4. Parse `STRUCTURED_OUTPUT` block for `FINDING|`, `GAP|`, and `PATTERN|` lines.
+5. For each `FINDING|{id}|{annotation}` line: attach annotation to `defects.{id}.coherence_annotation` in state.json. Write `generation += 1`.
+6. For each `GAP|{dim_a}|{dim_b}|{description}|{angle}` line: create a CRITICAL-priority angle in the frontier for the next round (if rounds remain) or flag in the final report (if this is the last round).
+7. For each `PATTERN|{pattern_id}|{finding_ids}|{root_cause}|{severity_suggestion}` line: store in `state.json.emergent_patterns[]` for Phase 6 final report.
+8. If integrator output is unparseable or timed out: log `COHERENCE_PARSE_FAILED` or `COHERENCE_TIMED_OUT`. Proceed without annotations — pass-2 judges run normally (degraded mode). Flag in Phase 6 report.
+9. If `STANDALONE` rate is 100% across 6+ findings: log `COHERENCE_SHALLOW` warning — include in Phase 6 caveats.
+
+**Why between pass-1 and pass-2:** Pass-1 judges classify severity blind (without critic or cross-finding context). The integrator runs on critic output, not judge output — it identifies relationships between findings, not between severities. Pass-2 judges then receive BOTH the pass-1 verdict AND the coherence annotation, allowing them to upgrade severity for pattern-members or scrutinize contradicted findings.
+
 **5.5.b — Spawn pass-2 informed judges:**
 
 For each defect where `judge_pass_1_verdict` exists:
-5. Write `deep-qa-{run_id}/judge-inputs/batch_pass2_{batch_num}.md` containing: the full defect (INCLUDING critic-proposed severity this time), the pass-1 verdict, and the pass-2 prompt asking the judge to confirm, upgrade, or downgrade with rationale.
+5. Write `deep-qa-{run_id}/judge-inputs/batch_pass2_{batch_num}.md` containing: the full defect (INCLUDING critic-proposed severity this time), the pass-1 verdict, any coherence annotation from Phase 5.5.a-coherence (contradiction/pattern/standalone status), and the pass-2 prompt asking the judge to confirm, upgrade, or downgrade with rationale. Coherence annotations give the judge cross-finding context: a `PATTERN_MEMBER` annotation suggests the judge should consider aggregate severity; a `CONTRADICTS` annotation suggests the judge should scrutinize the finding's evidence base.
 6. Spawn Haiku judge (pass-2) with `run_in_background=true`. Record in `background_tasks.judges` with `pass: 2`.
 7. Wait for ALL pass-2 batches with `TaskOutput block=true`.
 8. **Apply pass-2 verdict as authoritative:** For each defect:
@@ -321,9 +339,7 @@ For each defect where `judge_pass_1_verdict` exists:
 10. **Verify coordinator summary:** Check that the final `coordinator-summary.md` exists and is non-empty. If missing or empty: log `SUMMARY_WRITE_FAILED: final`, use the most recent non-empty summary.
 11. **State invariant check:** Verify no defect has `judge_status` of `"pending"` or `"pass_1_completed"` (all should be `completed` or a timeout variant). If any remain, log error and retain critic-proposed severity for those defects.
 
-**Drain timeout:** wait up to 120s per pass for all background tasks. After 120s, proceed with whatever has completed — timeouts are handled gracefully per step 4 and the step-11 invariant check.
-
-**Drain timeout:** Wait up to 120s total for all background tasks. After 120s, proceed with whatever has completed — timeouts are handled gracefully per steps 4-6.
+**Drain timeout:** Wait up to 120s total for all background tasks in Phase 5.5. After 120s, proceed with whatever has completed — timeouts are handled gracefully per steps 4-6 and the step-11 invariant check.
 
 ---
 
@@ -374,7 +390,9 @@ Before final report assembly, spawn an independent auditor to detect coordinator
   - If missing or empty: re-spawn once.
   - If still missing: write a minimal emergency report directly from state.json (defect list + coverage table + termination label). Log `SYNTHESIS_FALLBACK: emergency report generated from state.json`.
 - For `research` type: include verification results from Phase 4
-- Report includes: severity-sorted defect registry, disputed defects, coverage assessment, honest caveats, open issues, `files_examined` list, `invocation` mode
+- Report includes: severity-sorted defect registry, disputed defects, **cross-dimensional patterns** (from Phase 5.5.a-coherence emergent patterns), coverage assessment, honest caveats, open issues, `files_examined` list, `invocation` mode
+- If coherence integrator ran: include a "Cross-Dimensional Patterns" section listing each emergent pattern with its member findings, shared root cause, and aggregate severity implication
+- If coherence integrator was degraded (unparseable/timed-out): include caveat: "Cross-finding coherence analysis unavailable — findings were judged independently without cross-finding context"
 
 ---
 
@@ -516,6 +534,11 @@ When you catch ANY of these in your reasoning, stop and re-read the relevant Gol
 - [ ] Background severity judges and coordinator summaries spawned with `run_in_background=true`
 - [ ] Phase 5.5 drain completed before Phase 6: no `judge_status: "pending"` remaining in state.json
 - [ ] `background_tasks` registry in state.json tracks all background spawns with correct status
+- [ ] Phase 5.5.a-coherence integrator ran after pass-1 drain and before pass-2 judges (or degraded mode logged)
+- [ ] Coherence annotations attached to findings in state.json before pass-2 judge input files were written
+- [ ] Coverage gaps from integrator fed into frontier as CRITICAL-priority angles (or flagged in report if last round)
+- [ ] Emergent patterns from integrator stored in `state.json.emergent_patterns[]` and surfaced in Phase 6 report
+- [ ] If `COHERENCE_SHALLOW` (100% STANDALONE across 6+ findings): flagged in Phase 6 caveats
 - [ ] Whenever the PR changes a contract (signature, shape, calling convention, named symbol, protocol, config key): a **legacy-symbol sweep** angle and a **contract fanout audit** angle both ran as round-1 CRITICAL priority with their own critics — the critics searched the ENTIRE artifact surface (whole repo, all files, all languages, all formats), not just changed files, and enumerated both producers and consumers of the changed contract
 - [ ] Whenever the PR makes a backward-compat claim: a **docstring / comment sweep** surfaced stale references to the old contract (filed as minor but filed)
 
@@ -567,6 +590,7 @@ The Diagnostic Answers section forces you off auto-pilot before proposing defect
    - Severity: critical (blocks use / fundamental gap) / major (significantly degrades quality) / minor (polish issue)
    - A specific scenario demonstrating the defect
    - The root cause (the underlying gap, not just the symptom)
+   - Author counter-response: write the most plausible defense the artifact author could give. If you cannot construct a credible defense, the defect is likely real. If the defense is strong enough to fully refute the defect, downgrade to a minor observation instead of filing as a defect.
    - Suggested remediation direction (optional)
 5. Find as many genuine defects as this angle reveals — quality over quantity; do NOT invent defects to meet a quota; if none exist, say so explicitly
 6. Report 1-3 new angles you discovered (genuinely novel, not rephrased existing ones)

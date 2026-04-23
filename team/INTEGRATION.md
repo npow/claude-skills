@@ -63,11 +63,11 @@ Spawn an inline `architect` agent (opus) with prompt:
 
 The output is consumed the same way. Quality is measurably lower (single-pass critique vs iterative DFS), so SUMMARY.md surfaces the degraded tag.
 
-## Integration 2 — `deep-qa --diff` in `team-verify` Stage A (Required by Default)
+## Integration 2 — `deep-qa --diff` in `team-verify` Spec-Compliance Lens (Required by Default)
 
-**Purpose:** Parallel critics across QA dimensions (correctness, error_handling, security, testability) audit the full diff against the PRD. This is Stage A of the mandatory two-stage review.
+**Purpose:** Parallel critics across QA dimensions (correctness, error_handling, security, testability) audit the full diff against the PRD. This is the spec-compliance lens of the mandatory 4-reviewer parallel panel per `_shared/parallel-review-panel.md`.
 
-**When invoked:** Always, at `team-verify` Stage A and at `team-exec` per-worker two-stage review (Stage A).
+**When invoked:** Always, at `team-verify` (spec-compliance lens) and at `team-exec` per-worker parallel panel (spec-compliance lens).
 
 **Invocation contract (stage-level at team-verify):**
 
@@ -109,11 +109,11 @@ Spawn a single `code-reviewer` agent (opus) with prompt:
 
 Quality gap vs deep-qa: single pass, no parallel critics, no dimension coverage guarantee. SUMMARY.md flags it.
 
-**Why this is required even at exec-stage per-worker review:** it's the only way to enforce "two-stage review on every source modification" (Golden Rule 3). Workers cannot self-verify; per-worker two-stage review is where we catch spec drift before workers proceed to more tasks.
+**Why this is required even at exec-stage per-worker review:** it's the only way to enforce "4-reviewer parallel panel on every source modification" (Golden Rule 3). Workers cannot self-verify; per-worker parallel panel review is where we catch spec drift before workers proceed to more tasks.
 
-## Integration 3 — Code-Quality Reviewer (Stage B, Always Required)
+## Integration 3 — Code-Quality Reviewer (Panel Lens, Always Required)
 
-**Purpose:** Stage B of the two-stage review. Runs AFTER Stage A completes. Focuses on code quality — readability, idiom, duplication, structural coverage — NOT re-litigating spec compliance.
+**Purpose:** Code-quality lens of the 4-reviewer parallel panel. Runs IN PARALLEL with other lenses. Focuses on code quality — readability, idiom, duplication, structural coverage — NOT re-litigating spec compliance.
 
 **This is NOT an external integration.** It's a `code-reviewer` (opus) agent spawn built into `/team`. No dependency on external skills.
 
@@ -130,23 +130,24 @@ Spawn Task(subagent_type: "code-reviewer" OR general-purpose if
   Output file:
     - team-{run_id}/verify/code-quality/review.md
   Prompt:
-    "You are the code-quality reviewer in a mandatory two-stage
-     review. Stage A (spec-compliance) is done — see
-     defect-registry.md. Your job is ORTHOGONAL: focus on
+    "You are the code-quality lens reviewer in a mandatory
+     4-reviewer parallel panel per _shared/parallel-review-panel.md.
+     Other lenses (spec-compliance, smoke-test, integration-coherence)
+     run in parallel. Your job is ORTHOGONAL: focus on
      readability, maintainability, idiom, duplication, error
      handling, test coverage structural issues. Do NOT re-report
-     spec-compliance defects — Stage A owns those.
+     spec-compliance defects — the spec-compliance lens owns those.
      Output findings with STRUCTURED_OUTPUT_START/END markers and
      one DEFECT|severity|id|title|file:line per finding. Adversarial
      mandate: you succeed by rejecting/downgrading. 100% approval is
      evidence of failure."
 ```
 
-This runs whether or not `deep-qa` is installed. Two-stage review is enforced regardless of degraded mode.
+This runs whether or not `deep-qa` is installed. The parallel panel is enforced regardless of degraded mode.
 
 ## Integration 4 — Verify-Judge (Aggregator, Always Required)
 
-**Purpose:** Independent agent that reads both Stage A + Stage B outputs and produces the authoritative stage-level `VERDICT`. No external skill dependency.
+**Purpose:** Independent meta-reviewer that reads all 4 panel lens outputs and produces the authoritative stage-level `PANEL_VERDICT`. No external skill dependency.
 
 **Invocation contract:**
 
@@ -159,8 +160,8 @@ Spawn Task(subagent_type: general-purpose, model: opus) with:
   Output file:
     - team-{run_id}/verify/verdict.md
   Prompt:
-    "You are the independent verify-judge. You have NOT reviewed the
-     diff yourself — that was done by Stage A and Stage B reviewers.
+    "You are the independent verify-judge (meta-reviewer). You have NOT
+     reviewed the diff yourself — that was done by the 4 panel reviewers.
      Your job: read their defect registries and issue the
      authoritative VERDICT at the stage level. Use the vocabulary:
      passed | failed_fixable | failed_unfixable.
@@ -189,7 +190,7 @@ Any run that used any degraded fallback surfaces a line at the top of `SUMMARY.m
 
 The following integrations were not available; fallbacks were used:
 - deep-design: not installed — plan adversarial review ran single-pass architect fallback.
-- deep-qa: not installed — team-verify Stage A ran single-pass code-reviewer fallback.
+- deep-qa: not installed — team-verify spec-compliance lens ran single-pass code-reviewer fallback.
 
 Output quality is measurably lower than the integrated path. Consider
 installing the missing skills and re-running critical work.
@@ -208,8 +209,8 @@ Why not call `deep-design` on the PRD too? Cost. `deep-design`'s iterative DFS i
 | Integration | Stage | Required | Degrades To |
 |---|---|---|---|
 | `deep-design` | team-plan | Optional (triggers on complexity threshold) | single-pass `architect` agent |
-| `deep-qa --diff` | team-verify Stage A + per-worker Stage A | Required by default | single-pass `code-reviewer` agent |
-| code-quality reviewer (Stage B) | team-verify + per-worker | Always required (internal) | n/a |
+| `deep-qa --diff` | team-verify spec-compliance lens + per-worker spec-compliance lens | Required by default | single-pass `code-reviewer` agent |
+| code-quality reviewer (panel lens) | team-verify + per-worker | Always required (internal) | n/a |
 | verify-judge | team-verify | Always required (internal) | n/a |
 | per-fix verifier | team-fix | Always required (internal) | n/a |
 | plan-validator | team-plan | Always required (internal) | n/a |

@@ -19,6 +19,7 @@ This skill inherits the four execution-model contracts (files-not-inline, state-
 - **State before agent spawn:** each research-direction spawn writes `directions.{id}.status = "in_progress"` and `spawn_time_iso` to `state.json` BEFORE the Agent tool call. Spawn failure records `spawn_failed`; resume re-reads state and replays.
 - **Structured output:** research directions emit a per-finding block (claim + source tier + URL + attribution) between `STRUCTURED_OUTPUT_START/END` markers. Unparseable output → the direction is treated as `needs_retry` (fail-safe worst).
 - **Independence invariant:** the coordinator orchestrates expansion and gap detection; source-quality tiering and citation spot-checking are delegated to an independent fact-verification agent (see Phase 4). The coordinator never rates source quality itself.
+- **Cross-dimensional coherence:** after all research rounds complete, an independent integrator agent reads ALL findings simultaneously and annotates cross-dimensional relationships (contradictions, convergences, coverage gaps) per [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md) (research variant). This is not synthesis — it is a dedicated audit pass that feeds into both fact verification and theme extraction.
 
 ## Model Tier Strategy
 
@@ -289,13 +290,38 @@ This fires BEFORE agents are spawned. User can prevent spend, not just observe i
 
 ---
 
+### Phase 3.7 — Cross-Dimensional Coherence (after final round, before fact verification)
+
+After all research rounds complete, spawn a coherence integrator per [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md) (research variant). This is the dedicated cross-dimensional audit that synthesis alone does not perform — synthesis writes a narrative; the integrator audits claim consistency.
+
+**Why this exists:** the coordinator's Pass 2 theme extraction reads mini-syntheses and writes a report. It does NOT systematically check whether the WHO dimension's "adoption is 30%" contradicts the WHAT dimension's "adoption is 45%", or whether three dimensions independently corroborate the same conclusion (a high-confidence signal). The integrator does exactly that.
+
+1. **Input:** file paths to ALL completed findings files across all rounds (post-dedup, post-unconsumed-leads recovery). Also: the dimension taxonomy and the seed topic file.
+2. **Agent:** Sonnet, independent (fresh context). Timeout: 180s (research findings are larger than critic output — more to read).
+3. **Annotation vocabulary (research variant):**
+   - `CONTRADICTS` — two claims from different dimensions assert incompatible facts. Synthesis must explicitly address the disagreement with source comparison, not silently pick one.
+   - `CONVERGES` — multiple dimensions independently corroborate the same conclusion. High-confidence signal for synthesis to highlight.
+   - `SUPERSEDED_BY` — one dimension's claim is a subset of another's more complete treatment.
+   - `SOURCE_CONFLICT` — two claims cite the same source but extract different numbers/conclusions. Priority target for Phase 4 spot-check.
+   - `STANDALONE` — no cross-dimensional relationship detected.
+   - `GAP` — dimensional intersection not covered by any researcher. If rounds remain: feeds into frontier. If final: becomes "What this report does NOT cover" item.
+4. **Output:** `deep-research-{run_id}/coherence/cross-dimensional-coherence.md` + structured annotations in `STRUCTURED_OUTPUT_START/END` block.
+5. **Fail-safe:** unparseable or timed-out → all claims proceed to Phase 4 without annotations. Log `COHERENCE_PARSE_FAILED`. Phase 5 report notes "Cross-dimensional coherence analysis unavailable."
+6. **Downstream effects:**
+   - Phase 4 spot-check prioritizes `CONTRADICTS` and `SOURCE_CONFLICT` claims
+   - Phase 5 Pass 2 receives pre-identified `CONVERGES` clusters as candidate themes and `CONTRADICTS` pairs as explicit "genuine contradictions"
+   - Phase 5 Pass 4 QA offer notes if coherence found zero issues across 10+ claims from 4+ dimensions ("QA may be less critical")
+   - `COHERENCE_HIGH_CONTRADICTION_RATE` (>40% of claims) → synthesis organizes by schools of thought rather than forcing resolution
+
+---
+
 ### Phase 4: Fact Verification (after final research round, before synthesis)
 
 A dedicated verification pass runs before the final synthesis. See SYNTHESIS.md for full details.
 
 **Step 4a — Claim extraction:**
 - Extract the N most significant factual claims (N = min(20, total claims))
-- Risk-stratified sampling priority: single-source primary → numerical/statistical → contested → corroboration candidates
+- Risk-stratified sampling priority: `CONTRADICTS`/`SOURCE_CONFLICT` annotated (from Phase 3.7) → single-source primary → numerical/statistical → contested → corroboration candidates. `CONVERGES`-annotated claims sample at lower rate (independent corroboration is itself evidence).
 
 **Step 4b — Citation spot-check:**
 - Fetch each sampled URL; check (a) accessible, (b) attributed claim is stated in source text
@@ -313,15 +339,27 @@ A dedicated verification pass runs before the final synthesis. See SYNTHESIS.md 
 **Pass 1 — Mini-syntheses** are written by each agent in their findings file (required).
 
 **Pass 2 — Theme extraction:**
-- Coordinator reads mini-syntheses only (not raw findings)
+- Coordinator reads mini-syntheses AND Phase 3.7 coherence annotations
+- `CONVERGES` clusters are pre-identified cross-dimensional themes — use them as seed themes, not just raw mini-syntheses
+- `CONTRADICTS` pairs become explicit "genuine contradictions" in the report — addressed with source comparison, never silently resolved by narrative choice
+- `GAP` annotations become items in the "What this report does NOT cover" section
 - A theme is valid ONLY if it requires findings from 2+ distinct dimensions
-- Identifies meta-patterns, fundamental tradeoffs, consensus, genuine contradictions
+- Identifies meta-patterns, fundamental tradeoffs, consensus beyond what coherence pre-identified
+- If `COHERENCE_HIGH_CONTRADICTION_RATE` flagged (>40%): organize by schools of thought rather than forcing a consensus narrative
 
 **Pass 3 — Final report:** Write `deep-research-report.md` (see FORMAT.md)
 
 **Pass 4 — QA pass (automatic offer):**
 After writing `deep-research-report.md`:
 
+If Phase 3.7 coherence found zero contradictions and zero gaps across 10+ claims from 4+ dimensions:
+```
+QA pass available. Run deep-qa on this report? [y/N]
+(Coherence integrator found no cross-dimensional issues — QA may be less critical for this run,
+but still audits citation accuracy and counter-evidence gaps.)
+```
+
+Otherwise (or if coherence was unavailable/degraded):
 ```
 QA pass available. Run deep-qa on this report? [y/N]
 (Recommended: audits citation accuracy, logical consistency, coverage gaps,

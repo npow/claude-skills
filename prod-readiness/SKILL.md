@@ -162,7 +162,7 @@ Run the self-review checklist below. Surface any invariant violations before del
 |---|---|---|
 | Used standalone on a repo | n/a | Main use. 24 judges, scored report. |
 | Used inside `/team` team-verify stage | `/team` invokes this skill | Runs after deep-qa to add operational-readiness signal to the verify gate. |
-| Used inside `/autopilot` Phase 3 or Phase 4 | `/autopilot` invokes this skill | Pre-deployment gate; output feeds the three-judge validation. |
+| Used inside `/autopilot` Phase 3 or Phase 4 | `/autopilot` invokes this skill | Pre-deployment gate; output feeds the parallel panel validation. |
 | `--diff [ref]` mode | invoked by `deep-qa --diff`-style callers | Scoped scan; judges still run 24 items but constrained to diff + callers. |
 
 ---

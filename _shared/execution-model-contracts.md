@@ -2,7 +2,7 @@
 
 Four contracts that every parallel-critic / independent-judge skill in this repo enforces. Written once here; each skill's SKILL.md references this file rather than re-stating the contracts verbatim.
 
-**Used by:** deep-qa, deep-design, deep-debug, deep-research, proposal-reviewer, deep-plan, team, autopilot, loop-until-done, flaky-test-diagnoser.
+**Used by:** deep-qa, deep-design, deep-debug, deep-research, proposal-reviewer, deep-plan, team, autopilot, loop-until-done.
 
 ---
 

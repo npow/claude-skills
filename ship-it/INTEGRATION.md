@@ -63,7 +63,7 @@ After completion:
 
 ### Degraded-mode fallback (no `/team`)
 
-Refuse to run by default — `/team`'s staged pipeline (plan → prd → exec → verify → fix) with two-stage review on every source modification is too complex to substitute inline without losing the discipline guarantees.
+Refuse to run by default — `/team`'s staged pipeline (plan → prd → exec → verify → fix) with parallel panel review on every source modification is too complex to substitute inline without losing the discipline guarantees.
 
 If the user passes `--skip-team` explicitly: spawn one coder subagent per module from DESIGN.md's dependency graph (respecting wave order), followed by one reviewer subagent per module. Max 2 revisions per module. Record `VERIFICATION_MODE: degraded (no /team installed)` in `build/team-termination.md`. Hard-ceiling at 5 parallel subagents per wave. No TDD preamble enforcement in degraded mode (document the loss).
 
@@ -119,15 +119,15 @@ When a step fails:
 
 If `/loop-until-done` is unavailable: fall back to a single fixer subagent per failure, max 3 iterations, with explicit `VERIFICATION_MODE: degraded` tag.
 
-## Phase 6 — Package (inline, with three-judge validation)
+## Phase 6 — Package (inline, with 4-reviewer parallel panel validation)
 
-Phase 6 is NOT delegated. The three judges are fresh Agent invocations, not calls into the orchestration suite. This preserves judge independence — no shared context, no delegated evaluation authority.
+Phase 6 is NOT delegated. The panel reviewers are fresh Agent invocations per `_shared/parallel-review-panel.md`, not calls into the orchestration suite. This preserves reviewer independence — no shared context, no delegated evaluation authority.
 
 Phase 6 fix loops (when a judge rejects) use `/loop-until-done` per the same pattern as Phase 5.
 
 ### Degraded-mode fallback
 
-None for the three judges themselves — they are always spawned fresh. If `/loop-until-done` is unavailable for Phase 6 re-validation fixes: fall back to a single fixer with a max-3 iteration loop, tagged degraded.
+None for the panel reviewers themselves — they are always spawned fresh. If `/loop-until-done` is unavailable for Phase 6 re-validation fixes: fall back to a single fixer with a max-3 iteration loop, tagged degraded.
 
 ## Summary: Required vs Optional Integrations
 
@@ -138,7 +138,7 @@ None for the three judges themselves — they are always spawned fresh. If `/loo
 | 4a | `deep-qa` | Recommended by default | Single code-reviewer subagent |
 | 4b | `/loop-until-done` | Required when defects/failing tests | `/team` team-fix OR skip-with-blocked-label |
 | 5 | `/loop-until-done` (on failure) | Required for fix path | Single fixer subagent, max 3 iter |
-| 6 | 3 judges (inline) | Always required | None — never degrades |
+| 6 | 4-reviewer panel (inline) | Always required | None — never degrades |
 | 6 | `/loop-until-done` (re-val fix) | Required when judge rejects | Single fixer subagent, max 3 iter |
 | report | completion-report subagent | Always required | None — never degrades |
 
@@ -166,7 +166,7 @@ Ship-It composes the orchestration suite:
 - `/team` — Phase 3 exclusively (indirectly uses `/parallel-exec`, `deep-qa`, `/loop-until-done` internally)
 - `deep-qa` — Phase 4a
 - `/loop-until-done` — Phase 4b, Phase 5 fixes, Phase 6 re-validation fixes
-- Three inline judges — Phase 6 validation
+- 4-reviewer parallel panel — Phase 6 validation
 
 Bugs in any lower-level skill surface in Ship-It output via the completion report (sub-skill termination labels propagate up).
 
@@ -189,7 +189,7 @@ See the SKILL.md description field for authoritative triggers.
 | Input | Vague idea — Phase 0 ambiguity classifier routes | Validated product idea — assumes Phase 1 spec is authorable |
 | Phase 0 | Ambiguity routing → `deep-interview` / `/spec` / `deep-design` | No Phase 0 — starts at Spec with explicit user approval |
 | Packaging | Not a separate phase | Phase 6 with clean-install gate and README generation |
-| Clean install | Not explicitly gated | Hard gate before three-judge validation |
+| Clean install | Not explicitly gated | Hard gate before panel validation |
 | Target | Working verified code (audit trail) | Shippable project (publishable package + repo) |
 
-If the user's intent is "make this deployable/publishable", use Ship-It. If intent is "build something that works", use `/autopilot`. Both converge on three-judge validation.
+If the user's intent is "make this deployable/publishable", use Ship-It. If intent is "build something that works", use `/autopilot`. Both converge on panel validation.

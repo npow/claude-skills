@@ -106,7 +106,7 @@ use /loop-until-done directly if you accept single-agent execution.
 
 ## Phase 3 — QA (delegated to `deep-qa --diff` + `/loop-until-done`)
 
-**Two-stage phase:**
+**Two-part phase:**
 
 ### Phase 3a — Audit (via `deep-qa --diff`)
 

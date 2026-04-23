@@ -5,24 +5,24 @@ description: Takes a validated product idea and builds it into a complete, shipp
 
 # Ship It
 
-Transforms a product idea into a shippable project through a 6-phase pipeline with iron-law phase gates, delegation to the orchestration suite, two-stage review on every code modification, and three-judge final validation. The coordinator orchestrates but never evaluates. Honest termination labels per phase; no self-approval anywhere.
+Transforms a product idea into a shippable project through a 6-phase pipeline with iron-law phase gates, delegation to the orchestration suite, 4-reviewer parallel panel review on every code modification, and parallel panel final validation per `_shared/parallel-review-panel.md`. The coordinator orchestrates but never evaluates. Honest termination labels per phase; no self-approval anywhere.
 
 ## Execution Model
 
 Non-negotiable contracts:
 
 - **Iron-law phase gate between every phase.** A phase may only advance when its evidence files (listed in `STATE.md`) exist on disk, contain required `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers where applicable, and carry machine-parseable judge/critic verdicts. Missing or unparseable evidence → phase stays `blocked`; coordinator may not claim the phase complete.
-- **Delegation to the orchestration suite.** Phase 2 Design delegates to `/deep-plan` for plan consensus. Phase 3 Build delegates to `/team` for the staged executor pipeline with TDD preamble and two-stage review. Phase 4 Test delegates to `deep-qa --diff` for defect audit. The coordinator does not re-implement planner, executor, or QA logic inline.
-- **Two-stage review on every source modification.** All code emitted during Phase 3 Build passes through spec-compliance review then independent code-quality review, via `/team`'s mandatory two-stage gate. Ship-It does not patch code directly.
+- **Delegation to the orchestration suite.** Phase 2 Design delegates to `/deep-plan` for plan consensus. Phase 3 Build delegates to `/team` for the staged executor pipeline with TDD preamble and 4-reviewer parallel panel. Phase 4 Test delegates to `deep-qa --diff` for defect audit. The coordinator does not re-implement planner, executor, or QA logic inline.
+- **4-reviewer parallel panel on every source modification.** All code emitted during Phase 3 Build passes through the mandatory 4-reviewer parallel panel (spec-compliance, code-quality, smoke-test, integration-coherence) per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md), via `/team`'s parallel panel gate. Ship-It does not patch code directly.
 - **State written before any delegation.** `spawn_time_iso` written to `state.json` before invoking each delegate skill. Delegation failure is recorded as `delegation_failed`, not silently retried.
 - **No coordinator self-approval at any phase boundary.** The coordinator reads structured fields from evidence files. Approval judgments come from independent agents; the coordinator's role is file aggregation and state transitions only.
 - **Honest termination labels.** Per-phase exhaustive vocabulary in the table below. `complete` requires evidence files for all 6 phases. Any missing evidence forces `partial_with_accepted_tradeoffs`, `blocked_at_phase_N`, or `budget_exhausted`.
 - **Data passed via files.** All phase inputs and outputs live under `ship-it-{run_id}/` in CWD. No inline data transfer between phases.
-- **Three-judge final validation.** Phase 6 Package concludes with three fully independent judges (correctness, security, quality) reading from files. All three must return `approved` or `conditional` with no new blocking scenarios. Coordinator aggregates only.
+- **4-reviewer parallel panel final validation.** Phase 6 Package concludes with the 4-reviewer parallel panel per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md). All lenses must return findings; meta-reviewer must return `PANEL_VERDICT|approved` or `PANEL_VERDICT|rejected_fixable` with no new blocking scenarios. Coordinator aggregates only.
 
 ## Philosophy
 
-Ship-It is a full-lifecycle composition operator. It preserves the familiar Spec → Design → Build → Test → Integrate → Package phase structure, but every load-bearing judgment is delegated: plan consensus to `/deep-plan`, execution to `/team`, defect audit to `deep-qa`, defect-fix to `/loop-until-done`, final validation to three independent judges. The coordinator's value is (1) ambiguity-sensitive spec creation, (2) iron-law gates between phases, (3) clean-install reproducibility verification, (4) three-judge shipping validation, (5) honest completion reporting.
+Ship-It is a full-lifecycle composition operator. It preserves the familiar Spec → Design → Build → Test → Integrate → Package phase structure, but every load-bearing judgment is delegated: plan consensus to `/deep-plan`, execution to `/team`, defect audit to `deep-qa`, defect-fix to `/loop-until-done`, final validation to three independent judges. The coordinator's value is (1) ambiguity-sensitive spec creation, (2) iron-law gates between phases, (3) clean-install reproducibility verification, (4) 4-reviewer parallel panel validation, (5) honest completion reporting.
 
 ## Workflow
 
@@ -56,7 +56,7 @@ Ship-It is a full-lifecycle composition operator. It preserves the familiar Spec
 
 1. Update state: `current_phase: "build"`. Write `spawn_time_iso`.
 2. Scaffold project skeleton (directories, package.json/pyproject.toml, tsconfig, install deps, write immutable types.ts). Verify skeleton compiles.
-3. Invoke `/team` with `--plan ship-it-{run_id}/design/DESIGN.md --output ship-it-{run_id}/build/`. `/team` internally runs staged pipeline `team-plan → team-prd → team-exec → team-verify → team-fix` with TDD preamble, mandatory critic falsifiability gate, two-stage review on every source modification, and `deep-qa --diff` verification. Ship-It does not duplicate any stage.
+3. Invoke `/team` with `--plan ship-it-{run_id}/design/DESIGN.md --output ship-it-{run_id}/build/`. `/team` internally runs staged pipeline `team-plan → team-prd → team-exec → team-verify → team-fix` with TDD preamble, mandatory critic falsifiability gate, 4-reviewer parallel panel on every source modification, and `deep-qa --diff` verification. Ship-It does not duplicate any stage.
 4. `/team`'s component-level parallelization honors the dependency graph from DESIGN.md. Waves execute sequentially; modules within a wave build in parallel.
 5. Phase 3 evidence files:
    - `ship-it-{run_id}/build/team-termination.md` — `/team` termination label
@@ -102,26 +102,28 @@ Ship-It is a full-lifecycle composition operator. It preserves the familiar Spec
 7. Any sub-step failure → delegate fix to `/loop-until-done` with the failure as an acceptance criterion. No coordinator-authored fixes. See [INTEGRATE-PHASE.md](INTEGRATE-PHASE.md).
 8. Iron-law gate (Phase 5 → Phase 6).
 
-### Phase 6 — Package (three-judge final validation)
+### Phase 6 — Package (4-reviewer parallel panel validation)
 
 1. Update state: `current_phase: "package"`. Write `spawn_time_iso`.
 2. Generate README.md, LICENSE, .gitignore per [PACKAGE-PHASE.md](PACKAGE-PHASE.md). Verify `package.json` / `pyproject.toml` metadata.
 3. **Clean install test** (the reproducibility gate): `rm -rf node_modules dist && npm install && npm run build && npm test` (or Python equivalent). Capture output at `ship-it-{run_id}/package/clean-install-output.txt`.
 4. Initialize git repo with an initial commit (do NOT push without explicit user request).
-5. Write judge input at `ship-it-{run_id}/package/judge-input.md` — paths only, not contents. Judges read files from disk themselves.
-6. **Spawn three fully independent judges in parallel**, one per dimension. Each judge is a separate Agent invocation with no shared context, no coordinator orchestration. Judge prompts are in the "Judge Prompt Templates" section below.
-   - `correctness_judge` → reads SPEC.md, DESIGN.md, modified files, test output, deep-qa defects → writes `package/correctness-verdict.md`
-   - `security_judge` → reads modified files with adversarial-security lens → writes `package/security-verdict.md`
-   - `quality_judge` → reads modified files with code-quality lens → writes `package/quality-verdict.md`
-7. Each verdict MUST include the structured block documented in [FORMAT.md](FORMAT.md) with `VERDICT|approved|rejected|conditional`. Unparseable verdict → fail-safe `rejected`.
-8. **Coordinator aggregates only.** Read three verdicts; apply aggregation rule from FORMAT.md verbatim. Write `ship-it-{run_id}/package/aggregation.md`. Coordinator does NOT render its own judgment.
-9. If any judge returns `rejected`: synthesize the blocking scenario into a new acceptance criterion and invoke `/loop-until-done` with `max_iter=2`. After fix, **re-spawn fresh judge agents** (never reuse the rejecting judge). Maximum 2 re-validation rounds. After 2 rounds still-rejected: gate reports `ADVANCE: false`; Ship-It terminates as `blocked_at_phase_6`.
+5. Write panel input at `ship-it-{run_id}/package/panel-input.md` — paths only, not contents. Reviewers read files from disk themselves.
+6. **Spawn 4-reviewer parallel panel** per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md). The four lenses and their primary-lens checklists (derived from the old judge prompt templates below):
+   - **Spec-compliance** (⊇ old correctness judge) → reads SPEC.md, DESIGN.md, modified files, test output, deep-qa defects
+   - **Code-quality** (⊇ old quality judge, includes security checklist) → reads modified files with code-quality + security lens
+   - **Smoke-test** (new) → executes clean-install + golden path end-to-end using reproduction instructions
+   - **Integration-coherence** (⊇ old correctness judge's cross-component checks) → reads cross-component contracts, API boundaries, data flows
+7. Each reviewer verdict MUST include `STRUCTURED_OUTPUT_START/END` markers per the panel format. Meta-reviewer produces `PANEL_VERDICT|{approved|rejected_fixable|rejected_unfixable}`. Unparseable reviewer → quorum rule applies; unparseable meta-reviewer → retry once then `review_unavailable`.
+8. **Coordinator reads meta-reviewer output only.** Write `ship-it-{run_id}/package/panel-verdict.md`. Coordinator does NOT render its own judgment.
+9. Verdict handling:
+   - `PANEL_VERDICT|approved` → proceed to completion report.
+   - `PANEL_VERDICT|rejected_fixable` → synthesize blocking defects from `DEFECT_FINAL` lines into acceptance criteria; invoke `/loop-until-done` with `max_iter=2`. After fix, **spawn a fresh panel** (previous results do NOT carry forward). Maximum 2 re-validation rounds. After 2 rounds still-rejected: gate reports `ADVANCE: false`; Ship-It terminates as `blocked_at_phase_6`.
+   - `PANEL_VERDICT|rejected_unfixable` → gate reports `ADVANCE: false`; Ship-It terminates as `blocked_at_phase_6` with the `DEFECT_FINAL` registry attached. No fix loop attempted.
 10. Phase 6 evidence files:
     - `ship-it-{run_id}/package/clean-install-output.txt`
-    - `ship-it-{run_id}/package/correctness-verdict.md`
-    - `ship-it-{run_id}/package/security-verdict.md`
-    - `ship-it-{run_id}/package/quality-verdict.md`
-    - `ship-it-{run_id}/package/aggregation.md`
+    - `ship-it-{run_id}/package/panel-verdict.md`
+    - `ship-it-{run_id}/package/{lens}-review.md` (one per reviewer)
     - `ship-it-{run_id}/package/phase-gate.md`
 11. Iron-law gate (Phase 6 → completion report).
 12. Spawn completion-report subagent that reads all Phase 1–6 evidence files and writes `ship-it-{run_id}/completion-report.md` per the schema in FORMAT.md. Report is written BEFORE any state deletion. Coordinator prints the path and termination label verbatim.
@@ -132,7 +134,7 @@ Exhaustive — no other labels permitted:
 
 | Label | When |
 |---|---|
-| `complete` | All 6 phases produced evidence this session; every iron-law gate passed; clean-install test passed; all three Phase 6 judges returned `approved` (or `conditional` with no new blocking scenarios); completion report written with aggregated `VERDICT|approved` |
+| `complete` | All 6 phases produced evidence this session; every iron-law gate passed; clean-install test passed; Phase 6 panel returned `PANEL_VERDICT|approved`; completion report written |
 | `partial_with_accepted_tradeoffs` | All 6 phases produced evidence; gates passed; but `/team` carried forward accepted unfixed items OR `deep-qa` disputed defects present OR Phase 6 judges returned `conditional` with conditions the user accepted. Report lists them explicitly. |
 | `blocked_at_phase_N` | Phase N iron-law gate returned `ADVANCE: false`. Evidence file for the blocked phase is written; earlier phases retained. |
 | `budget_exhausted` | Cumulative delegation/token budget exceeded mid-run. Distinct from `blocked_at_phase_N` because blocker is budget, not content. |
@@ -150,9 +152,17 @@ Per-phase labels used internally (recorded in `state.json`, surfaced in completi
 
 Forbidden labels: "success", "done", "all complete", "no issues remain", "shipped", "ready to go". The coordinator cannot substitute optimistic phrasing.
 
-## Judge Prompt Templates (Phase 6)
+## Review Panel (Phase 6)
 
-All three judges use this structure. Judge-specific dimension and checklist filled per judge type.
+Per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md), Phase 6 replaces the previous three sequential judges (correctness + security + quality) with a 4-reviewer parallel panel. The panel subsumes the three judges:
+- **Spec-compliance** ⊇ correctness judge
+- **Code-quality** ⊇ quality judge (includes security checklist)
+- **Smoke-test** = new lens (executes clean-install + golden path end-to-end)
+- **Integration-coherence** ⊇ correctness judge's cross-component checks
+
+All 4 reviewers receive full evidence (spec, design, ADR, modified files, build/test/smoke output, defect registry, stub scan). Each gets a primary lens but can flag cross-lane findings. Meta-reviewer produces the final `PANEL_VERDICT`.
+
+The old judge prompt templates below are retained as **primary-lens checklists** for panel reviewers. The correctness checklist becomes the spec-compliance reviewer's checklist; the security checklist folds into the code-quality reviewer's secondary focus; the quality checklist becomes the code-quality reviewer's primary checklist. The smoke-test reviewer uses the reproduction instructions and clean-install output. Judge-specific dimension and checklist filled per reviewer type.
 
 ```
 You are an independent {dimension} judge evaluating a Ship-It run that is about to be declared shippable. Your job is to REJECT or flag defects. A 100% approval rate is evidence of failure.
@@ -251,7 +261,7 @@ Full list and anti-rationalization table in [GOLDEN-RULES.md](GOLDEN-RULES.md). 
 
 1. Independence invariant — coordinator orchestrates; never evaluates.
 2. Iron-law phase gate — no transition without fresh evidence.
-3. Two-stage review on source modifications — inherited via `/team` (Phase 3).
+3. 4-reviewer parallel panel on source modifications — inherited via `/team` (Phase 3).
 4. Honest termination labels — exhaustive vocabulary per phase, no substitutions.
 5. State written before delegation — spawn failure recorded, not retried silently.
 6. Structured output is the contract — `STRUCTURED_OUTPUT_START`/`END` markers.
@@ -271,7 +281,7 @@ Ctrl-C at any phase is safe. State is written before every delegation; resume pr
 | [BUILD-PHASE.md](BUILD-PHASE.md) | Build phase scaffolding and delegation to `/team` |
 | [TEST-PHASE.md](TEST-PHASE.md) | Test requirements and delegation to `deep-qa` + `/loop-until-done` |
 | [INTEGRATE-PHASE.md](INTEGRATE-PHASE.md) | Integration gate and fix-delegation pattern |
-| [PACKAGE-PHASE.md](PACKAGE-PHASE.md) | Packaging, clean-install gate, and three-judge validation |
+| [PACKAGE-PHASE.md](PACKAGE-PHASE.md) | Packaging, clean-install gate, and 4-reviewer panel validation |
 | [FORMAT.md](FORMAT.md) | Per-phase evidence schemas + verdict format + completion report schema |
 | [STATE.md](STATE.md) | state.json schema + phase evidence registry + resume protocol |
 | [GOLDEN-RULES.md](GOLDEN-RULES.md) | 8 rules tailored + anti-rationalization counter-table |

@@ -29,11 +29,11 @@ If any condition fails → phase status becomes `blocked` and termination label 
 
 Example: Phase 2 `/team` returns `partial_with_accepted_unfixed`. The gate passes (label is acceptable), but the unfixed items flow into the completion report under "Accepted Tradeoffs" — they do NOT get quietly dropped.
 
-### 3. Two-stage review on source modifications
+### 3. 4-reviewer parallel panel on source modifications
 
-Autopilot does not directly modify source. Source modifications happen inside Phase 2 `/team`, which enforces the two-stage rule (spec-compliance then code-quality, separate independent agents) per its own golden rules.
+Autopilot does not directly modify source. Source modifications happen inside Phase 2 `/team`, which enforces the 4-reviewer parallel panel (spec-compliance, code-quality, smoke-test, integration-coherence) per [`_shared/parallel-review-panel.md`](../_shared/parallel-review-panel.md) and its own golden rules.
 
-Autopilot's obligation: when Phase 3 fix-loop runs (`/loop-until-done`), it passes `--critic=deep-qa` so each fixed story receives the two-stage treatment via the reviewer. Autopilot never invokes a bare executor without review.
+Autopilot's obligation: when Phase 3 fix-loop runs (`/loop-until-done`), it passes `--critic=deep-qa` so each fixed story receives the parallel panel treatment via the reviewer. Autopilot never invokes a bare executor without review.
 
 If autopilot appears to "patch something directly" — e.g., writing a temporary fix file — that's a rule violation. Route through `/team` or `/loop-until-done`.
 
@@ -96,7 +96,7 @@ When the coordinator notices it is starting to think any of these thoughts, stop
 | "The coordinator can aggregate the three verdicts — that's just counting." | True — mechanical aggregation is allowed. But the coordinator may NOT add rationale ("all three approved because the code is clean"). The rule for aggregation: apply the table in FORMAT.md verbatim; no commentary. |
 | "The phase-gate subagent said blocked, but I can see the evidence file exists, so I'll mark it complete." | Evidence existing is necessary but not sufficient. The gate checks parseability and freshness. Trust the gate; re-spawn it if you think it was wrong. |
 | "Consensus plan hit `max_iter_no_consensus` — I'll patch the plan and continue." | Coordinator patching a plan is authoring Phase 1 output — forbidden. Re-invoke `/deep-plan` with tighter scope, or terminate as `blocked_at_phase_1`. |
-| "The fix loop is blocked on story 3; I'll just implement that story directly." | Phase 3 fix loop runs inside `/loop-until-done`. Coordinator directly implementing a story violates both Rule 3 (two-stage review) and Rule 8 (self-approval). Terminate as `blocked_at_phase_3` or reduce scope in `/loop-until-done`. |
+| "The fix loop is blocked on story 3; I'll just implement that story directly." | Phase 3 fix loop runs inside `/loop-until-done`. Coordinator directly implementing a story violates both Rule 3 (parallel panel review) and Rule 8 (self-approval). Terminate as `blocked_at_phase_3` or reduce scope in `/loop-until-done`. |
 | "I already read the spec earlier in this session — no need to re-read for Phase 4." | Rule 7 / Rule 5 combined: every agent reads from disk fresh. Prior reads are stale. Judges read the judge-input paths themselves. |
 | "We're past budget — let me skip Phase 4 to deliver something." | Skipping Phase 4 is not an option. Budget-exhausted mid-run produces `budget_exhausted` label with honest reporting. Half-validated code shipped as `complete` is worse than nothing — it misrepresents the work. |
 | "The completion report says `unverified_count > 0` but the items are minor — I'll drop them." | Minor or not, `UNVERIFIED_COUNT > 0` forces label `partial_with_accepted_tradeoffs`. The user must see the unverified list. Dropping items is coordinator evaluation. |

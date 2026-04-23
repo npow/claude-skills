@@ -1,6 +1,6 @@
 # Phase 3: Build
 
-Implement all modules via delegation to `/team`. Ship-It handles scaffolding and skeleton verification; `/team` handles the staged executor pipeline with two-stage review on every source modification.
+Implement all modules via delegation to `/team`. Ship-It handles scaffolding and skeleton verification; `/team` handles the staged executor pipeline with parallel panel review on every source modification.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ Coordinator runs these steps (mechanical, no evaluation):
    - **team-plan** — explore + planner + optional deep-design pass
    - **team-prd** — analyst + mandatory independent critic with falsifiability gate
    - **team-exec** — executor with TDD preamble; honors DESIGN.md wave order for parallelization
-   - **team-verify** — `deep-qa --diff` (parallel critics) + independent code-quality reviewer (two-stage)
+   - **team-verify** — `deep-qa --diff` (parallel critics) + 4-reviewer parallel panel per `_shared/parallel-review-panel.md`
    - **team-fix** — bounded fix loop; each fix independently verified before merge
 4. Ship-It does NOT intervene in any of these stages. The coordinator orchestrates state but does not author, review, or approve code.
 
@@ -62,8 +62,8 @@ After `/team` completes:
 
 If `/team` is unavailable:
 
-- By default, **refuse to proceed** — `/team`'s staged pipeline with two-stage review is too rich to substitute losslessly. Prompt user to install `/team`.
-- If user passes `--skip-team` explicitly: follow the inline fallback in [INTEGRATION.md](INTEGRATION.md) (coder+reviewer per module, max 2 revisions, tagged `VERIFICATION_MODE: degraded`). Document TDD and two-stage-review losses in the evidence files.
+- By default, **refuse to proceed** — `/team`'s staged pipeline with parallel panel review is too rich to substitute losslessly. Prompt user to install `/team`.
+- If user passes `--skip-team` explicitly: follow the inline fallback in [INTEGRATION.md](INTEGRATION.md) (coder+reviewer per module, max 2 revisions, tagged `VERIFICATION_MODE: degraded`). Document TDD and parallel-panel-review losses in the evidence files.
 
 ## Handling delegation failures
 

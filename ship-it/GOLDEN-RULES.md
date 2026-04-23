@@ -11,10 +11,10 @@ The eight cross-cutting rules apply to every orchestration skill in this suite. 
 Every load-bearing judgment in ship-it is produced by a fresh independent subagent reading from disk:
 - **Phase 1 user approval** — the user, not the coordinator. Coordinator records the response verbatim.
 - **Phase 2 plan consensus** — `/deep-plan` independent Planner/Architect/Critic. Coordinator reads `CONSENSUS_LABEL` only.
-- **Phase 3 code review** — `/team`'s two-stage reviewer pipeline (spec-compliance → code-quality). Coordinator never reviews code.
+- **Phase 3 code review** — `/team`'s 4-reviewer parallel panel per `_shared/parallel-review-panel.md`. Coordinator never reviews code.
 - **Phase 4 defect audit** — `deep-qa`. Coordinator reads defect registry only.
 - **Phase 5 integration fix decisions** — `/loop-until-done` per failing smoke test. Coordinator never hand-patches integration bugs.
-- **Phase 6 three-judge verdicts** — correctness, security, quality judges. Coordinator reads `VERDICT` fields only.
+- **Phase 6 panel verdicts** — 4-reviewer parallel panel (spec-compliance, code-quality, smoke-test, integration-coherence) + meta-reviewer. Coordinator reads `PANEL_VERDICT` field only.
 - **Phase gate decisions at every transition** — phase-gate subagent. Coordinator reads `ADVANCE` field only.
 - **Completion report content** — completion-report subagent. Coordinator prints the path only.
 
@@ -34,9 +34,9 @@ Example: Phase 3 `/team` returns `partial_with_accepted_unfixed`. The gate passe
 
 Example: Phase 6 `clean-install-output.txt` shows `npm install` exit code 0 but `npm run build` exit code 1 — gate fails. Coordinator does not decide "the build mostly works". Fix via `/loop-until-done` and re-run the clean-install cycle, or terminate as `blocked_at_phase_6`.
 
-### 3. Two-stage review on source modifications
+### 3. 4-reviewer parallel panel on source modifications
 
-Ship-It does not directly modify source. Source modifications happen inside Phase 3 `/team`, which enforces the two-stage rule (spec-compliance then code-quality, separate independent agents) per its own golden rules.
+Ship-It does not directly modify source. Source modifications happen inside Phase 3 `/team`, which enforces the parallel panel rule (spec-compliance, code-quality, smoke-test, integration-coherence per `_shared/parallel-review-panel.md`) per its own golden rules.
 
 Ship-It's obligation: Phase 4 fix-loop invokes `/loop-until-done --critic=deep-qa` so each fixed story receives the deep-qa treatment. Phase 5 integration fixes route through `/loop-until-done` rather than coordinator-authored patches.
 
@@ -102,11 +102,11 @@ When the coordinator notices it is starting to think any of these thoughts, stop
 | "This is the MVP we can iterate" | MVP framing doesn't exempt the phase gates. `complete` label requires the same evidence for MVP as for v2. If the scope was truly MVP, Phase 1 spec should have said so; that doesn't shrink the validation requirement. |
 | "The docs are obvious from the code" | README.md is evidence for the quality judge. "Obvious" is coordinator evaluation. Let the quality judge audit the README against SPEC.md. |
 | "Skip deep-qa if the tests pass — Phase 3 tests already ran" | `/team`'s internal tests verify `/team` stages. Phase 4 `deep-qa --diff` audits defects the tests don't cover (edge cases, security, maintainability, disputed behavior). Different jobs. Run deep-qa. |
-| "Skip Phase 6 judges — deep-qa was clean and tests pass" | deep-qa audits defects at the code level; judges evaluate the whole artifact against spec, security posture, and quality at shipping time. Different jobs. The 3 judges run. |
+| "Skip Phase 6 panel — deep-qa was clean and tests pass" | deep-qa audits defects at the code level; the panel evaluates the whole artifact against spec, security posture, end-to-end usage, and integration coherence at shipping time. Different jobs. The panel runs. |
 | "The user said 'just ship it' — I can skip the spec approval" | User urgency doesn't waive Phase 1 user-approval. A one-line spec is fine; a missing spec blocks the gate. User must explicitly OK the spec artifact. |
 | "Phase 6 judge said rejected but I think they missed context — I'll override" | Overriding a judge is coordinator self-approval. Fix the context (e.g., add a conditional requirement), re-spawn a fresh judge, let the new verdict decide. 2-round cap. |
 | "The security judge always finds something — one low-severity finding is fine to dismiss" | Aggregation is mechanical. A low-severity finding that maps to `conditional` does not block; one that maps to `rejected` does. Let the structured output decide, not the coordinator's tolerance. |
-| "The coordinator can aggregate the three judge verdicts — that's just counting" | True — mechanical aggregation is allowed. But the coordinator may NOT add rationale ("all three approved because the code is clean"). Apply the table in FORMAT.md verbatim; no commentary. |
+| "The coordinator can aggregate the panel verdict — that's just counting" | True — mechanical aggregation is allowed. But the coordinator may NOT add rationale ("the panel approved because the code is clean"). Apply the table in FORMAT.md verbatim; no commentary. |
 | "types.ts needs a quick tweak during build — it's still early" | `types.ts` is immutable after Phase 2 ends. Type changes mid-build cause integration failures that appear later as mysterious build errors. If the type is wrong, re-open Phase 2 via `/deep-plan`; do not patch during Phase 3. |
 | "The clean-install test failed with a transient network error — let me mark it passed" | Transient ≠ absent. Re-run the clean-install until it passes deterministically OR investigate the flakiness. Never paper over a failed clean-install; reproducibility is the shipping gate. |
 | "Phase 5 smoke test failed but the unit tests all pass — this is fine" | Smoke tests exist because unit-passing integration-failing is the classic ship-it bug. Smoke failure → fix via `/loop-until-done`. Not optional. |

@@ -22,7 +22,7 @@ Non-negotiable contracts:
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
-**Subagent watchdog:** every `run_in_background=true` spawn across every phase (plan consensus agents, staged pipeline agents, deep-qa audit, three-judge validation) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for Sonnet exec/validation agents that may run tests or builds; `STALE=5 min`, `HUNG=20 min` for planning/consensus agents; `STALE=3 min`, `HUNG=10 min` for Haiku judges. Multi-hour autopilot runs are the exact case where an unwatched stall is most costly — every phase spawn needs a watchdog. `TaskOutput` status is not evidence of progress. Contract inheritance: `timed_out_heartbeat_at_phase_N` joins this skill's phase-level termination vocabulary (peer of `blocked_at_phase_N`); `stalled_watchdog` / `hung_killed` join per-phase spawn state. A watchdog-killed delegation fails the phase gate — coordinator never advances with missing evidence.
+**Subagent watchdog:** every `run_in_background=true` spawn across every phase (plan consensus agents, staged pipeline agents, deep-qa audit, parallel panel validation) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for Sonnet exec/validation agents that may run tests or builds; `STALE=5 min`, `HUNG=20 min` for planning/consensus agents; `STALE=3 min`, `HUNG=10 min` for Haiku judges. Multi-hour autopilot runs are the exact case where an unwatched stall is most costly — every phase spawn needs a watchdog. `TaskOutput` status is not evidence of progress. Contract inheritance: `timed_out_heartbeat_at_phase_N` joins this skill's phase-level termination vocabulary (peer of `blocked_at_phase_N`); `stalled_watchdog` / `hung_killed` join per-phase spawn state. A watchdog-killed delegation fails the phase gate — coordinator never advances with missing evidence.
 
 ## Philosophy
 
@@ -88,7 +88,7 @@ Autopilot is a composition operator. It does not re-implement planning, executio
 ### Phase 2 — Exec (staged team)
 
 1. Update state: `current_phase: "exec"`. Write `spawn_time_iso`.
-2. Invoke `/team` with `--plan autopilot-{run_id}/plan/plan.md --output autopilot-{run_id}/exec/`. `/team` internally runs the staged pipeline `team-plan → team-prd → team-exec → team-verify → team-fix` with TDD-preamble workers, mandatory critic falsifiability gate, two-stage review on every source modification, and `deep-qa --diff` verification. Autopilot does not duplicate any stage.
+2. Invoke `/team` with `--plan autopilot-{run_id}/plan/plan.md --output autopilot-{run_id}/exec/`. `/team` internally runs the staged pipeline `team-plan → team-prd → team-exec → team-verify → team-fix` with TDD-preamble workers, mandatory critic falsifiability gate, 4-reviewer parallel panel on every source modification, and `deep-qa --diff` verification. Autopilot does not duplicate any stage.
 3. Phase 2 evidence files (required before transition):
    - `autopilot-{run_id}/exec/team-termination.md` — `/team` termination label (`complete` | `partial_with_accepted_unfixed` | `blocked_unresolved` | `budget_exhausted` | `cancelled`)
    - `autopilot-{run_id}/exec/handoffs/` — structured handoff docs per `/team`'s schema
@@ -237,7 +237,7 @@ Full list and counter-table in `GOLDEN-RULES.md`. Short form:
 
 1. Independence invariant — coordinator orchestrates; never evaluates.
 2. Iron-law phase gate — no transition without evidence.
-3. Two-stage review on source modifications — inherited from `/team` (Phase 2).
+3. 4-reviewer parallel panel on source modifications — inherited from `/team` (Phase 2).
 4. Honest termination labels — exhaustive vocabulary, no substitutions.
 5. State written before delegation — spawn failure recorded, not retried silently.
 6. Structured output is the contract — `STRUCTURED_OUTPUT_START`/`END` markers.

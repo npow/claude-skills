@@ -22,6 +22,8 @@ All operations use Claude Code primitives. These contracts are non-negotiable:
 
 **Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
+**Cross-finding coherence:** this skill applies the coherence-integrator pattern from [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md) at Phase 3, after hypothesis agents complete and BEFORE the judge classifies plausibility. The integrator reads all hypothesis files simultaneously and annotates each hypothesis with cross-hypothesis relationships (contradictions indicating the same root cause viewed from different angles, emergent patterns suggesting a higher-level architectural issue, coverage gaps in the 8-dimension space). These annotations are included in judge input files.
+
 **Subagent watchdog:** every `run_in_background=true` spawn (hypothesis agents, judges, evidence-gatherer, architect) MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). Use Flavor A with thresholds `STALE=5 min`, `HUNG=20 min` for Sonnet hypothesis agents; `STALE=3 min`, `HUNG=10 min` for Haiku judges and evidence-gatherer. Debugging agents that hang silently are the exact failure mode this skill is meant to prevent — applying it to the skill itself is load-bearing. Contract inheritance: `timed_out_heartbeat` joins this skill's 7-label termination vocabulary at the per-lane level (hypothesis agent / judge / probe); `stalled_watchdog` and `hung_killed` join `hypotheses.{id}.status`. A watchdog-killed hypothesis lane never returns `leading` or `rejected` — its verdict is absent, not assessed.
 
 ## Philosophy
@@ -208,9 +210,26 @@ For cycle 2+:
 - Stripping recorded in state.json as `judge_input_stripped: true`
 - Original hypothesis files stay immutable
 
+**Step 3a-coherence — Cross-hypothesis coherence integrator:**
+
+Per [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md), adapted for hypotheses:
+
+1. Collect all parseable hypothesis output files from this cycle (post-dedup).
+2. Write integrator input manifest to `deep-debug-{run_id}/coherence/cycle-{N}-input.md`.
+3. Spawn Sonnet coherence-integrator agent. Output: `deep-debug-{run_id}/coherence/cycle-{N}-coherence.md`. Timeout: 120s.
+4. Parse structured annotations. For hypotheses, the key relationships are:
+   - `CONTRADICTS` — two hypotheses make incompatible causal claims about the same component. At least one is wrong; the judge should scrutinize both.
+   - `PATTERN_MEMBER` — multiple hypotheses from different dimensions point to the same underlying architectural issue. This is early signal for Phase 7 escalation.
+   - `SUPERSEDED_BY` — one hypothesis is a strict subset of another (same mechanism, narrower scope). The judge should prefer the broader hypothesis.
+5. Attach annotations to `hypotheses.{id}.coherence_annotation` in state.json.
+6. Feed `GAP` lines into the frontier as CRITICAL-priority angles for the next cycle.
+7. If unparseable/timed out: proceed in degraded mode. Log `COHERENCE_DEGRADED`.
+
+**Escalation signal:** If the integrator identifies ≥ 3 hypotheses across different dimensions as `PATTERN_MEMBER` of the same root cause, this is structural evidence that the bug is architectural. Log `COHERENCE_ARCHITECTURAL_SIGNAL` — this does not trigger Phase 7 directly (fix_attempt_count is still the trigger) but the signal is surfaced in Phase 8 report.
+
 **Step 3b — Spawn background batched judge (Haiku):**
 - Batch ≤ 5 hypotheses per agent (cost optimization)
-- Agent receives: batch input file path, evidence file path, known-hypothesis list
+- Agent receives: batch input file path, evidence file path, known-hypothesis list, and coherence annotations per hypothesis (from Step 3a-coherence; `STANDALONE` if integrator ran in degraded mode)
 - Run in background (`run_in_background=true`) — next cycle's critics can start while judges finish
 - Timeout: 90s per batch
 
@@ -361,6 +380,7 @@ After Phase 5 outcome recorded:
 - If termination is `Environmental`: include retry/monitoring contract
 - If termination is `Architectural escalation required`: include reference to `architectural-question.md`
 - Coverage caveats MUST be prominent when required categories are uncovered
+- If coherence integrator identified emergent patterns: include 'Cross-Dimensional Patterns' section showing which hypotheses shared root causes and whether the pattern signal aligned with the final fix hypothesis
 
 ---
 
@@ -491,6 +511,10 @@ Before writing the final report, verify:
 - [ ] Rebuttal round ran whenever ≥ 2 hypotheses were at `leading` or `plausible`
 - [ ] Independent architect agent ran in Phase 7 if `escalation_triggered == true`
 - [ ] Judge `leading`-rate < 80% on any cycle with ≥ 5 classifications (else `judge_suspect: true` tag applied)
+- [ ] Coherence integrator ran after hypothesis agents completed and before judge (or degraded mode logged)
+- [ ] Coherence annotations attached to hypotheses in state.json before judge input files were written  
+- [ ] Coverage gaps from integrator fed into frontier as CRITICAL-priority angles
+- [ ] `COHERENCE_ARCHITECTURAL_SIGNAL` logged if ≥ 3 hypotheses are PATTERN_MEMBER of same root cause
 - [ ] Final report does NOT read raw hypothesis files — uses coordinator summary + judge verdicts + state.json
 - [ ] Termination label is from the 7-label vocabulary — never improvised
 - [ ] Coverage section includes unexplored dimensions with warning if required categories missing
