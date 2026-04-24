@@ -584,7 +584,7 @@ async def _spawn(
     max_tokens: int,
     tools_needed: bool,
 ) -> dict[str, str]:
-    timeout = 720 if tools_needed else 300
+    timeout = 3600 if tools_needed else 300
     result = await workflow.execute_activity(
         "spawn_subagent",
         SpawnSubagentInput(
