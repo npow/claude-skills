@@ -499,7 +499,7 @@ class DeepResearchWorkflow:
                 "Generate 20-50 new directions. Use tools to discover gaps. "
                 "Only return 0 if the topic is truly exhausted.\n\n"
                 "STRUCTURED_OUTPUT_START\n"
-                'DIRECTIONS|[{"id":"d_r' + str(round_num) + '_1","dimension":"...","question":"...","priority":"high|medium|low"}, ...]\n'
+                'DIRECTIONS|[{"id":"d_r' + str(round_num + 1) + '_1","dimension":"...","question":"...","priority":"high|medium|low"}, ...]\n'
                 "STRUCTURED_OUTPUT_END"
             )
             expand_result = await _spawn(
@@ -526,7 +526,7 @@ class DeepResearchWorkflow:
                 if q and q not in explored_questions:
                     directions.append(
                         Direction(
-                            id=d.get("id", f"d_r{round_num}_{len(directions)}"),
+                            id=d.get("id", f"d_r{round_num + 1}_{len(directions)}"),
                             question=q,
                             dimension=d.get("dimension", "HOW"),
                             priority=d.get("priority", "medium"),
