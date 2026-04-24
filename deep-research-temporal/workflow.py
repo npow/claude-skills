@@ -80,7 +80,28 @@ class DeepResearchWorkflow:
         )
         report_path = f"{run_dir}/research-report.md"
         findings_dir = f"{run_dir}/deep-research-findings"
+        progress_path = f"{run_dir}/progress.json"
         abs_cap = inp.max_rounds * 3
+
+        progress: dict = {
+            "phase": "starting",
+            "round": 0,
+            "max_rounds": inp.max_rounds,
+            "directions_generated": 0,
+            "researchers_spawned": 0,
+            "researchers_completed": 0,
+            "researchers_failed": 0,
+            "researchers_empty": 0,
+            "findings_total": 0,
+            "directions_remaining": 0,
+            "expansions": [],
+            "warnings": [],
+        }
+
+        async def _update_progress(**kwargs: object) -> None:
+            progress.update(kwargs)
+            progress["timestamp"] = workflow.now().isoformat(timespec="seconds")
+            await _write(progress_path, json.dumps(progress, indent=2))
 
         # ------------------------------------------------------------------ #
         # Phase 0f — Language locus detection                                  #
@@ -118,6 +139,7 @@ class DeepResearchWorkflow:
         state.coverage_expectation = lang_result.get(
             "COVERAGE_EXPECTATION", "en_dominant"
         )
+        await _update_progress(phase="lang_detect_done", languages=state.authoritative_languages)
 
         # ------------------------------------------------------------------ #
         # Phase 0g — Novelty classification                                    #
@@ -185,6 +207,7 @@ class DeepResearchWorkflow:
             verified_novelty = "cold_start"
 
         state.topic_novelty = verified_novelty
+        await _update_progress(phase="novelty_done", novelty=verified_novelty, self_report=self_report)
 
         # ------------------------------------------------------------------ #
         # Phase 2.5 — Vocabulary bootstrap (novel | cold_start)               #
@@ -236,6 +259,8 @@ class DeepResearchWorkflow:
             await _write(vocab_path, json.dumps(vocab_data, indent=2))
             state.vocab_bootstrap_path = vocab_path
 
+        await _update_progress(phase="vocab_done" if state.vocab_bootstrap_path else "vocab_skipped")
+
         # ------------------------------------------------------------------ #
         # Phase 1 — Direction discovery (including cross-cut dims)            #
         # ------------------------------------------------------------------ #
@@ -285,6 +310,12 @@ class DeepResearchWorkflow:
             )
             for i, d in enumerate(raw_directions)
         ]
+
+        await _update_progress(
+            phase="directions_done",
+            directions_generated=len(directions),
+            dimensions=list(set(d.dimension for d in directions)),
+        )
 
         # Initialise cross-cut coverage tracking.
         state.cross_cut_coverage = {dim: [] for dim in CROSS_CUT_DIMS}
@@ -357,14 +388,21 @@ class DeepResearchWorkflow:
             research_results = await asyncio.gather(*research_coros, return_exceptions=True)
 
             round_findings: list[dict[str, str]] = []
+            r_failed = sum(1 for r in research_results if isinstance(r, BaseException))
+            r_empty = 0
             for (d, _), r in zip(research_prompts, research_results):
                 if isinstance(r, BaseException):
+                    progress["warnings"].append(f"R{round_num} {d.id}: agent failed: {r}")
                     continue
+                findings_text = r.get("FINDINGS", "")
+                if len(findings_text) < 50:
+                    r_empty += 1
+                    progress["warnings"].append(f"R{round_num} {d.id}: empty/short findings ({len(findings_text)} chars)")
                 finding = {
                     "id": d.id,
                     "dimension": d.dimension,
                     "question": d.question,
-                    "findings": r.get("FINDINGS", ""),
+                    "findings": findings_text,
                     "sources": r.get("SOURCES", "[]"),
                     "claims": r.get("CLAIMS", "[]"),
                     "priority": d.priority,
@@ -379,6 +417,20 @@ class DeepResearchWorkflow:
                 # Write per-direction findings file.
                 findings_file = f"{findings_dir}/{d.id}.md"
                 await _write(findings_file, _format_findings_file(d, finding))
+
+            progress["researchers_spawned"] += len(current_batch)
+            progress["researchers_completed"] += len(current_batch) - r_failed
+            progress["researchers_failed"] += r_failed
+            progress["researchers_empty"] += r_empty
+            progress["findings_total"] = len(all_findings)
+            await _update_progress(
+                phase=f"round_{round_num}_researchers_done",
+                round=round_num,
+                round_batch_size=len(current_batch),
+                round_findings=len(round_findings),
+                round_failed=r_failed,
+                round_empty=r_empty,
+            )
 
             # -------------------------------------------------------------- #
             # Phase 3 — Per-round coordinator summary                         #
@@ -421,6 +473,7 @@ class DeepResearchWorkflow:
                 f"{run_dir}/coordinator-summary.md",
                 "\n\n---\n\n".join(state.coordinator_summaries),
             )
+            await _update_progress(phase=f"round_{round_num}_coord_done", coord_summary_len=len(coord_summary))
 
         # -------------------------------------------------------------- #
             # Sub-direction generation: read findings, spawn follow-ups      #
@@ -467,6 +520,7 @@ class DeepResearchWorkflow:
                 tools_needed=True,
             )
             new_raw = _parse_json_list(expand_result.get("DIRECTIONS", "[]"))
+            new_added = 0
             for d in new_raw:
                 q = d.get("question", "")
                 if q and q not in explored_questions:
@@ -478,6 +532,16 @@ class DeepResearchWorkflow:
                             priority=d.get("priority", "medium"),
                         )
                     )
+                    new_added += 1
+            progress["expansions"].append({"round": round_num, "proposed": len(new_raw), "added": new_added})
+            progress["directions_remaining"] = len(directions)
+            await _update_progress(
+                phase=f"round_{round_num}_done",
+                round=round_num,
+                expansion_proposed=len(new_raw),
+                expansion_added=new_added,
+                frontier_size=len(directions),
+            )
 
         # Determine termination label.
         abs_hit = round_num >= abs_cap
