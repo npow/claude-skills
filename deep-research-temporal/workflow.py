@@ -364,37 +364,38 @@ class DeepResearchWorkflow:
                 )
                 research_prompts.append((d, p))
 
-            research_coros = [
-                _spawn(
-                    role="researcher",
-                    tier="OPUS",
-                    system_prompt=(
-                        "You are an expert researcher. Use ALL available tools aggressively — "
-                        "code search, documentation search, chat search, engineering context, "
-                        "web search, web fetch, pipeline inspection. Make at least 5-10 tool "
-                        "calls per direction. Cross-reference across sources. Be exhaustive.\n"
-                        "STRUCTURED_OUTPUT_START\n"
-                        "FINDINGS|<detailed prose — name repos, teams, people, docs, URLs>\n"
-                        'SOURCES|["source1 (URL)", "source2 (URL)", ...]\n'
-                        'CLAIMS|[{"claim":"...","source":"...","corroboration":"single_source|multiple_sources|none","recency_class":"2026|2025|2024|older|undated"},...]\n'
-                        "STRUCTURED_OUTPUT_END"
-                    ),
-                    prompt_path=p,
-                    max_tokens=128000,
-                    tools_needed=True,
-                )
-                for _, p in research_prompts
-            ]
-            research_results = await asyncio.gather(*research_coros, return_exceptions=True)
+            _researcher_system = (
+                "You are an expert researcher. Use ALL available tools aggressively — "
+                "code search, documentation search, chat search, engineering context, "
+                "web search, web fetch, pipeline inspection. Make at least 5-10 tool "
+                "calls per direction. Cross-reference across sources. Be exhaustive.\n"
+                "STRUCTURED_OUTPUT_START\n"
+                "FINDINGS|<detailed prose — name repos, teams, people, docs, URLs>\n"
+                'SOURCES|["source1 (URL)", "source2 (URL)", ...]\n'
+                'CLAIMS|[{"claim":"...","source":"...","corroboration":"single_source|multiple_sources|none","recency_class":"2026|2025|2024|older|undated"},...]\n'
+                "STRUCTURED_OUTPUT_END"
+            )
 
             round_findings: list[dict[str, str]] = []
-            r_failed = sum(1 for r in research_results if isinstance(r, BaseException))
+            r_failed = 0
             r_empty = 0
-            for (d, _), r in zip(research_prompts, research_results):
-                if isinstance(r, BaseException):
-                    progress["warnings"].append(f"R{round_num} {d.id}: agent failed: {r}")
-                    continue
-                findings_text = r.get("FINDINGS", "")
+
+            async def _research_and_write(d: Direction, prompt_path: str) -> dict | None:
+                nonlocal r_failed, r_empty
+                try:
+                    r = await _spawn(
+                        role="researcher",
+                        tier="OPUS",
+                        system_prompt=_researcher_system,
+                        prompt_path=prompt_path,
+                        max_tokens=128000,
+                        tools_needed=True,
+                    )
+                except BaseException as exc:
+                    r_failed += 1
+                    progress["warnings"].append(f"R{round_num} {d.id}: agent failed: {exc}")
+                    return None
+                findings_text = r.get("FINDINGS", "") if isinstance(r, dict) else ""
                 if len(findings_text) < 50:
                     r_empty += 1
                     progress["warnings"].append(f"R{round_num} {d.id}: empty/short findings ({len(findings_text)} chars)")
@@ -403,20 +404,23 @@ class DeepResearchWorkflow:
                     "dimension": d.dimension,
                     "question": d.question,
                     "findings": findings_text,
-                    "sources": r.get("SOURCES", "[]"),
-                    "claims": r.get("CLAIMS", "[]"),
+                    "sources": r.get("SOURCES", "[]") if isinstance(r, dict) else "[]",
+                    "claims": r.get("CLAIMS", "[]") if isinstance(r, dict) else "[]",
                     "priority": d.priority,
                 }
-                round_findings.append(finding)
-                all_findings.append(finding)
-
-                # Update cross-cut coverage.
                 if d.dimension in state.cross_cut_coverage:
                     state.cross_cut_coverage[d.dimension].append(d.id)
+                await _write(f"{findings_dir}/{d.id}.md", _format_findings_file(d, finding))
+                return finding
 
-                # Write per-direction findings file.
-                findings_file = f"{findings_dir}/{d.id}.md"
-                await _write(findings_file, _format_findings_file(d, finding))
+            results = await asyncio.gather(
+                *[_research_and_write(d, p) for d, p in research_prompts],
+                return_exceptions=True,
+            )
+            for r in results:
+                if isinstance(r, dict):
+                    round_findings.append(r)
+                    all_findings.append(r)
 
             progress["researchers_spawned"] += len(current_batch)
             progress["researchers_completed"] += len(current_batch) - r_failed
