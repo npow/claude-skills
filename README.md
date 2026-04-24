@@ -100,6 +100,19 @@ ln -s "$(pwd)/claude-skills" ~/.claude/skills
 
 All skills use file-based state, independent judges for any load-bearing evaluation, iron-law verification gates, structured outputs, explicit termination labels, and anti-rationalization counter-tables. The orchestration suite composes bottom-up: `/parallel-exec` → `/team` / `/loop-until-done` / `/deep-plan` → `/autopilot`. Full spec at [`docs/specs/2026-04-16-orchestration-suite-design.md`](docs/specs/2026-04-16-orchestration-suite-design.md).
 
+## Durable execution with sagaflow
+
+Every skill here is automatically runnable on [Temporal](https://temporal.io/) via [sagaflow](https://github.com/npow/sagaflow) — fire-and-forget execution that survives session crashes, with INBOX notifications and desktop alerts when done.
+
+```bash
+pip install sagaflow
+sagaflow launch deep-qa --path spec.md --arg max_rounds=1 --await
+```
+
+Skills with `__init__.py` + `workflow.py` get bespoke Temporal workflows (parallel fan-out, independent judges, programmatic retry). Skills without them use sagaflow's generic interpreter (Claude tool-use loop, each step a durable activity). Adding a new skill = adding a `SKILL.md`; sagaflow discovers it at runtime.
+
+The `-temporal` launcher directories (e.g. `deep-qa-temporal/SKILL.md`) are thin Claude Code slash commands that invoke `sagaflow launch` in the background.
+
 ## Contributing
 
 1. Fork the repository
