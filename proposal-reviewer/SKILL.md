@@ -376,4 +376,21 @@ specific timeline calculations, measurable market signals.
 
 ---
 
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch proposal-reviewer --path '<ABS_PATH>' --await"
+)
+```
+
+Where `<ABS_PATH>` is the absolute path to the proposal file (convert relative paths using the current working directory). The proposal must be at least 200 words or the workflow rejects it. The workflow writes `~/.sagaflow/runs/<run_id>/review.md` with executive verdict, severity-rated flaw inventory, claim extraction, and final recommendation (alongside per-critic `critic-N.txt` transcripts).
+
+Algorithm is identical to the in-session flow above; only the envelope changes.
+
+---
+
 *Supplementary files: FACT-CHECK.md, LANDSCAPE.md, STRUCTURAL.md, REWRITE.md (preserved domain knowledge); FORMAT.md, STATE.md, GOLDEN-RULES.md (parallel-critic + independent-judge machinery).*

@@ -8,27 +8,8 @@ argument: |
   Example: /deep-design-temporal "multi-tenant rate limiter with per-tenant quotas" --arg max_rounds=3
 ---
 
-# deep-design-temporal
+# deep-design-temporal (deprecation shim)
 
-Launches the `deep-design` workflow on sagaflow. DFS-based adversarial design with parallel critic agents that stress-test the draft design until coverage saturates or max_rounds is hit.
+This skill has been unified with [`deep-design`](../deep-design/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
 
-## How to invoke
-
-```
-Bash(
-  run_in_background=true,
-  command="sagaflow launch deep-design --arg concept='<CONCEPT>' --arg max_rounds=<N> --await"
-)
-```
-
-Substitute `<CONCEPT>` with the design brief (what to design) and `<N>` with the stress-test round budget (1-5; default 2).
-
-Tell the user: "Launched deep-design on <concept>. Running in the background — I'll surface the design + coverage report when the workflow completes."
-
-## Termination labels
-
-`Coverage saturated — design hardened` · `Max rounds reached` · `User-stopped at round N` · `Hard stop at round N`
-
-## Result surfacing
-
-Report at `~/.sagaflow/runs/<run_id>/design-report.md` with the battle-tested design, per-round flaw inventory, unresolved risks, and an honest coverage table (what was stress-tested vs what wasn't). Surface the coverage label + top remaining risks to the user.
+The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `/Users/npow/code/skillflow/sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.

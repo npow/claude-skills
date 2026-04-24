@@ -13,7 +13,15 @@ Systematically explore a topic using parallel agents across applicable orthogona
 
 This skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The shared file is authoritative; the elaborations below are the research-specific applications.
 
-**Subagent watchdog:** every research-direction spawn (Scout, Researcher, Deep Dive) and every verification/summary spawn MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). This is the skill most vulnerable to silent multi-hour hangs (the 18-hour-silent-death failure mode). Use Flavor A with thresholds `STALE=10 min`, `HUNG=30 min` for Scout; `STALE=15 min`, `HUNG=45 min` for Researcher and Deep Dive (web fetches on slow sources legitimately sit quiet for a while). Never block on `TaskOutput(block=true)` without a watchdog armed against the spawn's output file. Contract inheritance: `timed_out_heartbeat` joins this skill's per-direction termination vocabulary; `stalled_watchdog` / `hung_killed` join `directions.{id}.status`. A watchdog-killed direction never contributes findings to the synthesis — it is reported as coverage-lost in the final report, not silently omitted.
+**Subagent watchdog:** every research-direction spawn (Scout, Researcher, Deep Dive) and every verification/summary spawn MUST be armed with a staleness monitor per [`_shared/subagent-watchdog.md`](../_shared/subagent-watchdog.md). This is the skill most vulnerable to silent multi-hour hangs (the 18-hour-silent-death failure mode). Use Flavor A with the thresholds below — **these are calibration defaults, override via `state.json → watchdog_thresholds` per tier**. Defaults are tuned for WebSearch/WebFetch-bound work on median-latency networks:
+
+| Tier | `STALE` (first warning) | `HUNG` (kill) | Notes |
+|------|---|---|---|
+| Scout | 10 min | 30 min | Short directions; should return quickly. |
+| Researcher | 15 min | 45 min | Web fetches on slow sources legitimately sit quiet for a while. |
+| Deep Dive | 15 min | 45 min | Same rationale as Researcher. |
+
+Raise thresholds for topics with known-slow sources (e.g. heavily rate-limited APIs, archive.org lookups); lower for topics where every direction is a single-endpoint adapter call. Wrong thresholds produce false-positive kills or late hang detection — they do not change correctness, because watchdog-killed directions are reported as coverage-lost, not silently omitted. Never block on `TaskOutput(block=true)` without a watchdog armed against the spawn's output file. Contract inheritance: `timed_out_heartbeat` joins this skill's per-direction termination vocabulary; `stalled_watchdog` / `hung_killed` join `directions.{id}.status`.
 
 - **Files not inline:** seed, direction definitions, per-direction research outputs, verification inputs, and fact-check evidence all live under `deep-research-{run_id}/`. Seed and coordinator summary are short enough to fit inline but are still written to disk so resume can reconstruct state.
 - **State before agent spawn:** each research-direction spawn writes `directions.{id}.status = "in_progress"` and `spawn_time_iso` to `state.json` BEFORE the Agent tool call. Spawn failure records `spawn_failed`; resume re-reads state and replays.
@@ -793,7 +801,7 @@ Phase 3.75 runs after each round's agent output, before unconsumed-leads recover
 - WebFetch the cited URL, grep for claim text (±20% keyword overlap allowed)
 - If claim text NOT findable in source → mark `hallucination_suspected: true` on that claim, downgrade `corroboration` one tier, log to `hallucination_log`
 - If ≥2 of 3 sampled claims fail for the same agent → mark that agent's remaining findings `agent_credibility_degraded`; coordinator surfaces "Agent-level hallucination risk" as a caveat
-- Budget: 3 fetches per agent per round = ~18 extra calls/round at scale, ~6 Scout-tier equivalents/round
+- Budget (calibration default — override via `state.json → hallucination_probe_budget`): 3 fetches per agent per round. At the default cap of 6 agents/round this works out to ~18 extra calls/round, roughly 6 Scout-tier equivalents/round. Scale with `max_agents_per_round`; raise for high-stakes runs where fabricated URLs are expensive, lower for exploratory runs where probe cost outweighs risk.
 
 ### Cross-Round Direction Momentum (v7)
 
@@ -1070,7 +1078,7 @@ WebSearch-with-operator:
 ### Failure & cost guards
 
 - Any adapter call that returns `403 | 404 | timeout | empty` is recorded as `adapter_failed` in the pool JSON — coordinator never retries the same adapter within a run
-- Per-run adapter call budget: 5 adapters × 1 call per direction = 5 fetches per direction at Phase 3.3. Total for 20 initial directions: ~100 adapter calls (~30s wall-clock with parallelization)
+- Per-run adapter call budget (calibration default — override via `state.json → adapter_budget`): 5 adapters × 1 call per direction = 5 fetches per direction at Phase 3.3. For a 20-direction seed that lands around **100 adapter calls and ~30s wall-clock with parallelization** — but both numbers are estimates that scale linearly with `initial_directions × adapters_per_direction` and depend on network latency. Treat as a rough sizing signal, not a guarantee; runs over congested links or with slow adapters routinely take 2–3× longer.
 - If ≥ 3 of 5 adapters fail for a given direction, coordinator tags the direction `low_pool_yield` — the research agent compensates by shifting its budget to WebSearch
 
 ---

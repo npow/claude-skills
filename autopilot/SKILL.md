@@ -272,4 +272,21 @@ Ctrl-C at any phase is safe. State is written before every delegation; resume pr
 
 ---
 
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch autopilot --arg idea='<IDEA>' --await"
+)
+```
+
+Substitute `<IDEA>` with the initial concept (quote strings with spaces). This is a long-running workflow (design → plan → execute → audit → judge). The workflow writes `~/.sagaflow/runs/<run_id>/autopilot-report.md` with design doc, plan, per-stage artifacts, audit findings, three judge verdicts, and final termination label.
+
+Algorithm is identical to the in-session flow above; only the envelope changes.
+
+---
+
 *Supplementary files: FORMAT.md (per-phase evidence schemas + verdict format + completion report schema), STATE.md (state.json schema + phase evidence registry + resume protocol), GOLDEN-RULES.md (8 rules tailored + anti-rationalization counter-table), INTEGRATION.md (which phase calls which skill + degraded-mode fallbacks)*

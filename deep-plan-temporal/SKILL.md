@@ -8,27 +8,8 @@ argument: |
   Example: /deep-plan-temporal "migrate auth from sessions to JWT" --arg max_iter=6
 ---
 
-# deep-plan-temporal
+# deep-plan-temporal (deprecation shim)
 
-Launches the `deep-plan` workflow on sagaflow. Planner proposes → Architect reviews → Critic attacks. Loops until consensus or max_iter; emits an ADR-backed plan with verification-backed acceptance criteria.
+This skill has been unified with [`deep-plan`](../deep-plan/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
 
-## How to invoke
-
-```
-Bash(
-  run_in_background=true,
-  command="sagaflow launch deep-plan --arg task='<TASK>' --arg max_iter=<N> --await"
-)
-```
-
-Substitute `<TASK>` with the task description and `<N>` with the iteration cap (default 5).
-
-Tell the user: "Launched deep-plan on <task>. Running in the background — I'll surface the ADR-backed plan when the workflow completes."
-
-## Termination labels
-
-`Consensus reached` · `Max iterations reached` · `User-stopped at iteration N` · `Hard stop at iteration N`
-
-## Result surfacing
-
-Report at `~/.sagaflow/runs/<run_id>/plan.md` with the final plan. The same directory also contains `adr.md` (decisions + alternatives + rationale) and per-iteration `planner-iterN.txt` / `architect-iterN.txt` / `critic-iterN.txt` transcripts. Surface the top-level checklist + unresolved open questions to the user.
+The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `/Users/npow/code/skillflow/sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.

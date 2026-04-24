@@ -10,32 +10,8 @@ argument: |
   Example: /flaky-test-diagnoser-temporal --arg test='tests/test_auth.py::test_login' --arg command='pytest tests/test_auth.py::test_login -q' --arg n_runs=20
 ---
 
-# flaky-test-diagnoser-temporal
+# flaky-test-diagnoser-temporal (deprecation shim)
 
-Launches the `flaky-test-diagnoser` workflow on sagaflow. Runs the test N times, isolates per-run state, tries ordering permutations, analyzes timing variance. Emits a diagnosis with confidence and suspected root cause.
+This skill has been unified with [`flaky-test-diagnoser`](../flaky-test-diagnoser/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
 
-## How to invoke
-
-Both `test` and `command` are REQUIRED — workflow rejects input without them.
-
-```
-Bash(
-  run_in_background=true,
-  command="sagaflow launch flaky-test-diagnoser --arg test='<TEST_ID>' --arg command='<RUN_CMD>' --arg n_runs=<N> --await"
-)
-```
-
-Substitute:
-- `<TEST_ID>` — the test identifier (e.g. `tests/test_foo.py::test_bar`).
-- `<RUN_CMD>` — the exact shell command that runs that test.
-- `<N>` — stability runs to perform (default 10).
-
-Tell the user: "Launched flaky-test-diagnoser on <test>. Running in the background (N stability runs + isolation + ordering + timing) — I'll surface the diagnosis when the workflow completes."
-
-## Termination labels
-
-`Root cause identified` · `Strong hypothesis — insufficient discriminators` · `Cannot reproduce — test stable in N runs` · `Environmental — platform/resource factor` · `Hard stop at phase N` · `User-stopped at phase N`
-
-## Result surfacing
-
-Report at `~/.sagaflow/runs/<run_id>/report.md` with pass/fail table, isolation+ordering results, timing analysis, top hypothesis with evidence, and proposed fix or mitigation. Surface pass rate + leading root cause to the user.
+The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `/Users/npow/code/skillflow/sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.

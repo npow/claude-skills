@@ -9,30 +9,8 @@ argument: |
   Example: /deep-debug-temporal "test_auth intermittently fails with 500" --arg reproduction="pytest tests/auth"
 ---
 
-# deep-debug-temporal
+# deep-debug-temporal (deprecation shim)
 
-Launches the `deep-debug` workflow on sagaflow. Generates parallel hypotheses across orthogonal dimensions (correctness / concurrency / environment / resource / ordering / dependency / outside-frame), independent blind+informed judges, discriminating probes, fix-and-verify cycle, and Opus architectural escalation if 3 fix attempts fail.
+This skill has been unified with [`deep-debug`](../deep-debug/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
 
-## How to invoke
-
-```
-Bash(
-  run_in_background=true,
-  command="sagaflow launch deep-debug --arg symptom='<SYMPTOM>' --arg reproduction='<REPRO>' --arg num_hypotheses=<N> --await"
-)
-```
-
-Substitute:
-- `<SYMPTOM>` — one-line description of the failure.
-- `<REPRO>` — the exact command to trigger it (e.g., `pytest tests/test_thing.py -v`). Pass empty string if unknown.
-- `<N>` — 3–6. Default 4.
-
-Tell the user: "Launched deep-debug on <symptom>. I'll surface the diagnosis + fix proposal when the workflow completes."
-
-## Termination labels (exhaustive)
-
-`Fixed — reproducing test now passes` · `Environmental — requires retry/monitoring, not fix` · `Architectural escalation required — 3 fix attempts failed across distinct hypotheses` · `Hypothesis space saturated — no plausible hypothesis survives judge` · `Cannot reproduce — investigation blocked` · `User-stopped at phase N` · `Hard stop at cycle N`
-
-## Result surfacing
-
-Report file at `~/.sagaflow/runs/<run_id>/debug-report.md`. Surface the termination label, leading hypothesis, and proposed fix (or escalation rationale) to the user.
+The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `/Users/npow/code/skillflow/sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.

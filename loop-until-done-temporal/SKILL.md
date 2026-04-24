@@ -8,29 +8,8 @@ argument: |
   Example: /loop-until-done-temporal "all tests pass and coverage >= 80%" --arg max_iter=8
 ---
 
-# loop-until-done-temporal
+# loop-until-done-temporal (deprecation shim)
 
-Launches the `loop-until-done` workflow on sagaflow. PRD-driven persistence loop: story → acceptance criteria → iterate → independent verification → next story. Honest termination labels; no self-approval.
+This skill has been unified with [`loop-until-done`](../loop-until-done/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
 
-## How to invoke
-
-```
-Bash(
-  run_in_background=true,
-  command="sagaflow launch loop-until-done --arg task='<TASK>' --arg max_iter=<N> --await"
-)
-```
-
-Substitute:
-- `<TASK>` — the task or goal to drive to completion.
-- `<N>` — max iterations per story (default 5).
-
-Tell the user: "Launched loop-until-done on <task>. Running in the background — I'll surface the per-story verdicts + final report when the workflow completes."
-
-## Termination labels
-
-`All stories verified complete` · `Some stories unverified — loop exhausted` · `PRD blocked — task under-specified` · `Reviewer rejected — criteria unmet` · `User-stopped at story N` · `Hard stop at story N`
-
-## Result surfacing
-
-Report at `~/.sagaflow/runs/<run_id>/summary.md`. The same directory also contains `prd-prompt.txt`, per-story `executor-sN.txt`, `reviewer-prompt.txt`, and `falsifiability-prompt.txt`. Surface the verified/unverified split + unresolved criteria to the user.
+The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `/Users/npow/code/skillflow/sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.

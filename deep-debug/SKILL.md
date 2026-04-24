@@ -787,3 +787,20 @@ Deep-debug explicitly delegates to these skills at specific phases:
 - `FORMAT.md` — output formats for hypothesis file, evidence file, judge verdict, rebuttal, probe spec, architectural question, final report
 - `STATE.md` — state.json schema, concurrency rules, dedup algorithm, state updates, invariants, recovery logic
 - `TECHNIQUES.md` — ported techniques: root cause tracing, defense-in-depth, condition-based waiting (used across Phases 1, 5, 8)
+
+---
+
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch deep-debug --arg symptom='<SYMPTOM>' --arg reproduction='<REPRO>' --arg num_hypotheses=<N> --await"
+)
+```
+
+Substitute `<SYMPTOM>` with a one-line description of the failure, `<REPRO>` with the exact command to trigger it (empty string if unknown), and `<N>` with the hypothesis count (3–6, default 4). The workflow writes `~/.sagaflow/runs/<run_id>/debug-report.md` with the termination label, leading hypothesis, and proposed fix (or escalation rationale).
+
+Algorithm is identical to the in-session flow above; only the envelope changes.

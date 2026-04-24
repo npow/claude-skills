@@ -588,4 +588,21 @@ OK
 
 ---
 
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch deep-design --arg concept='<CONCEPT>' --arg max_rounds=<N> --await"
+)
+```
+
+Substitute `<CONCEPT>` with the design brief and `<N>` with the stress-test round budget (1-5; default 2). The workflow writes `~/.sagaflow/runs/<run_id>/design-report.md` with the battle-tested design, per-round flaw inventory, unresolved risks, and an honest coverage table.
+
+Algorithm is identical to the in-session flow above; only the envelope changes.
+
+---
+
 *Supplementary files: DFS.md (frontier management), FORMAT.md (critique file format), STATE.md (state schema detail)*

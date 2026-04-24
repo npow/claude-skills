@@ -328,4 +328,21 @@ Per-stage specialist agents (planner, analyst, critic, code-reviewer, verify-jud
 
 ---
 
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch team --arg task='<TASK>' --arg n_workers=<N> --arg max_fix_iters=<M> --await"
+)
+```
+
+Substitute `<TASK>` with the task description, `<N>` with parallel executor count (1-8, default 2), and `<M>` with the fix-loop iteration cap (default 3). The workflow writes `~/.sagaflow/runs/<run_id>/SUMMARY.md` (with `handoffs/plan.md`, `handoffs/plan-verdict.md`, `exec/codebase-context.md`, and per-stage prompt transcripts alongside).
+
+Algorithm is identical to the in-session flow above; only the envelope changes.
+
+---
+
 *Supplementary files: FORMAT.md (handoff + verdict schemas), STATE.md (state.json + resume protocol), GOLDEN-RULES.md (cross-cutting rules + anti-rationalization counter-table), INTEGRATION.md (deep-design / deep-qa composition, degraded-mode fallbacks).*

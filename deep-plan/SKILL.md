@@ -416,4 +416,21 @@ Do not invent content. Do not paraphrase Architect or Critic verdicts; quote the
 
 ---
 
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch deep-plan --arg task='<TASK>' --arg max_iter=<N> --await"
+)
+```
+
+Substitute `<TASK>` with the task description and `<N>` with the iteration cap (default 5). The workflow writes the ADR-backed plan to `~/.sagaflow/runs/<run_id>/plan.md` (alongside `adr.md` and per-iteration Planner/Architect/Critic transcripts).
+
+Algorithm is identical to the in-session flow above; only the envelope changes.
+
+---
+
 *Supplementary files: FORMAT.md (output schemas), STATE.md (state & resume), GOLDEN-RULES.md (golden rules + anti-rationalization), INTEGRATION.md (composition & fallbacks).*

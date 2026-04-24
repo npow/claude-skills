@@ -684,3 +684,20 @@ When invoked automatically at the end of a parent run (not standalone):
 - QA report written to `deep-qa-{parent_run_id}-qa/qa-report.md` — always inside the deep-qa run directory; never into the parent's output directory
 - All writes go to `deep-qa-{run_id}/` only — the "read-only" contract is enforced by path isolation
 - `max_rounds` defaults to 4 unless parent specifies otherwise
+
+---
+
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch deep-qa --path '<ABS_PATH>' --arg type=<TYPE> --arg max_rounds=<N> --await"
+)
+```
+
+Where `<ABS_PATH>` is the absolute path to the artifact, `<TYPE>` is one of `doc` / `code` / `research` / `skill` (default `doc`), and `<N>` is the max rounds (default 3). The workflow writes its report to `~/.sagaflow/runs/<run_id>/qa-report.md` and surfaces an INBOX entry + desktop notification on completion.
+
+Algorithm is identical to the in-session flow above; only the envelope changes.

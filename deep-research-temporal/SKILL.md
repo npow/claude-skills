@@ -9,27 +9,8 @@ argument: |
   Example: /deep-research-temporal "How are teams adopting Temporal for LLM orchestration?" --arg max_directions=8
 ---
 
-# deep-research-temporal
+# deep-research-temporal (deprecation shim)
 
-Launches the `deep-research` workflow on sagaflow. Language locus detection → novelty classification → (conditional) vocabulary bootstrap → dimension discovery with 5 cross-cuts → parallel researchers → per-round coordinator summary → fact verifier → synthesis.
+This skill has been unified with [`deep-research`](../deep-research/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
 
-## How to invoke
-
-```
-Bash(
-  run_in_background=true,
-  command="sagaflow launch deep-research --arg seed='<SEED>' --arg max_directions=<N> --await"
-)
-```
-
-Substitute `<SEED>` with the research topic/question and `<N>` with the direction budget.
-
-Tell the user: "Launched deep-research on <seed>. Running in the background — I'll surface findings when the workflow completes."
-
-## Termination labels
-
-`User-stopped at round N` · `Coverage plateau — frontier saturated` · `Convergence — frontier exhausted` · `Budget soft gate — user chose to extend or stop`
-
-## Result surfacing
-
-Report at `~/.sagaflow/runs/<run_id>/research-report.md` with executive summary, per-direction findings, cross-cutting analysis, fact-verification spot-checks, coverage, sources, termination label. Surface the summary + any time-sensitive findings to the user.
+The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `/Users/npow/code/skillflow/sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.

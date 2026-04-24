@@ -356,3 +356,20 @@ See GOLDEN-RULES.md for the full set and the anti-rationalization counter-table.
 - `STATE.md` — state.json schema, resume protocol, iteration budget tracking
 - `GOLDEN-RULES.md` — 8 cross-cutting rules + anti-rationalization counter-table
 - `INTEGRATION.md` — deep-qa composition, deslop pass, degraded-mode fallbacks
+
+---
+
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch loop-until-done --arg task='<TASK>' --arg max_iter=<N> --await"
+)
+```
+
+Substitute `<TASK>` with the task/goal to drive to completion, and `<N>` with max iterations per story (default 5). The workflow writes `~/.sagaflow/runs/<run_id>/summary.md` (with `prd-prompt.txt`, per-story `executor-sN.txt`, `reviewer-prompt.txt`, and `falsifiability-prompt.txt` alongside).
+
+Algorithm is identical to the in-session flow above; only the envelope changes.

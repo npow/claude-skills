@@ -85,3 +85,20 @@ If interrupted mid-run: on next invocation read `flaky-diag-{run_id}/state.json`
 | [STATE.md](STATE.md) | `state.json` schema, per-stage state layout, resume protocol |
 | [GOLDEN-RULES.md](GOLDEN-RULES.md) | Full golden rules text, falsifiability gate, anti-rationalization counter-table |
 | [REPORT.md](REPORT.md) | Diagnosis report output template with honest termination labels |
+
+---
+
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch flaky-test-diagnoser --arg test='<TEST_ID>' --arg command='<RUN_CMD>' --arg n_runs=<N> --await"
+)
+```
+
+Both `test` and `command` are REQUIRED. Substitute `<TEST_ID>` with the test identifier (e.g. `tests/test_foo.py::test_bar`), `<RUN_CMD>` with the exact shell command that runs that test, and `<N>` with the stability-run count (default 10). The workflow writes `~/.sagaflow/runs/<run_id>/report.md` with pass/fail table, isolation+ordering results, timing analysis, top hypothesis with evidence, and proposed fix or mitigation.
+
+Algorithm is identical to the in-session flow above; only the envelope changes.

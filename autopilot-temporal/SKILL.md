@@ -7,27 +7,8 @@ argument: |
   Example: /autopilot-temporal "cli tool that summarizes git log by author for the last N days"
 ---
 
-# autopilot-temporal
+# autopilot-temporal (deprecation shim)
 
-Launches the `autopilot` workflow on sagaflow. Full-lifecycle autonomous pipeline — design, plan, execute, audit, judge — with iron-law phase gates and three independent judge verdicts before the report emits a completion verdict.
+This skill has been unified with [`autopilot`](../autopilot/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
 
-## How to invoke
-
-```
-Bash(
-  run_in_background=true,
-  command="sagaflow launch autopilot --arg idea='<IDEA>' --await"
-)
-```
-
-Substitute `<IDEA>` with the initial concept. Quote strings with spaces.
-
-Tell the user: "Launched autopilot on <idea>. This is a long-running workflow (design → plan → execute → audit → judge) — running in the background; I'll surface the judge verdicts + report when it completes."
-
-## Termination labels
-
-`Judges unanimous — complete` · `Judges split — complete with caveats` · `Judges rejected — execution failed audit` · `Design phase blocked — idea insufficient` · `Plan phase blocked — scope unclear` · `Execution phase hard-stop` · `User-stopped at phase N` · `Hard stop at phase N`
-
-## Result surfacing
-
-Report at `~/.sagaflow/runs/<run_id>/autopilot-report.md` with design doc, plan, per-stage artifacts, audit findings, three judge verdicts, and final termination label. Surface unanimous/split status + summary of what was built to the user.
+The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `/Users/npow/code/skillflow/sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.
