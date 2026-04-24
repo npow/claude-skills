@@ -409,58 +409,58 @@ class DeepResearchWorkflow:
             )
 
         # -------------------------------------------------------------- #
-        # Sub-direction generation: read findings, spawn follow-ups      #
-        # -------------------------------------------------------------- #
-        explored_questions = {f["question"] for f in all_findings}
-        expand_prompt_path = f"{run_dir}/expand-r{round_num}.txt"
-        findings_summary = "\n".join(
-            f"- [{f['dimension']}] {f['question']}: {f.get('findings', '')[:500]}"
-            for f in round_findings
-        )
-        await _write(expand_prompt_path,
-            f"Seed: {inp.seed}\n\n"
-            f"Round {round_num} just completed. Findings summary:\n{findings_summary}\n\n"
-            f"Already explored ({len(explored_questions)} directions):\n"
-            + "\n".join(f"- {q}" for q in list(explored_questions)[:30]) + "\n\n"
-            "Based on these findings, generate NEW follow-up research directions that:\n"
-            "1. Drill deeper into surprising or underexplored findings\n"
-            "2. Follow up on entities/teams/tools mentioned but not independently researched\n"
-            "3. Verify or challenge claims that seem uncertain\n"
-            "4. Cover cross-cutting dimensions not yet explored (PRIOR-FAILURE, BASELINE, "
-            "ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE)\n\n"
-            "Do NOT repeat already-explored directions.\n"
-            "Generate 5-15 new directions, or 0 if the topic is exhausted.\n\n"
-            "STRUCTURED_OUTPUT_START\n"
-            'DIRECTIONS|[{"id":"d_r' + str(round_num) + '_1","dimension":"...","question":"...","priority":"high|medium|low"}, ...]\n'
-            "STRUCTURED_OUTPUT_END"
-        )
-        expand_result = await _spawn(
-            role="direction-expander",
-            tier="SONNET",
-            system_prompt=(
-                "You generate follow-up research directions based on prior findings. "
-                "Only generate directions that are genuinely new — not paraphrases of "
-                "already-explored questions. Return empty array [] if topic is exhausted.\n"
+            # Sub-direction generation: read findings, spawn follow-ups      #
+            # -------------------------------------------------------------- #
+            explored_questions = {f["question"] for f in all_findings}
+            expand_prompt_path = f"{run_dir}/expand-r{round_num}.txt"
+            findings_summary = "\n".join(
+                f"- [{f['dimension']}] {f['question']}: {f.get('findings', '')[:500]}"
+                for f in round_findings
+            )
+            await _write(expand_prompt_path,
+                f"Seed: {inp.seed}\n\n"
+                f"Round {round_num} just completed. Findings summary:\n{findings_summary}\n\n"
+                f"Already explored ({len(explored_questions)} directions):\n"
+                + "\n".join(f"- {q}" for q in list(explored_questions)[:30]) + "\n\n"
+                "Based on these findings, generate NEW follow-up research directions that:\n"
+                "1. Drill deeper into surprising or underexplored findings\n"
+                "2. Follow up on entities/teams/tools mentioned but not independently researched\n"
+                "3. Verify or challenge claims that seem uncertain\n"
+                "4. Cover cross-cutting dimensions not yet explored (PRIOR-FAILURE, BASELINE, "
+                "ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE)\n\n"
+                "Do NOT repeat already-explored directions.\n"
+                "Generate 5-15 new directions, or 0 if the topic is exhausted.\n\n"
                 "STRUCTURED_OUTPUT_START\n"
-                'DIRECTIONS|[{"id":"...","dimension":"...","question":"...","priority":"..."}, ...]\n'
+                'DIRECTIONS|[{"id":"d_r' + str(round_num) + '_1","dimension":"...","question":"...","priority":"high|medium|low"}, ...]\n'
                 "STRUCTURED_OUTPUT_END"
-            ),
-            prompt_path=expand_prompt_path,
-            max_tokens=1024,
-            tools_needed=False,
-        )
-        new_raw = _parse_json_list(expand_result.get("DIRECTIONS", "[]"))
-        for d in new_raw:
-            q = d.get("question", "")
-            if q and q not in explored_questions:
-                directions.append(
-                    Direction(
-                        id=d.get("id", f"d_r{round_num}_{len(directions)}"),
-                        question=q,
-                        dimension=d.get("dimension", "HOW"),
-                        priority=d.get("priority", "medium"),
+            )
+            expand_result = await _spawn(
+                role="direction-expander",
+                tier="SONNET",
+                system_prompt=(
+                    "You generate follow-up research directions based on prior findings. "
+                    "Only generate directions that are genuinely new — not paraphrases of "
+                    "already-explored questions. Return empty array [] if topic is exhausted.\n"
+                    "STRUCTURED_OUTPUT_START\n"
+                    'DIRECTIONS|[{"id":"...","dimension":"...","question":"...","priority":"..."}, ...]\n'
+                    "STRUCTURED_OUTPUT_END"
+                ),
+                prompt_path=expand_prompt_path,
+                max_tokens=1024,
+                tools_needed=False,
+            )
+            new_raw = _parse_json_list(expand_result.get("DIRECTIONS", "[]"))
+            for d in new_raw:
+                q = d.get("question", "")
+                if q and q not in explored_questions:
+                    directions.append(
+                        Direction(
+                            id=d.get("id", f"d_r{round_num}_{len(directions)}"),
+                            question=q,
+                            dimension=d.get("dimension", "HOW"),
+                            priority=d.get("priority", "medium"),
+                        )
                     )
-                )
 
         # Determine termination label.
         abs_hit = round_num >= abs_cap
