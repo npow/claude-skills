@@ -166,7 +166,7 @@ class DeepResearchWorkflow:
                     SourceVerification(
                         title=str(src.get("title", "")),
                         authors_or_org=str(src.get("authors_or_org", "")),
-                        year=int(src.get("year", 0)),
+                        year=_safe_year(src.get("year", 0)),
                         confidence=str(src.get("confidence", "low")),
                         verified=(verified_count > 0),
                     )
@@ -653,6 +653,15 @@ async def _spawn(
         retry_policy=SONNET_POLICY if tier == "SONNET" else HAIKU_POLICY,
     )
     return result if isinstance(result, dict) else {}
+
+
+def _safe_year(val) -> int:
+    if isinstance(val, int):
+        return val
+    try:
+        return int(str(val).split("-")[0].split(",")[0].strip())
+    except (ValueError, TypeError, IndexError):
+        return 0
 
 
 def _parse_json_list(raw: str) -> list[dict]:
