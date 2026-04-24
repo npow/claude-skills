@@ -54,3 +54,4 @@ google-*
 
 # Project CLAUDE.md — kept local, not checked into public repo
 CLAUDE.md
+__pycache__/
