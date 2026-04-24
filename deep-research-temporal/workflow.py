@@ -380,6 +380,9 @@ class DeepResearchWorkflow:
             r_failed = 0
             r_empty = 0
 
+            _researchers_pending = set(d.id for d in current_batch)
+            _researchers_done: list[str] = []
+
             async def _research_and_write(d: Direction, prompt_path: str) -> dict | None:
                 nonlocal r_failed, r_empty
                 try:
@@ -393,7 +396,14 @@ class DeepResearchWorkflow:
                     )
                 except BaseException as exc:
                     r_failed += 1
+                    _researchers_pending.discard(d.id)
+                    _researchers_done.append(d.id)
                     progress["warnings"].append(f"R{round_num} {d.id}: agent failed: {exc}")
+                    await _update_progress(
+                        phase=f"round_{round_num}_researching",
+                        researchers_completed=len(_researchers_done),
+                        researchers_pending=list(_researchers_pending),
+                    )
                     return None
                 findings_text = r.get("FINDINGS", "") if isinstance(r, dict) else ""
                 if len(findings_text) < 50:
@@ -411,6 +421,13 @@ class DeepResearchWorkflow:
                 if d.dimension in state.cross_cut_coverage:
                     state.cross_cut_coverage[d.dimension].append(d.id)
                 await _write(f"{findings_dir}/{d.id}.md", _format_findings_file(d, finding))
+                _researchers_pending.discard(d.id)
+                _researchers_done.append(d.id)
+                await _update_progress(
+                    phase=f"round_{round_num}_researching",
+                    researchers_completed=len(_researchers_done),
+                    researchers_pending=list(_researchers_pending),
+                )
                 return finding
 
             results = await asyncio.gather(
