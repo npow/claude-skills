@@ -43,7 +43,7 @@ class SourceVerification:
 @dataclass
 class DeepResearchState(WorkflowState):
     seed: str = ""
-    max_rounds: int = 2
+    max_rounds: int = 1000
     current_round: int = 0
     frontier: list[Direction] = field(default_factory=list)
 

@@ -25,9 +25,9 @@ def _build_input(
     except (TypeError, ValueError):
         max_dirs = 5
     try:
-        max_rounds = int(cli_args.get("max_rounds", 100))
+        max_rounds = int(cli_args.get("max_rounds", 1000))
     except (TypeError, ValueError):
-        max_rounds = 10
+        max_rounds = 1000
     return DeepResearchInput(
         run_id=run_id,
         seed=seed,

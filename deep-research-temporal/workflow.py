@@ -57,7 +57,7 @@ class DeepResearchInput:
     seed: str
     inbox_path: str
     run_dir: str
-    max_rounds: int = 100
+    max_rounds: int = 1000
     max_directions: int = 50
     notify: bool = True
 
