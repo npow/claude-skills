@@ -96,7 +96,7 @@ This preserves "A causes B" vs "B causes A" as different hashes, while still cat
 
 Applied after Tier 1 passes:
 - Compare new direction against all existing directions in the same dimension
-- **Growing threshold:** Round 1 = 0.80, Round 2 = 0.83, Round 3 = 0.85, Round 4+ = 0.88
+- **Growing threshold (default schedule; override via `state.json → coverage_threshold_schedule`):** Round 1 = 0.80, Round 2 = 0.83, Round 3 = 0.85, Round 4+ = 0.88. These are calibration defaults — raise for high-stakes runs, lower for exploratory runs. Wrong values produce earlier/later termination, not incorrect results.
 - Higher threshold in later rounds = stricter dedup (prevents late-round starvation as frontier shrinks)
 
 **For embeddings-unavailable path — structured 3-criterion checklist:**

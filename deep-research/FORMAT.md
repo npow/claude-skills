@@ -288,6 +288,6 @@ If empty: write "None — all claims have at least one fresh source."
 - Seed: {seed}
 - Rounds: {N} of {max_rounds}
 - Directions explored: {count} ({timed_out} timed out, {saturated} saturated)
-- Model tiers used: Sonnet (depth 0-1 high), Haiku (depth 1 medium, depth 2+), Opus (re-dives only)
+- Model tiers used: Researcher (depth 0-1 high), Scout (depth 1 medium, depth 2+), Deep Dive (re-dives only) — concrete models from `state.json → model_config`
 - Termination: {reason}
 ```

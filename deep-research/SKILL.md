@@ -25,23 +25,39 @@ This skill inherits the four execution-model contracts (files-not-inline, state-
 
 Three tiers balance cost and quality. The coordinator (main session) always handles synthesis and gap detection — never delegated.
 
-| Tier | Model | subagent_type | Used for | Est. cost/agent |
-|------|-------|---------------|----------|-----------------|
-| Scout | `haiku` | general-purpose + `model: "haiku"` | depth ≥ 2, priority=low, low-stakes verification directions | ~$0.05 |
-| Researcher | `sonnet` | general-purpose + `model: "sonnet"` | depth 0–1, priority=high/medium, all seed directions | ~$0.30–0.60 |
-| Deep Dive | `opus` | general-purpose + `model: "opus"` | ONLY for re-exploration (duplication=2) of directions with exhaustion_score ≤ 2 | ~$3–5 |
+| Tier | Default model | subagent_type | Used for | Relative cost |
+|------|---------------|---------------|----------|---------------|
+| Scout | cheapest available (e.g. `haiku`) | general-purpose + `model` override | depth ≥ 2, priority=low, low-stakes verification directions | 1x (baseline) |
+| Researcher | mid-tier (e.g. `sonnet`) | general-purpose + `model` override | depth 0–1, priority=high/medium, all seed directions | ~6x Scout |
+| Deep Dive | most capable (e.g. `opus`) | general-purpose + `model` override | ONLY for re-exploration (duplication=2) of directions with exhaustion_score ≤ 2 | ~60x Scout |
+
+Model mapping is configurable — the tier names (Scout/Researcher/Deep Dive) are stable; the concrete models are not. Override via `state.json → model_config`.
 
 **Tier selection rules (applied at spawn time):**
 ```
-if direction.depth == 0:                              → Researcher (sonnet)
-elif direction.depth == 1 and priority == "high":     → Researcher (sonnet)
-elif direction.depth == 1 and priority == "medium":   → Scout (haiku)
-elif direction.depth >= 2:                            → Scout (haiku)
-elif re_exploration and exhaustion_score <= 2:        → Deep Dive (opus)
-else:                                                 → Scout (haiku)
+if direction.depth == 0:                              → Researcher
+elif direction.depth == 1 and priority == "high":     → Researcher
+elif direction.depth == 1 and priority == "medium":   → Scout
+elif direction.depth >= 2:                            → Scout
+elif re_exploration and exhaustion_score <= 2:        → Deep Dive
+else:                                                 → Scout
 ```
 
-**Expected cost for a full run:** ~$15–25 (vs ~$170 with all-Opus).
+**Expected cost for a full run:** ~300-500x Scout-tier cost (vs ~3400x with all-Deep-Dive). Actual dollar amounts depend on the model provider's current pricing.
+
+### Model-tier glossary
+
+"Scout / Researcher / Deep Dive" are the abstract agent tiers this skill uses — **they name a capability slot, not a specific Claude model**. The tier-to-model binding is configurable per run and evolves as frontier models ship. Inline mentions of "Haiku agent" / "Sonnet agent" / "Opus agent" below refer to the **default binding at time of writing** and should be read as "whatever model is currently bound to that tier," not as fixed model IDs. If a future reader sees "Haiku" and the default fast-tier model is now a successor, mentally substitute — the algorithm doesn't care.
+
+Default bindings (override via `state.json → tier_bindings`):
+
+| Tier | Role | Default model (current) | Configurable via |
+|---|---|---|---|
+| Scout | Fast reconnaissance / cheap spawns / bootstrap helpers | fast tier (e.g. Haiku-class) | `tier_bindings.scout` |
+| Researcher | Medium depth / per-direction investigation | mid tier (e.g. Sonnet-class) | `tier_bindings.researcher` |
+| Deep Dive | Heavy lifting / complex synthesis / adversarial audit | deep tier (e.g. Opus-class) | `tier_bindings.deep_dive` |
+
+Numeric budgets and thresholds below (search counts, watchdog minutes, per-round coverage gates) are **defaults, not invariants** — calibrate via `state.json` keys noted inline. They degrade gracefully: wrong numbers slow a run or produce wider caveats, they don't break correctness.
 
 ---
 
@@ -82,11 +98,11 @@ Output STRICT JSON:
 }
 Never output only ["en"] without justification — default en-only is a red flag, not a default answer.
 ```
-Coordinator writes result to `state.json → language_locus`. If `coverage_expectation != "en_dominant"` OR `len(authoritative_languages) ≥ 2` OR `confidence: low` → cross-lingual retrieval fires in Phase 3.3. The Phase 1 pre-run scope declaration warns user: "This topic appears to span {N} languages ({list}); enable cross-lingual retrieval (adds ~$0.15/run)? [Y/n]".
+Coordinator writes result to `state.json → language_locus`. If `coverage_expectation != "en_dominant"` OR `len(authoritative_languages) ≥ 2` OR `confidence: low` → cross-lingual retrieval fires in Phase 3.3. The Phase 1 pre-run scope declaration warns user: "This topic appears to span {N} languages ({list}); enable cross-lingual retrieval (adds ~1 Scout-tier agent per language)? [Y/n]".
 
 **`--auto` default:** under `--auto`, cross-lingual retrieval is enabled automatically IF `coverage_expectation == "multilingual_required"` (explicit locus signal), skipped otherwise. This is the ONE Phase 0 gate `--auto` respects — skipping it silently would hide the language-gap caveat from autonomous runs. The decision + rationale is logged to `state.json → auto_decisions`.
 
-**Translation validation (v4.1):** Every LLM-translated query is round-trip verified before firing. Haiku agent translates `query_en → query_xx`, then independently back-translates `query_xx → query_en_verify`. If semantic similarity between `query_en` and `query_en_verify` falls below a coarse-match threshold (shared keyword count ≥ 60% of original content words, excluding stopwords), the translation is marked `translation_failed: true` in `xlang_queries/{lang}.json` and that language's adapter round is skipped for this query. Three failed translations in the same language within a run auto-disable cross-lingual retrieval for that language and emit `COVERAGE_CAVEAT_TRANSLATION_UNRELIABLE: {lang}`. Prevents garbage queries entering adapters and laundering translation errors into coordinator confidence.
+**Translation validation (v4.1):** Every LLM-translated query is round-trip verified before firing. Haiku agent translates `query_en → query_xx`, then independently back-translates `query_xx → query_en_verify`. If semantic similarity between `query_en` and `query_en_verify` falls below a coarse-match threshold (shared keyword count ≥ configurable threshold (default 60%, lower for CJK/agglutinative languages — set via `state.json → translation_match_threshold`) of original content words, excluding stopwords), the translation is marked `translation_failed: true` in `xlang_queries/{lang}.json` and that language's adapter round is skipped for this query. Three failed translations in the same language within a run auto-disable cross-lingual retrieval for that language and emit `COVERAGE_CAVEAT_TRANSLATION_UNRELIABLE: {lang}`. Prevents garbage queries entering adapters and laundering translation errors into coordinator confidence.
 
 **Step 0g — Novelty Detection (v5 — cold-start gate):**
 
@@ -113,7 +129,7 @@ Classification:
 
 LLM self-report of novelty is unreliable — models confabulate plausible-sounding sources and return `familiar` when they should return `novel`. Coordinator performs external verification BEFORE accepting the classification:
 
-1. For each `recalled_sources` entry with `confidence in {high, medium}` (skip `low`), fire 1 WebSearch query: `"{title}" {authors_or_org}`. Limit: 5 queries total (budget: ~$0.05 Haiku tier).
+1. For each `recalled_sources` entry with `confidence in {high, medium}` (skip `low`), fire 1 WebSearch query: `"{title}" {authors_or_org}`. Limit: 5 queries total (budget: ~1 Scout-tier agent).
 2. Count verification outcomes:
    - `verified`: WebSearch returns ≥1 result whose title is a clear match (shared-keyword overlap ≥ 60% AND author/org appears in result snippet OR URL)
    - `unverified`: no clear match (title drift, wrong author, no results)
@@ -124,7 +140,7 @@ LLM self-report of novelty is unreliable — models confabulate plausible-soundi
 4. Record both `self_report_novelty` and `verified_novelty` in `state.json → topic_novelty`. Subsequent phases use `verified_novelty`.
 5. Emit per-source verification record to `state.json → source_verification_log` — required for audit trail.
 
-**This turns Phase 0g from a self-report coin-flip into an externally-grounded gate.** A model that confabulates 5 plausible-sounding papers on a fabricated topic will see 0-1 verify, auto-reclassify `cold_start`, and correctly trigger Vocabulary Bootstrap. Cost: 5 WebSearch calls per run (~$0.05), negligible relative to the full-run cost.
+**This turns Phase 0g from a self-report coin-flip into an externally-grounded gate.** A model that confabulates 5 plausible-sounding papers on a fabricated topic will see 0-1 verify, auto-reclassify `cold_start`, and correctly trigger Vocabulary Bootstrap. Cost: 5 search calls per run (~1 Scout-tier agent), negligible relative to the full-run cost.
 
 Coordinator writes `verified_novelty` to `state.json → topic_novelty`. If `verified_novelty in {novel, cold_start}` → **Vocabulary Bootstrap mode activates** (Phase 2.5 below). If `cold_start` → Phase 1 dimension expansion is **deferred** until after bootstrap — cross-cutting dimensions like PRIOR-FAILURE / ACTUAL-USAGE are meaningless without topic vocabulary.
 
@@ -140,20 +156,24 @@ Coordinator writes `verified_novelty` to `state.json → topic_novelty`. If `ver
 
 **Activates when:** `state.topic_novelty in {novel, cold_start}`. Runs between Phase 2 (Initialize State) and Phase 3 (Research Rounds).
 
-**Step A — Vocabulary Bootstrap (1 Haiku agent):**
+**Step A — Vocabulary Bootstrap (1 Scout-tier agent):**
 ```
 Topic: "{seed}"
 Goal: build a domain vocabulary before research starts.
-Steps:
-1. WebFetch `https://en.wikipedia.org/w/api.php?action=opensearch&search={url-encoded topic}&limit=5&format=json`
-2. For each top-3 candidate article: WebFetch `https://en.wikipedia.org/wiki/{title}`
-3. Extract per article:
-   - Bolded terms in lead paragraph (aliases, variant spellings)
-   - All H2/H3 section headings
-   - First sentence of each section
-   - "See also" entries
-   - Page-bottom categories
-4. Deduplicate to `vocabulary_bootstrap.json`:
+Strategy: use the BEST AVAILABLE retrieval tool — adapt to the environment:
+  - If WebSearch/WebFetch available: query Wikipedia/encyclopedic sources for the topic
+  - If internal search tools available (Sourcegraph, Confluence, Manuals, NECP, Slack search): 
+    query those for docs, READMEs, and glossaries related to the topic
+  - If both available: use both; internal sources often have domain-insider vocabulary that 
+    public sources lack
+Steps (adapt to available tools):
+1. Query 2-3 available search tools for the seed topic
+2. From the top results, extract:
+   - Key terms, aliases, and variant spellings
+   - Section/category structure (subtopics)
+   - Related/adjacent concepts
+   - Seed URLs or document paths for follow-up
+3. Deduplicate to `vocabulary_bootstrap.json`:
    {
      "canonical_terms": [...],
      "aliases": {"canonical": ["variant1", ...]},
@@ -162,11 +182,11 @@ Steps:
      "categories": [...],
      "seed_urls_discovered": [...]
    }
-Budget: 4 WebFetch max.
+Budget: 4-6 tool calls max.
 ```
 Vocabulary is handed to every subsequent research agent as `{vocabulary_path}` in their prompt: "Use canonical_terms + aliases in your queries — these are domain-insider names you didn't know."
 
-**Wikipedia-zero-match fallback:** If no article matches, fallback to `https://en.wikipedia.org/wiki/Special:Search?search={topic}` HTML-scrape for related articles, AND flag `topic_novelty: verified_cold_start_no_wikipedia` — coordinator lowers expectations (max 2 rounds, `COVERAGE_CAVEAT_NO_WIKIPEDIA_SEED`) and proceeds with very limited breadth promises.
+**Zero-match fallback:** If no search tool returns useful vocabulary, flag `topic_novelty: verified_cold_start_no_vocabulary` — coordinator lowers expectations (max 2 rounds, `COVERAGE_CAVEAT_NO_VOCABULARY_SEED`) and proceeds with very limited breadth promises.
 
 **Step B — Browse-as-Retrieval primitive (v5 — new orthogonal retrieval path):**
 One dedicated agent per round for novel topics (Researcher tier) / emerging (Scout tier). Does NOT query indexes. Navigates like a researcher following citations/links.
@@ -187,7 +207,7 @@ Yield is added to the Adapter Pool. Browse-found URLs are deduped against alread
 For novel-topic runs, every claim row adds field:
 - `vocabulary_grounding`: `bootstrapped` (uses term from `vocabulary_bootstrap.json`) | `discovered_mid_run` (term surfaced in a finding) | `fabricated` (term not verified in any source). `fabricated` → claim rejected at synthesis.
 
-**Cost impact:** Bootstrap adds 1 Haiku + ~4 WebFetch = ~$0.05. Browse-retrieval adds 1 agent/round at Sonnet tier + 15 WebFetch = ~$0.50/round when active. Only fires for novel/cold-start topics (typically <20% of runs). Expected additional cost: $0.05–$1.00 depending on novelty.
+**Cost impact:** Bootstrap adds 1 Scout-tier agent. Browse-retrieval adds 1 Researcher-tier agent/round when active. Only fires for novel/cold-start topics (typically <20% of runs). Expected additional cost: 1-10 Scout-tier equivalents depending on novelty.
 
 **Step 0e — Pre-mortem micro-round (blind-spot seeding):**
 Before dimension expansion, spawn 1 Haiku agent with this prompt:
@@ -216,6 +236,12 @@ Coordinator reads pre-mortem.md; each flagged blind spot becomes an auto-seeded 
   - **ADJACENT-EFFORTS** — "What parallel/competing work is happening right now? Who else is planning or building in this space? Check active design threads and in-progress PRs."
   - **STRATEGIC-TIMING** — "What planning windows, published roadmaps, or executive memos bear on this? Is there a time-sensitive coordination opportunity?"
   - **ACTUAL-USAGE** — "For any tool/framework/pattern claimed as 'official,' 'standard,' or 'canonical,' verify via independent code search — don't accept docs-only claims about what teams actually do."
+  - **STRUCTURAL-DISCOVERY** — "Before content-keyword searches, discover how the ecosystem organizes itself. Content keywords only find things you already know to look for; structural searches find things you didn't know existed. Four sub-passes, adapted to whatever ecosystem the seed targets:
+    **(a) Manifest/config fingerprinting:** Identify the ecosystem's organizational markers — the config files, registry manifests, and build descriptors that participation requires. Search for these file patterns across all indexed repos. Every hit = an entity participating in the ecosystem that content keywords might miss. (Examples: package registries, plugin manifests, CI configs, SDK setup files, project descriptors.)
+    **(b) Naming-convention sampling:** Sample entity names (repos, packages, modules) across the namespace to discover organizational patterns. High-frequency prefixes/suffixes = real team or project namespaces. Compare discovered namespaces against the seed's initial scope — any namespace with 3+ entities not already covered → flag as a coverage gap.
+    **(c) Org-doc seeding:** Search docs, wikis, and knowledge bases for portfolio docs, roadmaps, and organizational charts BEFORE generating content-keyword directions. These docs enumerate product surface areas that keyword searches would miss. Every entity mentioned in an org doc without a corresponding content-keyword direction → auto-generates one.
+    **(d) Adoption fingerprinting:** Search for import/instantiation patterns of known frameworks and SDKs to find who's USING them in production code, not just who has them in docs. Each distinct consumer discovered this way that isn't already in scope → new direction.
+    **Coverage verification gate (mandatory):** After structural discovery, count: how many discovered entities (teams/products/repos) have ≥1 content-keyword direction targeting them? If <80%, the expansion is incomplete — generate missing directions before proceeding to Round 1. This gate prevents the failure mode where structural discovery finds N entities but content searches only cover N/5."
   Each cross-cutting dimension gets ≥1 direction at priority=high, in addition to seed-specific directions.
 - Maximum: 25 initial directions (cross-cutting dimensions count against this cap)
 - Minimum dimension rule:
@@ -238,16 +264,20 @@ Continue? [y/N]
 ```
 User sets max_rounds explicitly — no hardcoded default.
 
-**max_rounds recommendation formula:**
+**max_rounds recommendation formula** (constants are calibration defaults — override via `state.json → scheduling`):
 ```
 initial_directions = count of directions in Phase 1
-min_rounds_to_cover_seed = ceil(initial_directions / 6)   # 6 agents/round
-depth_multiplier = 1.5  # expect ~50% expansion from agent-discovered sub-directions
-recommended = ceil(min_rounds_to_cover_seed * depth_multiplier)
-recommended = max(recommended, 8)  # never suggest < 8 rounds
+max_agents_per_round = state.max_agents_per_round or 6      # default 6, tune to your quota
+depth_multiplier      = state.depth_multiplier or 1.5        # expected sub-direction yield
+min_recommended       = state.min_recommended_rounds or 8    # floor for noisy topics
+
+min_rounds_to_cover_seed = ceil(initial_directions / max_agents_per_round)
+recommended              = ceil(min_rounds_to_cover_seed * depth_multiplier)
+recommended              = max(recommended, min_recommended)
 ```
-Example: 20 initial directions → ceil(20/6)=4 × 1.5=6 → recommend 8.
-Example: 30 initial directions → ceil(30/6)=5 × 1.5=7.5 → recommend 8.
+Example (defaults): 20 initial directions → ceil(20/6)=4 × 1.5=6 → recommend 8.
+Example (defaults): 30 initial directions → ceil(30/6)=5 × 1.5=7.5 → recommend 8.
+Wrong constants change recommended depth, not correctness — the soft gate still prompts at `max_rounds`.
 
 Note: `max_rounds` is a **soft gate** — the skill will prompt to extend when reached with non-empty frontier. Set conservatively; you can always extend.
 
@@ -378,7 +408,7 @@ and counter-evidence gaps that the research pass may not have self-checked.)
 
 Terminate when ANY of these is true (any-of-4, not all-of-4):
 1. **User chooses N at a round gate** (explicit user decision)
-2. **Coverage plateau:** No new dimensions for 3 consecutive rounds AND all frontier items have exhaustion ≥ 4 AND **blind-spot check passes** (all 5 cross-cutting dimensions have ≥1 explored direction AND unconsumed-leads count == 0)
+2. **Coverage plateau:** No new dimensions for 3 consecutive rounds AND all frontier items have exhaustion ≥ 4 AND **blind-spot check passes** (all 6 cross-cutting dimensions have ≥1 explored direction AND unconsumed-leads count == 0)
 3. **Budget soft gate:** `max_rounds` reached with non-empty frontier → prompt user to extend or stop (see DFS.md Step 5)
 4. **Frontier actually empties** (possible because direction reporting is optional)
 
@@ -528,7 +558,7 @@ When the coordinator finds itself about to reach for any of these excuses: it st
 - [ ] Topic velocity recorded in state and surfaced in final report header
 - [ ] Model tier was correctly selected for each agent
 - [ ] Phase 0e pre-mortem ran before Phase 1 expansion; pre-mortem.md flags seeded as critical directions
-- [ ] All 5 cross-cutting dimensions (PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE) have ≥1 explored direction at termination
+- [ ] All 6 cross-cutting dimensions (PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE) have ≥1 explored direction at termination
 - [ ] Every findings file has a `## Unconsumed Leads` section (may be "None — ...")
 - [ ] Unconsumed Leads Recovery ran after each round (leads scanned, deduped, net-new leads added to frontier)
 - [ ] "Coverage plateau" termination blocked unless blind-spot gate passes (cross-cutting dims + zero unconsumed leads)
@@ -559,19 +589,18 @@ Dominant framing so far: {dominant_framing}
 ⚠️ If your research points in a different direction, follow it. Do not assume the dominant framing is correct.
 
 **Instructions:**
-1. **Retrieval adapters — multi-index parallel fanout (REQUIRED — breadth gate).** WebSearch is ONE retrieval path with ONE ranking bias. Real breadth requires hitting multiple indexes with different biases. The coordinator gives you a pre-fetched **Adapter Pool** in `{adapter_pool_path}` — a JSON file containing seed URLs already harvested from 3–5 adapters applicable to this topic (see Adapter Registry section). Start your research from that pool. Adapters that ran (each returns URLs, each tagged with `retrieval_path`):
-   - `WebSearch` (Google-like index bias)
-   - `SemanticScholarAPI` — `api.semanticscholar.org/graph/v1/paper/search` (citation-graph bias)
-   - `ArxivAPI` — `export.arxiv.org/api/query` (pre-print bias, CS/physics/math)
-   - `OpenAlexAPI` — `api.openalex.org/works` (bibliographic, covers non-CS)
-   - `CrossrefAPI` — `api.crossref.org/works` (DOI-bibliography)
-   - `HackerNewsAlgolia` — `hn.algolia.com/api/v1/search` (community/popularity bias)
-   - `StackExchangeAPI` — `api.stackexchange.com/2.3/search` (practitioner Q&A bias)
-   - `GitHubSearchAPI` — `api.github.com/search/repositories` + `/code` (implementation bias)
-   - `WikipediaExternalLinks` — WebFetch Wikipedia page → grep `## External links` / `## Further reading` / `## See also` (human-curated)
-   - `RedditJSON` — `www.reddit.com/search.json?q={topic}&sort=top&t=all` (community discussion)
+1. **Retrieval adapters — multi-index parallel fanout (REQUIRED — breadth gate).** Any single search tool has ONE ranking bias. Real breadth requires hitting multiple indexes with different biases. The coordinator gives you a pre-fetched **Adapter Pool** in `{adapter_pool_path}` — a JSON file containing seed URLs/results already harvested from 3–5 adapters applicable to this topic (see Adapter Registry section). Start your research from that pool. The coordinator auto-discovers available retrieval tools at run start and selects adapters from these categories:
+   - **Web search** (general index bias) — WebSearch if available
+   - **Academic/bibliographic** — SemanticScholar, arXiv, OpenAlex, Crossref APIs if web-accessible
+   - **Community/practitioner** — HackerNews, StackExchange, Reddit APIs if web-accessible
+   - **Code/implementation** — Sourcegraph, GitHub search, code-level keyword search
+   - **Internal docs** — Confluence, Manuals, NECP, RAG endpoints, Google Docs search
+   - **Communication** — Slack search, email archives, meeting transcripts
+   - **Encyclopedic** — Wikipedia external links, curated knowledge bases
+   
+   **Environment adaptation:** In public-web environments, use public APIs. In internal/corporate environments, substitute internal search tools (code search, doc search, Slack, people directories). The principle — multiple independent indexes with different biases — is constant; the specific tools are not. If fewer than 3 retrieval paths are available, log `COVERAGE_CAVEAT_LIMITED_RETRIEVAL_PATHS` and proceed.
 
-   The coordinator selects applicable adapters by topic-class heuristic (see Adapter Registry section). You receive the deduplicated URL pool. If the Adapter Pool contains ≥5 primary-tier URLs, you MAY skip WebSearch entirely for this direction and spend budget on counter-evidence + depth WebFetch.
+   The coordinator selects applicable adapters by topic-class heuristic (see Adapter Registry section). You receive the deduplicated result pool. If the Adapter Pool contains ≥5 primary-tier results, you MAY skip general web search for this direction and spend budget on counter-evidence + depth retrieval.
 
 2. **LLM-as-retrieval-memory (orthogonal index — REQUIRED).** Search engines rank by PageRank-style popularity. Your training corpus ranked sources by a different signal entirely. Before any WebSearch, enumerate from memory: list 8–15 specific sources on this topic you recall (author names, paper titles, repo names, canonical blog posts, key books), each with approximate year + why it's relevant. Write them to `{llm_memory_seeds_path}`. Then WebFetch each to verify existence + extract URL. Verified seeds enter the Source Table with `retrieval_path: llm_memory_verified`. Unverified or fabricated ones are discarded and flagged — do NOT include them in findings. This is the single most orthogonal retrieval path available; it surfaces sources that are seminal-but-unranked, historical-but-deprioritized, or niche-expert-known-but-not-viral.
 
@@ -607,7 +636,7 @@ Dominant framing so far: {dominant_framing}
 - `secondary`: credible journalism, institutional reports (expert blogs require explicit credentials to qualify)
 - `unverified`: forums, personal blogs, social media, paywalled sources (you can't read it = can't verify it)
 
-**Search budget:** {8 searches for Haiku/Scout tier | 15 searches for Sonnet/Researcher tier}
+**Search budget (default, override via `state.json → search_budget_per_tier`):** 8 searches for Scout-tier agents; 15 searches for Researcher-tier agents. (See the Model-tier glossary above — tier labels, not model IDs, drive this allocation.)
 (Counter-evidence searches count against the budget — plan accordingly.)
 ```
 
@@ -619,7 +648,7 @@ When a direction returns exhaustion_score ≤ 2:
 1. **Scout pass** (Haiku, 5 searches): Identify 3-5 most relevant papers, return as short list
 2. **Researcher pass** (Sonnet, 10 searches): Deep dive using scout's list as starting context
 
-Costs ~$0.35 total vs $3-5 for Opus re-exploration.
+Costs ~7 Scout-tier equivalents vs ~60-100x for Deep Dive re-exploration.
 Trigger: `exhaustion_score <= 2 AND duplication[direction] < 2`
 
 ---
@@ -748,7 +777,7 @@ For each theme in the final report:
 Commercial / SEO-gamed / astroturfed / content-farm sources can pass v0–v6 filters if they have primary-source-shaped metadata. v7 adds automatic down-ranking signals applied at Phase 4 fact-verification:
 
 For each source in Source Table, coordinator computes:
-- `domain_age_months`: WebFetch `https://web.archive.org/web/{date}/*/domain.tld` → first-seen timestamp. If <6 months → `new_domain_risk: true`
+- `domain_age_months`: If WebFetch is available, check `web.archive.org/web/{date}/*/domain.tld` for first-seen timestamp. If <6 months → `new_domain_risk: true`. If WebFetch/web access unavailable (internal-only environment), skip this check and log `domain_age_check: skipped_no_web_access`.
 - `sibling_density`: WebSearch `site:domain.tld` + count results. If >100k results with near-identical URL patterns (heuristic: >5 URLs sharing a stem like `/reviews/`, `/guides/`, `/best-{word}`) → `content_farm_risk: true`
 - `press_release_signature`: body text starts with "[CITY, STATE] –" or contains the phrase "For immediate release" or identical lead paragraphs appear on ≥3 other domains → `syndication_detected: true`
 - `affiliate_link_density`: count of `?ref=`, `/aff/`, `?tag=`, `?utm_`, shortener-redirect patterns in outbound links. If >30% of outbound links are affiliate → `commercial_intent_high: true`
@@ -764,7 +793,7 @@ Phase 3.75 runs after each round's agent output, before unconsumed-leads recover
 - WebFetch the cited URL, grep for claim text (±20% keyword overlap allowed)
 - If claim text NOT findable in source → mark `hallucination_suspected: true` on that claim, downgrade `corroboration` one tier, log to `hallucination_log`
 - If ≥2 of 3 sampled claims fail for the same agent → mark that agent's remaining findings `agent_credibility_degraded`; coordinator surfaces "Agent-level hallucination risk" as a caveat
-- Budget: 3 WebFetch per agent per round = ~18 extra calls/round at scale, ~$0.30/round
+- Budget: 3 fetches per agent per round = ~18 extra calls/round at scale, ~6 Scout-tier equivalents/round
 
 ### Cross-Round Direction Momentum (v7)
 
@@ -780,7 +809,7 @@ v4's `language_locus` and v3's topic-class heuristic are classified once per run
 
 After sub-goal extraction, coordinator fires one additional Haiku call per sub-goal (reusing the Phase 0f + Phase 0g prompts, scoped to the sub-goal question). Writes `state.json → subgoal_locus[{subgoal_id}]`. Adapter pool for directions owned by a given sub-goal uses that sub-goal's locus, not the seed-level locus.
 
-Cost: +1 Haiku per sub-goal beyond the first = ~$0.02/sub-goal. Prevents the multi-era / multi-domain topic from getting locked into a single locus determined by the loudest sub-goal.
+Cost: +1 Scout-tier agent per sub-goal beyond the first. Prevents the multi-era / multi-domain topic from getting locked into a single locus determined by the loudest sub-goal.
 
 ### User Pivot Injection (v7)
 
@@ -811,7 +840,7 @@ Agents whose cost-per-unique-URL exceeds 2× the round median are flagged `ineff
 
 ### Temporal-Source-Cluster Detection (v7)
 
-If ≥60% of cited sources in the final report fall within a single 6-month window, emit `COVERAGE_CAVEAT_TEMPORAL_CLUSTER: {window}`. This catches runs that unintentionally capture a hype-cycle snapshot rather than a longitudinal view. User may rerun with explicit date-range directions to resolve.
+If a disproportionate share of cited sources clusters in a narrow time window, emit `COVERAGE_CAVEAT_TEMPORAL_CLUSTER: {window}`. Default threshold: ≥60% in a 6-month window for `stable` topics, ≥80% for `fast_moving` topics (where temporal clustering is expected). Threshold is configurable via `state.json → temporal_cluster_threshold`. This catches runs that unintentionally capture a hype-cycle snapshot rather than a longitudinal view. User may rerun with explicit date-range directions to resolve.
 
 ### Golden Rules Appended (v7 — #19–#21)
 
@@ -826,10 +855,10 @@ If ≥60% of cited sources in the final report fall within a single 6-month wind
 | "The source has a clean URL, looks legit." | No. Check domain age, sibling density, syndication. A 3-month-old `.com` with 100k SEO-shaped URLs is not a primary source. |
 | "The agent cited a real URL, the claim's fine." | No. Phase 3.75 hallucination probe verifies the claim APPEARS in the source. Cited ≠ supported. |
 | "This dimension yielded nothing last round — skip it." | No. Momentum is a priority adjustment, not a filter. Cross-cutting dimensions run every round. |
-| "One Language Locus classification is enough for the whole topic." | No. Sub-goal-scoped locus catches multi-era/multi-domain drift. Cost per sub-goal is $0.02. |
+| "One Language Locus classification is enough for the whole topic." | No. Sub-goal-scoped locus catches multi-era/multi-domain drift. Cost per sub-goal is 1 Scout-tier agent. |
 | "User feedback at gates is continue-or-stop." | No. v7 adds `redirect:{focus}` pivot injection. Coordinator re-scopes without losing accumulated findings. |
 | "Final report has 40 claims, we're well-corroborated." | No. Render the provenance graph. If 40 claims trace to 3 original studies, cascading is hidden by raw count. |
-| "Evidence Quality is averaged — 0.7 means strong." | v6 addressed this per-theme. v7 adds per-source cost efficiency. An agent producing one primary source for $1.50 is fine; one producing 20 duplicates for $2 is not. |
+| "Evidence Quality is averaged — 0.7 means strong." | v6 addressed this per-theme. v7 adds per-source cost efficiency. An agent producing one primary source at Researcher-tier cost is fine; one producing 20 duplicates at the same cost is not. |
 | "All sources are from 2025, that's current." | No. Temporal-cluster detection: 60% in 6 months = hype-cycle snapshot. Flag + consider rerun with date-range directions. |
 
 ---
@@ -907,7 +936,7 @@ For claims that use domain jargon, coordinator runs a 1-call Haiku check per uni
 
 Claims using superseded jargon (e.g. "artificial general intelligence" where the current field term is "frontier models") → tagged `semantic_staleness_risk: true` and flagged in report. Prevents confidently-cited sources with dated vocabulary from anchoring modern claims.
 
-Cost: ~5 Haiku calls per run per run = $0.02. Only fires for topics with identifiable domain jargon (detected by >=3 claims sharing same technical terms).
+Cost: ~5 Scout-tier calls per run. Only fires for topics with identifiable domain jargon (detected by >=3 claims sharing same technical terms).
 
 ### Coverage-Confidence Decoupling (v8)
 
@@ -1041,7 +1070,7 @@ WebSearch-with-operator:
 ### Failure & cost guards
 
 - Any adapter call that returns `403 | 404 | timeout | empty` is recorded as `adapter_failed` in the pool JSON — coordinator never retries the same adapter within a run
-- Per-run adapter call budget: 5 adapters × 1 call per direction = 5 webfetches per direction at Phase 3.3. Total for 20 initial directions: ~100 adapter calls ($0.50 at free API rates, ~30s wall-clock with parallelization)
+- Per-run adapter call budget: 5 adapters × 1 call per direction = 5 fetches per direction at Phase 3.3. Total for 20 initial directions: ~100 adapter calls (~30s wall-clock with parallelization)
 - If ≥ 3 of 5 adapters fail for a given direction, coordinator tags the direction `low_pool_yield` — the research agent compensates by shifting its budget to WebSearch
 
 ---
@@ -1084,4 +1113,21 @@ v4.1 does NOT reliably reach: paywalled non-EN databases (CNKI, AskZad), JS-heav
 
 4. **Cross-lingual synthesis.** Non-`en` findings enter the coordinator summary with LLM-translated English abstracts, preserving the original-language URL + a `[translated_from: {lang}]` tag. Native-language quotes are retained verbatim for the final report's Evidence section.
 
-5. **Cost impact.** ~$0.10–0.20 additional per run when cross-lingual mode activates. LLM translation of 5 seed queries × 3 non-`en` languages ≈ 15 × ~$0.005 Haiku calls = $0.075. Adapter fetches add ~10–15 WebFetch calls. Gated by user consent at Phase 1 scope declaration; skipped entirely for `en_dominant` topics.
+5. **Cost impact.** ~2-4 Scout-tier equivalents additional per run when cross-lingual mode activates. LLM translation of 5 seed queries × 3 non-`en` languages ≈ 15 Scout-tier calls. Adapter fetches add ~10–15 retrieval calls. Gated by user consent at Phase 1 scope declaration; skipped entirely for `en_dominant` topics.
+
+---
+
+## Durable execution
+
+When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch deep-research --arg seed='<SEED>' --arg max_directions=<N> --await"
+)
+```
+
+Substitute `<SEED>` with the research topic/question and `<N>` with the direction budget (default 5, max ~15). The workflow writes its report to `~/.sagaflow/runs/<run_id>/research-report.md` with the executive summary, per-direction findings, cross-cutting analysis, fact-verification spot-checks, coverage, sources, and termination label.
+
+Algorithm is identical to the in-session flow above; only the envelope changes.

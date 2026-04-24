@@ -164,28 +164,30 @@ This corrects cold-start errors in the initial dimension assessment.
 
 ```python
 def select_model_tier(direction, duplication_count):
-    # Re-exploration of a shallow direction → only case for Opus
+    # Re-exploration of a shallow direction → most capable tier
     if duplication_count == 2 and direction.exhaustion_score <= 2:
-        return "opus"
+        return "deep_dive"
 
-    # Broad, high-value directions → Sonnet
+    # Broad, high-value directions → mid-tier
     if direction.depth == 0:
-        return "sonnet"
+        return "researcher"
     if direction.depth == 1 and direction.priority == "high":
-        return "sonnet"
+        return "researcher"
 
-    # Everything else → Haiku
+    # Everything else → cheapest tier
     # (depth 1 medium, depth 2+, low priority, verification/confirmation)
-    return "haiku"
+    return "scout"
 ```
 
 **Search budget by tier:**
 
-| Tier | Model | Max searches | Expected agent runtime |
-|------|-------|-------------|----------------------|
-| Scout | haiku | 8 | ~3–5 min |
-| Researcher | sonnet | 12 | ~8–10 min |
-| Deep Dive | opus | 18 | ~15–20 min |
+| Tier | Max searches | Expected agent runtime |
+|------|-------------|----------------------|
+| Scout | 8 | ~3–5 min |
+| Researcher | 12 | ~8–10 min |
+| Deep Dive | 18 | ~15–20 min |
+
+Concrete model-to-tier mapping is configured in `state.json → model_config` (see SKILL.md Model Tier Strategy).
 
 ---
 
