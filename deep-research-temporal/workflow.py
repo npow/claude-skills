@@ -98,7 +98,7 @@ class DeepResearchWorkflow:
         )
         lang_result = await _spawn(
             role="lang-detect",
-            tier="HAIKU",
+            tier="OPUS",
             system_prompt=(
                 "You detect the authoritative languages for a research topic. "
                 "STRUCTURED_OUTPUT_START\n"
@@ -107,7 +107,7 @@ class DeepResearchWorkflow:
                 "STRUCTURED_OUTPUT_END"
             ),
             prompt_path=lang_prompt_path,
-            max_tokens=512,
+            max_tokens=128000,
             tools_needed=False,
         )
         raw_langs = lang_result.get("AUTHORITATIVE_LANGUAGES", '["en"]')
@@ -135,7 +135,7 @@ class DeepResearchWorkflow:
         )
         novelty_result = await _spawn(
             role="novelty-classify",
-            tier="HAIKU",
+            tier="OPUS",
             system_prompt=(
                 "You classify topic novelty. Use WebSearch to verify recalled sources. "
                 "STRUCTURED_OUTPUT_START\n"
@@ -144,7 +144,7 @@ class DeepResearchWorkflow:
                 "STRUCTURED_OUTPUT_END"
             ),
             prompt_path=novelty_prompt_path,
-            max_tokens=1024,
+            max_tokens=128000,
             tools_needed=True,
         )
         self_report = novelty_result.get("NOVELTY_CLASS", "familiar")
@@ -206,7 +206,7 @@ class DeepResearchWorkflow:
             )
             vocab_result = await _spawn(
                 role="vocab-bootstrap",
-                tier="HAIKU",
+                tier="OPUS",
                 system_prompt=(
                     "You bootstrap domain vocabulary from Wikipedia using WebFetch. "
                     "STRUCTURED_OUTPUT_START\n"
@@ -215,7 +215,7 @@ class DeepResearchWorkflow:
                     "STRUCTURED_OUTPUT_END"
                 ),
                 prompt_path=vocab_prompt_path,
-                max_tokens=2048,
+                max_tokens=128000,
                 tools_needed=True,
             )
             raw_terms = vocab_result.get("CANONICAL_TERMS", "[]")
@@ -259,18 +259,20 @@ class DeepResearchWorkflow:
         )
         dim_result = await _spawn(
             role="dim-discover",
-            tier="SONNET",
+            tier="OPUS",
             system_prompt=(
                 "You generate research directions including mandatory cross-cutting "
                 "dimensions (PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, "
-                "STRATEGIC-TIMING, ACTUAL-USAGE). "
+                "STRATEGIC-TIMING, ACTUAL-USAGE). Use all available tools to understand "
+                "the landscape before generating directions. Be exhaustive — generate "
+                "as many directions as the topic warrants. "
                 "STRUCTURED_OUTPUT_START\n"
                 'DIRECTIONS|[{"id":"...","dimension":"...","question":"...","priority":"high|medium|low"},...]\n'
                 "STRUCTURED_OUTPUT_END"
             ),
             prompt_path=dim_prompt_path,
-            max_tokens=1024,
-            tools_needed=False,
+            max_tokens=128000,
+            tools_needed=True,
         )
         raw_directions = _parse_json_list(dim_result.get("DIRECTIONS", "[]"))
         raw_directions = raw_directions[:inp.max_directions]
@@ -294,8 +296,8 @@ class DeepResearchWorkflow:
         await _write(f"{findings_dir}/.keep", "")
 
         while round_num < inp.max_rounds and round_num < abs_cap and directions:
-            current_batch = directions[:50]
-            directions = directions[50:]
+            current_batch = directions
+            directions = []
             round_num += 1
 
             # -------------------------------------------------------------- #
@@ -313,12 +315,19 @@ class DeepResearchWorkflow:
                     f"Direction ({d.dimension}): {d.question}\n"
                     f"Priority: {d.priority}\n"
                     f"{vocab_section}\n"
-                    "Research this direction thoroughly. Do NOT write any files.\n"
-                    "Return your results ONLY as a structured output block in your "
-                    "TEXT response (not in a file).\n\n"
+                    "Research this direction with MAXIMUM thoroughness. Use EVERY "
+                    "available tool aggressively — code search, documentation search, "
+                    "chat/messaging search, engineering context tools, pipeline/run "
+                    "inspection, web search, web fetch. Make at LEAST 5-10 tool calls. "
+                    "Cross-reference findings across multiple sources. For every claim, "
+                    "note the source and whether it's corroborated by independent "
+                    "evidence.\n\n"
+                    "Do NOT write any files. Return your results ONLY as a structured "
+                    "output block in your TEXT response (not in a file).\n\n"
                     "STRUCTURED_OUTPUT_START\n"
-                    "FINDINGS|<prose summary>\n"
-                    "SOURCES|<json array of source strings>\n"
+                    "FINDINGS|<detailed prose summary — be exhaustive, include all "
+                    "evidence found, name specific repos/teams/people/docs>\n"
+                    "SOURCES|<json array of source strings with URLs where available>\n"
                     "CLAIMS|<json array of {claim,source,corroboration,recency_class}>\n"
                     "STRUCTURED_OUTPUT_END"
                 )
@@ -329,15 +338,18 @@ class DeepResearchWorkflow:
                     role="researcher",
                     tier="OPUS",
                     system_prompt=(
-                        "You research one direction thoroughly. Return structured findings. "
+                        "You are an expert researcher. Use ALL available tools aggressively — "
+                        "code search, documentation search, chat search, engineering context, "
+                        "web search, web fetch, pipeline inspection. Make at least 5-10 tool "
+                        "calls per direction. Cross-reference across sources. Be exhaustive.\n"
                         "STRUCTURED_OUTPUT_START\n"
-                        "FINDINGS|<prose summary>\n"
-                        'SOURCES|["title1", "title2", ...]\n'
-                        'CLAIMS|[{"claim":"...","source":"...","corroboration":"...","recency_class":"..."},...]\n'
+                        "FINDINGS|<detailed prose — name repos, teams, people, docs, URLs>\n"
+                        'SOURCES|["source1 (URL)", "source2 (URL)", ...]\n'
+                        'CLAIMS|[{"claim":"...","source":"...","corroboration":"single_source|multiple_sources|none","recency_class":"2026|2025|2024|older|undated"},...]\n'
                         "STRUCTURED_OUTPUT_END"
                     ),
                     prompt_path=p,
-                    max_tokens=2048,
+                    max_tokens=128000,
                     tools_needed=True,
                 )
                 for _, p in research_prompts
@@ -390,16 +402,18 @@ class DeepResearchWorkflow:
             )
             coord_result = await _spawn(
                 role="coord-summary",
-                tier="HAIKU",
+                tier="OPUS",
                 system_prompt=(
-                    "You summarise research round findings into a structured coordinator "
-                    "summary. STRUCTURED_OUTPUT_START\n"
+                    "You synthesize research round findings into a comprehensive coordinator "
+                    "summary. Read ALL findings files referenced. Identify gaps, contradictions, "
+                    "and areas needing deeper investigation. "
+                    "STRUCTURED_OUTPUT_START\n"
                     "COORD_SUMMARY|<markdown text>\n"
                     "STRUCTURED_OUTPUT_END"
                 ),
                 prompt_path=coord_prompt_path,
-                max_tokens=2048,
-                tools_needed=False,
+                max_tokens=128000,
+                tools_needed=True,
             )
             coord_summary = coord_result.get("COORD_SUMMARY", "")
             state.coordinator_summaries.append(coord_summary)
@@ -429,25 +443,28 @@ class DeepResearchWorkflow:
                 "4. Cover cross-cutting dimensions not yet explored (PRIOR-FAILURE, BASELINE, "
                 "ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE)\n\n"
                 "Do NOT repeat already-explored directions.\n"
-                "Generate 5-15 new directions, or 0 if the topic is exhausted.\n\n"
+                "Generate 20-50 new directions. Use tools to discover gaps. "
+                "Only return 0 if the topic is truly exhausted.\n\n"
                 "STRUCTURED_OUTPUT_START\n"
                 'DIRECTIONS|[{"id":"d_r' + str(round_num) + '_1","dimension":"...","question":"...","priority":"high|medium|low"}, ...]\n'
                 "STRUCTURED_OUTPUT_END"
             )
             expand_result = await _spawn(
                 role="direction-expander",
-                tier="SONNET",
+                tier="OPUS",
                 system_prompt=(
                     "You generate follow-up research directions based on prior findings. "
-                    "Only generate directions that are genuinely new — not paraphrases of "
-                    "already-explored questions. Return empty array [] if topic is exhausted.\n"
+                    "Use all available tools to discover gaps and unexplored areas. "
+                    "Generate 20-50 NEW directions. "
+                    "Only return genuinely new directions — not paraphrases. "
+                    "Return empty array [] ONLY if the topic is truly exhausted.\n"
                     "STRUCTURED_OUTPUT_START\n"
                     'DIRECTIONS|[{"id":"...","dimension":"...","question":"...","priority":"..."}, ...]\n'
                     "STRUCTURED_OUTPUT_END"
                 ),
                 prompt_path=expand_prompt_path,
-                max_tokens=1024,
-                tools_needed=False,
+                max_tokens=128000,
+                tools_needed=True,
             )
             new_raw = _parse_json_list(expand_result.get("DIRECTIONS", "[]"))
             for d in new_raw:
@@ -488,8 +505,7 @@ class DeepResearchWorkflow:
 
         verifier_output: dict[str, str] = {}
         if all_claims:
-            # Risk-stratify: single-source > numerical > contested > other.
-            sample = _risk_stratified_sample(all_claims, budget=10)
+            sample = _risk_stratified_sample(all_claims, budget=len(all_claims))
             verify_prompt_path = f"{run_dir}/verifier-prompt.txt"
             await _write(verify_prompt_path,
                 f"Seed: {inp.seed}\n\n"
@@ -508,10 +524,13 @@ class DeepResearchWorkflow:
             )
             verifier_output = await _spawn(
                 role="verifier",
-                tier="HAIKU",
+                tier="OPUS",
                 system_prompt=(
-                    "You are a fact verifier. Risk-stratify claims and spot-check "
-                    "URLs with WebFetch. Emit structured results. "
+                    "You are an exhaustive fact verifier. Check EVERY claim using all "
+                    "available tools — code search for code claims, documentation search "
+                    "for doc claims, chat search for discussion claims. Verify exact "
+                    "numbers, team names, repo existence, API details. Be ruthless "
+                    "about flagging unverifiable claims. "
                     "STRUCTURED_OUTPUT_START\n"
                     "VERIFIED|<json array>\n"
                     "MISMATCHES|<json array>\n"
@@ -520,7 +539,7 @@ class DeepResearchWorkflow:
                     "STRUCTURED_OUTPUT_END"
                 ),
                 prompt_path=verify_prompt_path,
-                max_tokens=2048,
+                max_tokens=128000,
                 tools_needed=True,
             )
             try:
@@ -571,15 +590,18 @@ class DeepResearchWorkflow:
             role="synth",
             tier="OPUS",
             system_prompt=(
-                "Write a comprehensive research report. Include a 'Cross-cutting analysis' "
-                "section and a 'Fact Verification Results' section. "
+                "Write the most comprehensive research report possible. Include EVERY "
+                "finding from EVERY direction. Include a 'Cross-cutting analysis' "
+                "section and a 'Fact Verification Results' section. Do NOT summarize "
+                "or truncate — include full detail for each direction. Use all available "
+                "tools to verify and enrich the synthesis. "
                 "STRUCTURED_OUTPUT_START\n"
                 "REPORT|<full markdown>\n"
                 "STRUCTURED_OUTPUT_END"
             ),
             prompt_path=synth_prompt_path,
-            max_tokens=4096,
-            tools_needed=False,
+            max_tokens=128000,
+            tools_needed=True,
         )
         report_md = synth_result.get("REPORT", _fallback(inp.seed, all_findings))
 
@@ -638,7 +660,7 @@ async def _spawn(
     max_tokens: int,
     tools_needed: bool,
 ) -> dict[str, str]:
-    timeout = 3600 if tools_needed else 300
+    timeout = 7200 if tools_needed else 3600
     result = await workflow.execute_activity(
         "spawn_subagent",
         SpawnSubagentInput(
@@ -650,7 +672,7 @@ async def _spawn(
             tools_needed=tools_needed,
         ),
         start_to_close_timeout=timedelta(seconds=timeout),
-        retry_policy=SONNET_POLICY if tier == "SONNET" else HAIKU_POLICY,
+        retry_policy=SONNET_POLICY,
     )
     return result if isinstance(result, dict) else {}
 
