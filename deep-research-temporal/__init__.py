@@ -21,15 +21,20 @@ def _build_input(
     if not seed:
         raise ValueError("deep-research requires --arg seed='...' or positional seed text")
     try:
-        max_dirs = int(cli_args.get("max_directions", 5))
+        max_dirs = int(cli_args.get("max_directions", 50))
     except (TypeError, ValueError):
         max_dirs = 5
+    try:
+        max_rounds = int(cli_args.get("max_rounds", 100))
+    except (TypeError, ValueError):
+        max_rounds = 10
     return DeepResearchInput(
         run_id=run_id,
         seed=seed,
         inbox_path=inbox_path,
         run_dir=run_dir,
         max_directions=max_dirs,
+        max_rounds=max_rounds,
         notify=True,
     )
 

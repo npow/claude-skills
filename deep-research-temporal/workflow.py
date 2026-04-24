@@ -57,8 +57,8 @@ class DeepResearchInput:
     seed: str
     inbox_path: str
     run_dir: str
-    max_rounds: int = 1
-    max_directions: int = 5
+    max_rounds: int = 100
+    max_directions: int = 50
     notify: bool = True
 
 
@@ -294,8 +294,8 @@ class DeepResearchWorkflow:
         await _write(f"{findings_dir}/.keep", "")
 
         while round_num < inp.max_rounds and round_num < abs_cap and directions:
-            current_batch = directions[:6]
-            directions = directions[6:]
+            current_batch = directions[:50]
+            directions = directions[50:]
             round_num += 1
 
             # -------------------------------------------------------------- #
