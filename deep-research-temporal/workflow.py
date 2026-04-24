@@ -312,11 +312,10 @@ class DeepResearchWorkflow:
                     f"Seed: {inp.seed}\n"
                     f"Direction ({d.dimension}): {d.question}\n"
                     f"Priority: {d.priority}\n"
-                    f"{vocab_section}"
-                    f"Write findings to: {findings_dir}/{d.id}.md\n\n"
-                    "Include sections: Findings (inline citations), Claims Register, "
-                    "Key Sources, Mini-Synthesis, New Directions, Unconsumed Leads, "
-                    "Exhaustion Assessment.\n"
+                    f"{vocab_section}\n"
+                    "Research this direction thoroughly. Do NOT write any files.\n"
+                    "Return your results ONLY as a structured output block in your "
+                    "TEXT response (not in a file).\n\n"
                     "STRUCTURED_OUTPUT_START\n"
                     "FINDINGS|<prose summary>\n"
                     "SOURCES|<json array of source strings>\n"
@@ -585,6 +584,7 @@ async def _spawn(
     max_tokens: int,
     tools_needed: bool,
 ) -> dict[str, str]:
+    timeout = 720 if tools_needed else 300
     result = await workflow.execute_activity(
         "spawn_subagent",
         SpawnSubagentInput(
@@ -595,7 +595,7 @@ async def _spawn(
             max_tokens=max_tokens,
             tools_needed=tools_needed,
         ),
-        start_to_close_timeout=timedelta(seconds=300),
+        start_to_close_timeout=timedelta(seconds=timeout),
         retry_policy=SONNET_POLICY if tier == "SONNET" else HAIKU_POLICY,
     )
     return result if isinstance(result, dict) else {}
