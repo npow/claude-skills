@@ -327,7 +327,7 @@ class DeepResearchWorkflow:
             research_coros = [
                 _spawn(
                     role="researcher",
-                    tier="SONNET",
+                    tier="OPUS",
                     system_prompt=(
                         "You research one direction thoroughly. Return structured findings. "
                         "STRUCTURED_OUTPUT_START\n"
@@ -569,7 +569,7 @@ class DeepResearchWorkflow:
         )
         synth_result = await _spawn(
             role="synth",
-            tier="SONNET",
+            tier="OPUS",
             system_prompt=(
                 "Write a comprehensive research report. Include a 'Cross-cutting analysis' "
                 "section and a 'Fact Verification Results' section. "
