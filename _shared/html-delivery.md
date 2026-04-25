@@ -75,10 +75,17 @@ Set `uploaded: false` and populate `error` if the upload failed.
 
 **Before uploading to S3**, run a deep-qa-temporal → fix loop on the generated report markdown until it converges. This is load-bearing — it catches attribution errors (bystander items attributed to the team), privacy leaks, uncited filler, and factual mistakes that the generating skill's self-review checklist misses.
 
+**General principle: every factual claim must trace to a specific data source.** If it can't, it's fabricated — even if it "sounds right." The LLM narrates and synthesizes; it does not invent facts.
+
 **QA dimensions to check (in addition to deep-qa-temporal's default dimensions):**
-- **Fabricated metadata**: roles, titles, levels, team names not sourced from Pandora (e.g. "Staff Engineer" when Pandora wasn't queried)
+- **Fabricated identity metadata**: roles, titles, levels, team names not sourced from Pandora
+- **Wrong numbers**: PR counts, review counts, ticket counts that don't match the actual data queried
+- **Wrong status**: claiming something "shipped" when the PR is still open, or "in progress" when it was abandoned
+- **Inflated/deflated scope**: "38 tables impacted" when the source says "38 tables scanned" — misquoting severity or scale
+- **Causal claims without evidence**: "X caused Y" when the data only shows temporal proximity
+- **Wrong dates/timing**: attributing work to the wrong sprint window, or saying "this week" for something from last month
 - **Bystander attribution**: items the team observed but didn't own (golden rule 9)
-- **Uncited claims**: statements without a linked source (PR, Slack thread, Jira ticket)
+- **Uncited claims**: any statement without a linked source (PR, Slack thread, Jira ticket)
 - **Missing members**: group alias resolved to N members but report shows fewer
 
 **Loop:**
