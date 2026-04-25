@@ -124,8 +124,8 @@ Fire both searches concurrently — don't wait for Pandora to fail before trying
 
 Slack usergroups (e.g. `@metaflow-dev-group`) are NOT indexed in Pandora — they're Slack-specific constructs. If Pandora returns nothing, use the Slack results to discover individual names from channel bot responses, thread authors, or group mentions.
 
-**Step 3: Resolve each member individually**
-- Run the identity cascade (Steps 1-5 above) for each discovered member
+**Step 3: Resolve ALL members in parallel**
+- Fire the identity cascade (Steps 1-5 above) for ALL discovered members concurrently — batch all Pandora lookups and Sourcegraph `get_contributor_repos` calls into a single parallel request, not one at a time
 - Resolve full name, email, GitHub username, team, role via Pandora
 
 **Step 4: Verify**
