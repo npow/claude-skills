@@ -36,6 +36,20 @@ If the `slack-briefing` skill is available, it can be used as an input accelerat
 - Use its output as a starting point for the Slack data layer
 - Still apply all privacy gates from PRIVACY.md to the briefing output
 
+### user-activity-report (per-member pre-gather)
+
+If the `user-activity-report` skill is available, it can serve as a per-member data layer:
+
+1. For each resolved team member, run `user-activity-report` with the same sprint window as `lookback_days`
+2. Each report returns work areas synthesized across all 5 sources — richer per-person context than sprint-retro's source-parallel strategy provides
+3. The coordinator merges per-member work areas into the retro's team-level themes (What went well / What didn't / Action items)
+
+**Why this helps:** Sprint-retro gathers data by source (one pass per source across all members). User-activity-report gathers by person (all sources per member) and cross-references into work areas. The per-person view catches individual focus areas that get lost in source-level aggregation.
+
+**Privacy:** All privacy gates from PRIVACY.md still apply to the merged output. User-activity-report has its own privacy rules (no DMs, no sentiment, no productivity scoring) that are compatible but not identical — the stricter rule wins at merge time.
+
+**When to use:** Default to this approach for any team size. The per-person view catches individual focus areas and cross-source work areas that source-parallel aggregation misses. The source-parallel strategy in the "Parallel agent strategy" section below is a fallback when user-activity-report is unavailable, not the preferred path.
+
 ### deep-qa (optional review)
 
 After generating the retro, the user can run `deep-qa` on the output to audit for:
