@@ -66,6 +66,16 @@ Hard rules for sprint retro generation. Each prevents a specific failure mode ob
 
 **Detection:** If the user mentions urgency and the retro includes content without source citations, time pressure likely caused a privacy shortcut.
 
+## 9. Team-owned items only — no bystander attribution
+
+**Rule:** Only include items the team directly owned: authored the PR, started the Slack thread, was assigned the ticket, ran the incident. Never include items the team merely *observed* — reacted to, commented on, or that appeared in a shared channel they're in. "Appeared in #platform-eng where a team member is active" is not ownership.
+
+**Observed failure:** CockroachDB→Aurora migration appeared in the retro for the metaflow-dev-group because a team member reacted to or commented on the announcement thread. The migration was a completely separate team's work.
+
+**Detection:** For every retro item, verify the *author/owner* is a resolved team member — not just a participant, reactor, or commenter. If the PR author, thread starter, or ticket assignee is not on the team, discard the item. When uncertain, check the PR author or thread OP against the resolved team list.
+
+**Test:** For each item in "What went well" and "What could be improved," ask: "Which resolved team member AUTHORED or OWNED this?" If the answer is "nobody — a team member just commented/reacted," the item must be removed.
+
 ## Anti-rationalization counter-table
 
 | Excuse | Reality |
@@ -79,3 +89,5 @@ Hard rules for sprint retro generation. Each prevents a specific failure mode ob
 | "This Jira ticket has performance-related info but it's about system performance, not people." | If the title contains "performance" and context is ambiguous, exclude it. False exclusion is safe; false inclusion is not. |
 | "The doc is shared with the whole team, so it's fine." | Check the actual sharing list. "Shared with the team" might mean 2 people. The threshold is 3+ named viewers. |
 | "I'll note the data gap but still write some general observations." | General observations without data citations are filler. Write "[No data available]" instead. Filler disguised as insight is worse than an empty section. |
+| "A team member commented on this thread, so it's team activity." | Commenting or reacting is not ownership. Only the PR author, thread starter, or ticket assignee counts. If no resolved team member authored it, discard. |
+| "This shipped during our sprint window and affects our area." | Timing and relevance are not attribution. A CockroachDB migration that shipped this week is not our retro item just because we use databases. Check the author. |

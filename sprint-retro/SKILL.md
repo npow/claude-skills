@@ -24,7 +24,7 @@ Generates a data-backed sprint retrospective from multiple internal sources with
 3. **Gather data from all sources** — query GitHub, Slack (public only), Jira, Google Docs, CI/CD in parallel. See [DATA-SOURCES.md](DATA-SOURCES.md).
 4. **Apply privacy gates** — run every search result through the 5-gate checklist. Discard anything that fails any gate. See [PRIVACY.md](PRIVACY.md).
 5. **Check data coverage** — count sources with actual results. If fewer than 3: label is `retro_partial`. See [GOLDEN-RULES.md](GOLDEN-RULES.md).
-6. **Synthesize retro document** — produce the retro in the structured format. Every item cites a source. Empty sections say "[No data available]" not filler. See [FORMAT.md](FORMAT.md).
+6. **Synthesize retro document** — produce the retro in the structured format. Every item cites a source. Empty sections say "[No data available]" not filler. **Ownership filter:** only include items a resolved team member authored/owned (PR author, thread starter, ticket assignee) — discard items the team merely commented on, reacted to, or observed in a shared channel. See [FORMAT.md](FORMAT.md) and [GOLDEN-RULES.md](GOLDEN-RULES.md) rule 9.
 7. **Write evidence file** — write `sprint-retro-evidence.json` with source coverage, privacy gate status, and termination label. See [FORMAT.md](FORMAT.md).
 8. **Deliver** — present the retro document and evidence file. Note any coverage gaps.
 
@@ -49,6 +49,7 @@ Before delivering, verify ALL:
 - [ ] `sprint-retro-evidence.json` exists on disk with `privacy_gates_applied: true`
 - [ ] Termination label matches actual coverage (not `retro_complete` if fewer than 3 sources)
 - [ ] Team members listed in output header (resolved from alias if applicable)
+- [ ] Every retro item authored/owned by a resolved team member — no bystander attribution (rule 9)
 - [ ] No generic filler text in any section — empty sections say "[No data available]"
 - [ ] Privacy footer present at end of document
 - [ ] No document titles containing sensitive keywords (1:1, performance, comp, PIP) appear anywhere
