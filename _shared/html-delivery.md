@@ -75,6 +75,12 @@ Set `uploaded: false` and populate `error` if the upload failed.
 
 **Before uploading to S3**, run a deep-qa-temporal → fix loop on the generated report markdown until it converges. This is load-bearing — it catches attribution errors (bystander items attributed to the team), privacy leaks, uncited filler, and factual mistakes that the generating skill's self-review checklist misses.
 
+**QA dimensions to check (in addition to deep-qa-temporal's default dimensions):**
+- **Fabricated metadata**: roles, titles, levels, team names not sourced from Pandora (e.g. "Staff Engineer" when Pandora wasn't queried)
+- **Bystander attribution**: items the team observed but didn't own (golden rule 9)
+- **Uncited claims**: statements without a linked source (PR, Slack thread, Jira ticket)
+- **Missing members**: group alias resolved to N members but report shows fewer
+
 **Loop:**
 1. Run `deep-qa-temporal` on the report markdown
 2. If critical or major defects found: fix them in the markdown, then re-run deep-qa-temporal (go to step 1)
