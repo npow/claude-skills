@@ -69,14 +69,14 @@ When the skill uses an evidence/termination file, include:
 
 Set `uploaded: false` and populate `error` if the upload failed.
 
-## Mandatory deep-qa pass
+## Mandatory deep-qa-temporal pass
 
-**Before uploading to S3**, run a deep-qa → fix loop on the generated report markdown until it converges. This is load-bearing — it catches attribution errors (bystander items attributed to the team), privacy leaks, uncited filler, and factual mistakes that the generating skill's self-review checklist misses.
+**Before uploading to S3**, run a deep-qa-temporal → fix loop on the generated report markdown until it converges. This is load-bearing — it catches attribution errors (bystander items attributed to the team), privacy leaks, uncited filler, and factual mistakes that the generating skill's self-review checklist misses.
 
 **Loop:**
-1. Run `deep-qa` on the report markdown
-2. If critical or major defects found: fix them in the markdown, then re-run deep-qa (go to step 1)
-3. Repeat until deep-qa returns zero critical/major defects (convergence)
+1. Run `deep-qa-temporal` on the report markdown
+2. If critical or major defects found: fix them in the markdown, then re-run deep-qa-temporal (go to step 1)
+3. Repeat until deep-qa-temporal returns zero critical/major defects (convergence)
 4. Minor defects can be noted in the evidence file but don't block delivery
 
 Cap at 3 rounds to avoid infinite loops. If still failing after 3 rounds, deliver with a warning noting unresolved defects in the evidence file.
