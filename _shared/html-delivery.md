@@ -22,24 +22,26 @@ The HTML must be a single self-contained file (inline CSS, no external dependenc
 
 ## S3 upload
 
-Upload the HTML file to the Netflix genpop S3 bucket:
+Upload the HTML file to the `netflix-dataoven-test-users` S3 bucket (writable from Workbench via TitusContainerRole):
 
 ```
-s3://us-east-1.netflix.s3.genpop.prod/presentations/$(whoami)/<report-name>-YYYY-MM-DD/index.html
+s3://netflix-dataoven-test-users/reports/$(whoami)/<report-name>-YYYY-MM-DD-HHmmss/index.html
 ```
 
 Where `<report-name>` matches the skill name (e.g. `sprint-retro`, `activity-report`, `friction-report`, `pipeline-health`).
 
-**Auth:** Try ambient AWS credentials first (works on Workbench via Titus IAM role). If that fails, try `weep file arn:aws:iam::149510111645:role/awsprod_user` then retry.
+Set `--content-type "text/html"` on the upload so commuter renders it in the browser instead of triggering a download.
 
-Set `--content-type "text/html"` on the upload so it renders correctly in the browser.
+**Why not genpop?** `s3://us-east-1.netflix.s3.genpop.prod/presentations/` requires `weep` for cross-account auth, which isn't available on Workbench. The dataoven-test-users bucket is writable via the ambient TitusContainerRole and commuter serves it with Metatron browser auth.
 
 ## Slack delivery
 
 After upload, provide the commuter link:
 ```
-https://commuter.dynprod.netflix.net:7002/s3-files/us-east-1.netflix.s3.genpop.prod/presentations/<username>/<report-name>-YYYY-MM-DD/index.html
+https://commuter.dynprod.netflix.net:7002/s3-files/netflix-dataoven-test-users/reports/<username>/<report-name>-YYYY-MM-DD-HHmmss/index.html
 ```
+
+Readers need Metatron browser auth (standard Netflix SSO) to view the link.
 
 Post a **TLDR in Slack** (5-8 lines max) with:
 - Report title and date range
@@ -66,6 +68,12 @@ When the skill uses an evidence/termination file, include:
 ```
 
 Set `uploaded: false` and populate `error` if the upload failed.
+
+## Mandatory deep-qa pass
+
+**Before uploading to S3**, run the `deep-qa` skill on the generated report markdown. This is load-bearing — it catches attribution errors (bystander items attributed to the team), privacy leaks, uncited filler, and factual mistakes that the generating skill's self-review checklist misses.
+
+Run deep-qa with the report markdown as the artifact. If deep-qa surfaces critical or major defects, fix them before converting to HTML and uploading. Minor defects can be noted in the evidence file but don't block delivery.
 
 ## Self-review checklist items
 
