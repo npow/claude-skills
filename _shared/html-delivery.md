@@ -86,6 +86,7 @@ Set `uploaded: false` and populate `error` if the upload failed.
 - **Wrong dates/timing**: attributing work to the wrong sprint window, or saying "this week" for something from last month
 - **Bystander attribution**: items the team observed but didn't own (golden rule 9)
 - **Uncited claims**: any statement without a linked source (PR, Slack thread, Jira ticket)
+- **Dead or placeholder links**: every `<a href>` must resolve to a real URL (GitHub PR, Slack permalink, Jira ticket). Placeholder `#` links or `example.com` links are critical defects — they mean the generating skill failed to capture the actual URL from the tool result
 - **Missing members**: group alias resolved to N members but report shows fewer
 
 **Loop:**
