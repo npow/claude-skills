@@ -757,6 +757,7 @@ async def _spawn(
             tools_needed=tools_needed,
         ),
         start_to_close_timeout=timedelta(seconds=timeout),
+        heartbeat_timeout=timedelta(seconds=90),
         retry_policy=SONNET_POLICY,
     )
     return result if isinstance(result, dict) else {}
