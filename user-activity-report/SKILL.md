@@ -100,6 +100,7 @@ Role: {role} | Team: {team} | Period: last {lookback_days} days
 3. **Include links for everything.** Every PR, every Slack thread, every doc — include a link so the reader can dive deeper.
 4. **Work areas first, raw data second.** The synthesized "Current Focus Areas" section is the primary output. Code/Slack/Jira breakdowns are supporting detail.
 5. **Handle sparse results gracefully.** If someone has no Slack activity or no Jira tickets, note it — don't pad with filler.
+6. **Show every resolved member.** When reporting on a group alias, every resolved member gets a section — even if their only data is "1 PR review, no other signals." Silently dropping members with sparse data is a defect, not graceful degradation.
 
 ## Anti-Rationalization Counter-Table
 

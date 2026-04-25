@@ -18,6 +18,8 @@ Convert the markdown report into a self-contained, dark-themed HTML page with:
 - Clean typography, readable on desktop and mobile
 - Report footer preserved
 
+Every cited source (PR link, Slack thread permalink, Jira ticket, doc URL) must be a clickable `<a href="...">` hyperlink in the HTML — not plain text. The reader should be able to click through to the supporting evidence directly from the report.
+
 The HTML must be a single self-contained file (inline CSS, no external dependencies).
 
 ## S3 upload
