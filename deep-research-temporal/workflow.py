@@ -58,7 +58,7 @@ class DeepResearchInput:
     inbox_path: str
     run_dir: str
     max_rounds: int = 1000
-    max_directions: int = 50
+    max_directions: int = 100
     notify: bool = True
 
 
@@ -469,8 +469,12 @@ class DeepResearchWorkflow:
                 "3. Numerical claims (quoted)\n"
                 "4. Coverage state per dimension\n"
                 "5. Unconsumed-leads registry\n"
+                "6. Information gain assessment: what percentage of this round's claims are GENUINELY NEW "
+                "facts not already established in prior rounds? Be strict — a deeper detail on a known entity "
+                "is refinement (low gain), not discovery. Score 0-100.\n"
                 "STRUCTURED_OUTPUT_START\n"
                 "COORD_SUMMARY|<markdown>\n"
+                "INFO_GAIN_RATE|<integer 0-100>\n"
                 "STRUCTURED_OUTPUT_END"
             )
             coord_result = await _spawn(
@@ -480,8 +484,12 @@ class DeepResearchWorkflow:
                     "You synthesize research round findings into a comprehensive coordinator "
                     "summary. Read ALL findings files referenced. Identify gaps, contradictions, "
                     "and areas needing deeper investigation. "
+                    "Also assess INFO_GAIN_RATE: what % of this round's claims are genuinely new "
+                    "facts NOT already in the cumulative coordinator-summary.md? "
+                    "Be strict — deeper detail on known entities is refinement, not discovery.\n"
                     "STRUCTURED_OUTPUT_START\n"
                     "COORD_SUMMARY|<markdown text>\n"
+                    "INFO_GAIN_RATE|<integer 0-100>\n"
                     "STRUCTURED_OUTPUT_END"
                 ),
                 prompt_path=coord_prompt_path,
@@ -494,11 +502,35 @@ class DeepResearchWorkflow:
                 f"{run_dir}/coordinator-summary.md",
                 "\n\n---\n\n".join(state.coordinator_summaries),
             )
-            await _update_progress(phase=f"round_{round_num}_coord_done", coord_summary_len=len(coord_summary))
+            info_gain = int(coord_result.get("INFO_GAIN_RATE", "50") or "50")
+            if "info_gain_rates" not in progress:
+                progress["info_gain_rates"] = []
+            progress["info_gain_rates"].append({"round": round_num, "rate": info_gain})
+            _CONVERGENCE_WINDOW = 3
+            _CONVERGENCE_THRESHOLD = 5
+            recent_gains = progress["info_gain_rates"][-_CONVERGENCE_WINDOW:]
+            info_gain_converged = (
+                len(recent_gains) >= _CONVERGENCE_WINDOW
+                and all(g["rate"] < _CONVERGENCE_THRESHOLD for g in recent_gains)
+            )
+            await _update_progress(
+                phase=f"round_{round_num}_coord_done",
+                coord_summary_len=len(coord_summary),
+                info_gain_rate=info_gain,
+                info_gain_converged=info_gain_converged,
+            )
 
         # -------------------------------------------------------------- #
             # Sub-direction generation: read findings, spawn follow-ups      #
             # -------------------------------------------------------------- #
+            if info_gain_converged:
+                directions.clear()
+                state.termination_label = (
+                    f"Convergence — info gain below {_CONVERGENCE_THRESHOLD}% "
+                    f"for {_CONVERGENCE_WINDOW} consecutive rounds "
+                    f"(rates: {[g['rate'] for g in recent_gains]})"
+                )
+                break
             explored_questions = {f["question"] for f in all_findings}
             expand_prompt_path = f"{run_dir}/expand-r{round_num}.txt"
             findings_summary = "\n".join(
@@ -517,7 +549,7 @@ class DeepResearchWorkflow:
                 "4. Cover cross-cutting dimensions not yet explored (PRIOR-FAILURE, BASELINE, "
                 "ADJACENT-EFFORTS, STRATEGIC-TIMING, ACTUAL-USAGE)\n\n"
                 "Do NOT repeat already-explored directions.\n"
-                "Generate 20-50 new directions. Use tools to discover gaps. "
+                "Generate 50-100 new directions. Use tools to discover gaps. "
                 "Only return 0 if the topic is truly exhausted.\n\n"
                 "STRUCTURED_OUTPUT_START\n"
                 'DIRECTIONS|[{"id":"d_r' + str(round_num + 1) + '_1","dimension":"...","question":"...","priority":"high|medium|low"}, ...]\n'
