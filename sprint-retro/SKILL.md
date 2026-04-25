@@ -20,13 +20,13 @@ Generates a data-backed sprint retrospective from multiple internal sources with
 ## Workflow
 
 1. **Parse input** — extract team member names or Slack alias, sprint window, repo list from arguments.
-2. **Resolve alias** — if input starts with `@`, resolve to individual names via the identity resolution cascade in [`_shared/identity-resolution.md`](../../_shared/identity-resolution.md). List resolved names in the report header. Never stop to ask the user for names. See [DATA-SOURCES.md](DATA-SOURCES.md).
+2. **Resolve alias** — if input starts with `@`, resolve to individual names via Pandora/Slack search. List resolved names for user verification. See [DATA-SOURCES.md](DATA-SOURCES.md).
 3. **Gather data from all sources** — query GitHub, Slack (public only), Jira, Google Docs, CI/CD in parallel. See [DATA-SOURCES.md](DATA-SOURCES.md).
 4. **Apply privacy gates** — run every search result through the 5-gate checklist. Discard anything that fails any gate. See [PRIVACY.md](PRIVACY.md).
 5. **Check data coverage** — count sources with actual results. If fewer than 3: label is `retro_partial`. See [GOLDEN-RULES.md](GOLDEN-RULES.md).
 6. **Synthesize retro document** — produce the retro in the structured format. Every item cites a source. Empty sections say "[No data available]" not filler. See [FORMAT.md](FORMAT.md).
 7. **Write evidence file** — write `sprint-retro-evidence.json` with source coverage, privacy gate status, and termination label. See [FORMAT.md](FORMAT.md).
-8. **Deliver as HTML** — convert the retro to a styled HTML page (see FORMAT.md "HTML delivery"), upload to S3 genpop, and share the commuter link. When delivering to Slack or chat, post only a short summary (title, top 3 wins, top incident, link) — never the full report. Falls back to markdown if S3 upload fails. Skip HTML with `--no-html`.
+8. **Deliver** — present the retro document and evidence file. Note any coverage gaps.
 
 ## Honest termination labels
 
@@ -52,8 +52,6 @@ Before delivering, verify ALL:
 - [ ] No generic filler text in any section — empty sections say "[No data available]"
 - [ ] Privacy footer present at end of document
 - [ ] No document titles containing sensitive keywords (1:1, performance, comp, PIP) appear anywhere
-- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
-- [ ] Slack/chat delivery uses short summary + link, not the full report
 
 ## Golden rules
 

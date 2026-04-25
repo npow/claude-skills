@@ -90,53 +90,6 @@ If a section would be empty due to data gaps:
 - Add: "[No data available from public sources for this section. Consider gathering input directly from team members.]"
 - Never fill with generic observations not backed by data
 
-## HTML delivery (default)
-
-By default, the skill produces both the markdown file AND an HTML version uploaded to S3 for easy sharing. This is especially important when the retro is triggered from Slack, where long messages get truncated.
-
-### When to use HTML delivery
-
-- **Always** when the retro is triggered from Slack or any chat context
-- **By default** for all runs unless `--no-html` is explicitly passed
-- The markdown file is still written locally as the source of truth
-
-### HTML conversion
-
-Convert the markdown retro into a self-contained, dark-themed HTML page with:
-- Metrics bar at the top (PRs merged, reviews, active members, Jira done, in progress)
-- Color-coded sections: green for "went well", amber for "needs improvement", red for incidents, blue for action items, purple for kudos
-- Priority tags on action items (High/Med/Low)
-- Incident callout boxes for SEV incidents
-- Clean typography, readable on desktop and mobile
-- Privacy footer preserved
-
-The HTML must be a single self-contained file (inline CSS, no external dependencies).
-
-### S3 upload
-
-Upload the HTML file to the Netflix genpop S3 bucket:
-
-```
-s3://us-east-1.netflix.s3.genpop.prod/presentations/$(whoami)/sprint-retro-YYYY-MM-DD/index.html
-```
-
-**Auth:** Try the ambient AWS credentials first (works on Workbench via Titus IAM role). If that fails, try `weep file arn:aws:iam::149510111645:role/awsprod_user` then retry.
-
-Set `--content-type "text/html"` on the upload so it renders correctly.
-
-### Sharing
-
-After upload, provide the commuter link:
-```
-https://commuter.dynprod.netflix.net:7002/s3-files/us-east-1.netflix.s3.genpop.prod/presentations/<username>/sprint-retro-YYYY-MM-DD/index.html
-```
-
-When delivering to Slack: post a **short summary** (5-8 lines max: title, sprint window, top 3 wins, top incident if any, link to full report) with the commuter link. Never paste the full retro into Slack.
-
-### Fallback
-
-If S3 upload fails (no credentials, bucket access denied), fall back to the markdown file and note the failure. Don't block the retro on upload.
-
 ## Termination evidence file
 
 After producing the retro document, write a companion file `sprint-retro-evidence.json`:
@@ -156,13 +109,7 @@ After producing the retro document, write a companion file `sprint-retro-evidenc
   "privacy_gates_applied": true,
   "items_excluded_by_privacy": 0,
   "coverage_gaps": ["list of noted gaps"],
-  "termination_label": "retro_complete|retro_partial|blocked_no_data|cancelled",
-  "html_delivery": {
-    "uploaded": true,
-    "s3_path": "s3://us-east-1.netflix.s3.genpop.prod/presentations/<user>/sprint-retro-YYYY-MM-DD/index.html",
-    "commuter_url": "https://commuter.dynprod.netflix.net:7002/s3-files/...",
-    "error": null
-  }
+  "termination_label": "retro_complete|retro_partial|blocked_no_data|cancelled"
 }
 ```
 

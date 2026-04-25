@@ -115,15 +115,15 @@ If any source returns zero results or fails:
 2. If still empty: note the gap explicitly in the retro output
 3. Never fill gaps with generic filler text ("communication could be improved")
 
-## Alias and identity resolution
+## Alias resolution
 
-Follow the full cascade in [`_shared/identity-resolution.md`](../../_shared/identity-resolution.md) for resolving any identifier (username, alias, email, name) to the canonical set: full name, email, GitHub username, team, role.
+When input is a Slack alias (starts with `@`):
 
-**For team aliases** (input starts with `@`):
-1. Search Pandora for the team/alias to get member list
-2. Run each member through the identity resolution cascade
-3. List resolved members in the output header so the user can verify
-4. If resolution fails for a member: note it in the report header with `resolution_confidence: low` — never stop to ask the user for names
+1. Use `netflix_search_api` with `sources: ["PANDORA"]` to search for the team/alias
+2. If Pandora returns team members: use their names and email handles
+3. If Pandora returns nothing: use `netflix_search_api` with `sources: ["SLACK"]` to search for the alias in channel descriptions or topic-setting messages
+4. List resolved members in the output header so the user can verify
+5. If resolution fails: stop and ask the user for individual names
 
 ## Failure diagnosis
 
@@ -132,5 +132,5 @@ Follow the full cascade in [`_shared/identity-resolution.md`](../../_shared/iden
 | Slack search returns 0 results | Wrong team member handles or search terms too specific | Broaden search: use just the person's first name, try without date filters |
 | Jira returns 0 results | Team uses different project key or board | Ask user for Jira project key, or search by assignee email |
 | Google Docs search empty | Docs may be in shared drives not indexed | Note the gap; suggest user manually share relevant docs |
-| GitHub returns 0 PRs | Wrong org/repo or member uses different GH handle | Run Sourcegraph `get_contributor_repos` to discover the actual GH username from commit metadata |
-| Alias resolution fails | Alias is a Slack usergroup not indexed in Pandora | Try Netflix Search API PEOPLE source, then Slack channel descriptions. Proceed with whatever was resolved and note the gap. |
+| GitHub returns 0 PRs | Wrong org/repo or member uses different GH handle | Check `gh api /users/<handle>` or ask user for GitHub usernames |
+| Alias resolution fails | Alias is a Slack usergroup not indexed in Pandora | Ask user for individual team member names |
