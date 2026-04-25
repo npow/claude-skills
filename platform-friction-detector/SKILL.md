@@ -47,6 +47,8 @@ Sourcegraph `diff_search` on `corp/*` times out for common patterns. Handle this
 
 ## Workflow
 
+**Steps 1-5: Fire all signal scans in parallel.** These are independent data-gathering operations — don't wait for one to finish before starting the next. Each package is also independent, so scan all packages concurrently.
+
 1. **Scan for removed platform imports.** For EACH platform package independently, use Sourcegraph `diff_search` with `removed=true`:
    - `diff_search(pattern="from {package}", repos=[search_scope], removed=true, after="{lookback}")`
    - `diff_search(pattern="import {package}", repos=[search_scope], removed=true, after="{lookback}")`

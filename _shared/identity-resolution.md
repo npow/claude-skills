@@ -113,14 +113,26 @@ Include `resolution_confidence` and `resolution_path` in any report that depends
 
 ## Team/Alias Resolution
 
-When input is a team alias (e.g. `@ml-platform`):
+When input is a team alias (e.g. `@ml-platform`, `@metaflow-dev-group`):
 
-1. Search Pandora: `netflix_search_api(sources: ["PANDORA"], queryString: "{alias}")`
-2. If Pandora returns team members: run the cascade above for each member
-3. If nothing: search Slack for the alias in channel descriptions or usergroup mentions
-4. If nothing: search Netflix Search API with PEOPLE source for the alias as a team name
-5. If still nothing: proceed with `resolution_confidence: low` and note the gap — never stop to ask the user for names
-6. List resolved members in the report header so the reader can spot mismatches
+**Steps 1 & 2: Try Pandora AND Slack in parallel**
+
+Fire both searches concurrently — don't wait for Pandora to fail before trying Slack:
+- `netflix_search_api(sources: ["PANDORA"], queryString: "{alias_without_@}")` — may match a team or org unit
+- `netflix_search_api(sources: ["SLACK"], queryString: "{alias_without_@}")` — find Slack mentions that list usergroup members
+- `rag-slack-prod(query_str: "{alias} members team")` — semantic search for membership context
+
+Slack usergroups (e.g. `@metaflow-dev-group`) are NOT indexed in Pandora — they're Slack-specific constructs. If Pandora returns nothing, use the Slack results to discover individual names from channel bot responses, thread authors, or group mentions.
+
+**Step 3: Resolve each member individually**
+- Run the identity cascade (Steps 1-5 above) for each discovered member
+- Resolve full name, email, GitHub username, team, role via Pandora
+
+**Step 4: Verify**
+- List all resolved members in the report header
+- Note any members that could not be fully resolved (with confidence level)
+- Never silently drop members — sparse data is not grounds for exclusion
+- Never stop to ask the user for names — degrade gracefully with confidence notes
 
 ## Failure Diagnosis
 

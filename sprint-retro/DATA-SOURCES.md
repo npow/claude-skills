@@ -6,6 +6,8 @@ How to gather sprint activity data from each available source, with privacy cons
 
 Default: last 14 days from today. Override with user-provided dates. All queries use this window.
 
+**All 5 sources below are independent and should be queried in parallel.** Don't wait for GitHub results before starting Slack or Jira queries — fire them all concurrently and collect results.
+
 ## Source 1: GitHub (gh CLI + Sourcegraph)
 
 **What to gather:**
@@ -119,18 +121,34 @@ If any source returns zero results or fails:
 
 When input is a Slack alias (starts with `@`):
 
-1. Use `netflix_search_api` with `sources: ["PANDORA"]` to search for the team/alias
-2. If Pandora returns team members: use their names and email handles
-3. If Pandora returns nothing: use `netflix_search_api` with `sources: ["SLACK"]` to search for the alias in channel descriptions or topic-setting messages
-4. List resolved members in the output header so the user can verify
-5. If resolution fails: stop and ask the user for individual names
+**Steps 1 & 2: Try Pandora AND Slack in parallel**
+
+Fire both searches concurrently — don't wait for Pandora to fail before trying Slack:
+
+- `netflix_search_api(sources: ["PANDORA"], queryString: "{alias_without_@}")` — may match a team or org unit
+- `netflix_search_api(sources: ["SLACK"], queryString: "{alias_without_@}")` — find Slack mentions that list usergroup members
+- `rag-slack-prod(query_str: "{alias} members team")` — semantic search for membership context
+
+Slack usergroups (e.g. `@metaflow-dev-group`) are NOT indexed in Pandora — they're Slack-specific constructs. If Pandora returns nothing, use the Slack results to discover individual names from channel bot responses, thread authors, or group mentions.
+
+**Step 3: Resolve each member via Pandora**
+
+Once you have individual names (from Pandora team results or Slack channel discovery), resolve each one through the identity cascade in [`_shared/identity-resolution.md`](../_shared/identity-resolution.md) to get full name, email, GitHub username, team, and role.
+
+**Step 4: List resolved members for verification**
+- Show all resolved members in the report header
+- Note any members that could not be resolved (with confidence level)
+- Never silently drop members — sparse data is not grounds for exclusion
+
+**If resolution still fails:** degrade gracefully with `resolution_confidence: low`. Never stop to ask the user for names — search harder using alternative terms, partial names, or channel membership.
 
 ## Failure diagnosis
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
+| Pandora returns 0 for alias | Alias is a Slack usergroup, not a Pandora team | Try Slack channel search — find the corresponding channel and discover members from recent threads |
 | Slack search returns 0 results | Wrong team member handles or search terms too specific | Broaden search: use just the person's first name, try without date filters |
 | Jira returns 0 results | Team uses different project key or board | Ask user for Jira project key, or search by assignee email |
 | Google Docs search empty | Docs may be in shared drives not indexed | Note the gap; suggest user manually share relevant docs |
 | GitHub returns 0 PRs | Wrong org/repo or member uses different GH handle | Check `gh api /users/<handle>` or ask user for GitHub usernames |
-| Alias resolution fails | Alias is a Slack usergroup not indexed in Pandora | Ask user for individual team member names |
+| Alias resolution fails after all fallbacks | Usergroup has no corresponding channel, or channel is private | Degrade gracefully — note the gap, don't block |
