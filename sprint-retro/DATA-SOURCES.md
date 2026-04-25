@@ -8,6 +8,8 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 
 **All 5 sources below are independent and should be queried in parallel.** Don't wait for GitHub results before starting Slack or Jira queries — fire them all concurrently and collect results.
 
+**Per-person queries within each source should ALSO be parallel.** When searching GitHub for 6 team members, fire all 6 `get_contributor_repos` / `commit_search` calls in a single parallel batch — not one person at a time. Same for Pandora lookups, Slack name searches, and Jira queries. The combinatorial fanout (N members × M sources) should maximize parallel tool calls at every level.
+
 ## Source 1: GitHub (gh CLI + Sourcegraph)
 
 **What to gather:**

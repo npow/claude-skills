@@ -17,7 +17,7 @@ Research all available sources to produce a comprehensive picture of what a spec
 
 1. **Resolve identity.** If input is a group alias (starts with `@`), resolve via Pandora to individual members, then run steps 2-4 for each person and produce a consolidated report with a section per person. For a single person, follow the cascade in [`_shared/identity-resolution.md`](../_shared/identity-resolution.md) to map to: full name, email, GitHub username, team, and role. Include `resolution_confidence` in the report header. Never stop to ask for names — degrade gracefully with confidence notes.
 
-2. **Search all sources in parallel.** Fire these searches concurrently:
+2. **Search all sources in parallel.** Fire these searches concurrently. When reporting on a group alias, fire per-person queries within each source in parallel too (N members × M sources = all at once, not one person at a time):
 
    **a) GitHub activity** (`gh` CLI — use `gh api`, NOT `gh search` which fails on GHE):
    - First discover their repos via Sourcegraph: `get_contributor_repos(authors=["{name}", "{email}"])`
