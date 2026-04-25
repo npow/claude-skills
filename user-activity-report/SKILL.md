@@ -76,7 +76,7 @@ Role: {role} | Team: {team} | Period: last {lookback_days} days
 - Assigned tickets: {list if found}
 ```
 
-5. **Deliver as HTML.** Convert the report to a self-contained styled HTML page, upload to `s3://us-east-1.netflix.s3.genpop.prod/presentations/$(whoami)/activity-report-YYYY-MM-DD/index.html`, and share the commuter link. Post a TLDR (person name, top 2 focus areas, link) in Slack — never the full report. Falls back to markdown if S3 upload fails. Skip with `--no-html`. Auth: try ambient AWS creds first (Titus IAM), fall back to `weep`.
+5. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `activity-report`. TLDR includes person name (or group name) and top 2 focus areas.
 
 6. **Terminate.** Report is complete when all sources have been searched, findings synthesized by work area, and HTML uploaded (or fallback noted).
 

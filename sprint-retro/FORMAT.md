@@ -90,6 +90,12 @@ If a section would be empty due to data gaps:
 - Add: "[No data available from public sources for this section. Consider gathering input directly from team members.]"
 - Never fill with generic observations not backed by data
 
+## HTML delivery (default)
+
+Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../../_shared/html-delivery.md). Report name: `sprint-retro`.
+
+**Retro-specific HTML styling:** metrics bar shows PRs merged, reviews, active members, Jira done, in progress. Color-coded sections: green for "went well", amber for "needs improvement", red for incidents, blue for action items, purple for kudos. Incident callout boxes for SEV incidents. Privacy footer preserved.
+
 ## Termination evidence file
 
 After producing the retro document, write a companion file `sprint-retro-evidence.json`:
