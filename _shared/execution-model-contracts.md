@@ -141,6 +141,30 @@ for category in required_categories:
 
 ---
 
+## 6. Sagaflow-First Routing
+
+**Contract:** when a skill has a sagaflow workflow (a `## Durable execution` section in SKILL.md), sagaflow is the DEFAULT execution path — not opt-in. The in-session coordinator protocol is the FALLBACK, used only when the sagaflow worker is confirmed unavailable.
+
+**Routing sequence (mandatory before any in-session work):**
+1. Run `sagaflow doctor` (or check if worker process is alive)
+2. If healthy → launch via `sagaflow launch <skill> ...` using the command from the skill's `## Durable execution` section. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session execution as fallback
+
+**Why sagaflow-first:**
+- Each critic/judge runs as an isolated Temporal activity with its own fresh context window. Context never accumulates.
+- In-session runs accumulate all critic outputs, spec iterations, and judge verdicts in one window. Multi-round runs reliably hit context limits, degrading quality silently.
+- Sagaflow survives session crashes. In-session runs lose all state on disconnect.
+
+**What the coordinator MUST NOT do:**
+- Skip the sagaflow health check and run in-session by default
+- Decide sagaflow "has a bug" based on a prior failure without re-testing (the bug may be fixed)
+- Cite "it's faster in-session" or "sagaflow adds overhead" as reasons to skip — quality outweighs latency
+- Run in-session because "the concept is small enough" — context exhaustion depends on round count and critic output volume, not input size
+
+**Common failure mode:** "Sagaflow failed last time so I'll run in-session." That's the exact reasoning that caused the Ace-for-Aimee context exhaustion (2026-04-26). The prior sagaflow failure was a `max_tokens=4096` truncation bug that was already fixed. Re-test, don't downgrade.
+
+---
+
 ## Integration checklist for a skill importing this reference
 
 - [ ] SKILL.md has a one-line cross-reference near the Execution Model section: `See [_shared/execution-model-contracts.md](../_shared/execution-model-contracts.md) for the shared contracts.`

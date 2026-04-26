@@ -687,10 +687,16 @@ When invoked automatically at the end of a parent run (not standalone):
 
 ---
 
-## Durable execution
+## Execution routing (sagaflow-first — Contract 6)
 
-When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+**Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable. See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) Contract 6.
 
+**Routing sequence (mandatory before any in-session work):**
+1. Run `sagaflow doctor`
+2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
+
+**Launch command:**
 ```
 Bash(
   run_in_background=true,
@@ -699,5 +705,3 @@ Bash(
 ```
 
 Where `<ABS_PATH>` is the absolute path to the artifact, `<TYPE>` is one of `doc` / `code` / `research` / `skill` (default `doc`), and `<N>` is the max rounds (default 3). The workflow writes its report to `~/.sagaflow/runs/<run_id>/qa-report.md` and surfaces an INBOX entry + desktop notification on completion.
-
-Algorithm is identical to the in-session flow above; only the envelope changes.

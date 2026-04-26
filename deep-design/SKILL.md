@@ -20,7 +20,7 @@ All operations use Claude Code primitives. The following contracts are non-negot
 - **Termination labels are honest.** "Conditions Met" or "Max Rounds Reached" — never "no critical flaws remain." Coverage fraction includes the denominator caveat. Unverified sections are listed explicitly.
 - **Coverage completeness is a hard invariant — not a judgment call.** All 5 required dimension categories (correctness, usability_ux, economics_cost, operability, security_trust) MUST have `explored_count >= 1` before any run (in-session or sagaflow) can proceed to final synthesis. If a category has zero explored angles, the coordinator MUST spawn critics targeting that category — not skip it, not label it "out of scope," not cite context constraints. "Context is running low" is NOT a valid reason to skip required categories; the coordinator MUST either (a) use sagaflow durable execution to avoid context limits, (b) run coverage extension rounds, or (c) label the run `INCOMPLETE — uncovered: {list}` and refuse to present it as finished work. A run that declares completion while listing known uncovered categories is a protocol violation, not a judgment call.
 
-**Shared contracts:** this skill inherits the five execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant, coverage-completeness) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+**Shared contracts:** this skill inherits the six execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant, coverage-completeness, sagaflow-first-routing) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
 **Cross-finding coherence:** this skill applies the coherence-integrator pattern from [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md) at Step 5, after all critics complete and BEFORE severity judges are spawned. The integrator reads all deduped critic output files simultaneously and annotates each flaw with cross-finding relationships (contradictions, emergent patterns, coverage gaps). These annotations are included in judge input files so judges see the cross-finding context when classifying severity.
 
@@ -620,10 +620,16 @@ OK
 
 ---
 
-## Durable execution
+## Execution routing (sagaflow-first — Contract 6)
 
-When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+**Sagaflow is the default execution path.** The in-session workflow (Steps 0–9 above) is the FALLBACK, used only when the sagaflow worker is confirmed unavailable. See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) Contract 6.
 
+**Routing sequence (mandatory before any in-session work):**
+1. Run `sagaflow doctor`
+2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
+
+**Launch command:**
 ```
 Bash(
   run_in_background=true,
@@ -632,8 +638,6 @@ Bash(
 ```
 
 Substitute `<CONCEPT>` with the design brief and `<N>` with the stress-test round budget (1-5; default 2). The workflow writes `~/.sagaflow/runs/<run_id>/design-report.md` with the battle-tested design, per-round flaw inventory, unresolved risks, and an honest coverage table.
-
-Algorithm is identical to the in-session flow above; only the envelope changes.
 
 ---
 

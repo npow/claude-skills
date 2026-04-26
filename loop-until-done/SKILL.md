@@ -359,10 +359,16 @@ See GOLDEN-RULES.md for the full set and the anti-rationalization counter-table.
 
 ---
 
-## Durable execution
+## Execution routing (sagaflow-first — Contract 6)
 
-When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+**Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable. See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) Contract 6.
 
+**Routing sequence (mandatory before any in-session work):**
+1. Run `sagaflow doctor`
+2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
+
+**Launch command:**
 ```
 Bash(
   run_in_background=true,
@@ -371,5 +377,3 @@ Bash(
 ```
 
 Substitute `<TASK>` with the task/goal to drive to completion, and `<N>` with max iterations per story (default 5). The workflow writes `~/.sagaflow/runs/<run_id>/summary.md` (with `prd-prompt.txt`, per-story `executor-sN.txt`, `reviewer-prompt.txt`, and `falsifiability-prompt.txt` alongside).
-
-Algorithm is identical to the in-session flow above; only the envelope changes.

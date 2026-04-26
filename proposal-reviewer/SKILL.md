@@ -376,10 +376,16 @@ specific timeline calculations, measurable market signals.
 
 ---
 
-## Durable execution
+## Execution routing (sagaflow-first — Contract 6)
 
-When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+**Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable. See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) Contract 6.
 
+**Routing sequence (mandatory before any in-session work):**
+1. Run `sagaflow doctor`
+2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
+
+**Launch command:**
 ```
 Bash(
   run_in_background=true,
@@ -388,8 +394,6 @@ Bash(
 ```
 
 Where `<ABS_PATH>` is the absolute path to the proposal file (convert relative paths using the current working directory). The proposal must be at least 200 words or the workflow rejects it. The workflow writes `~/.sagaflow/runs/<run_id>/review.md` with executive verdict, severity-rated flaw inventory, claim extraction, and final recommendation (alongside per-critic `critic-N.txt` transcripts).
-
-Algorithm is identical to the in-session flow above; only the envelope changes.
 
 ---
 

@@ -1125,10 +1125,16 @@ v4.1 does NOT reliably reach: paywalled non-EN databases (CNKI, AskZad), JS-heav
 
 ---
 
-## Durable execution
+## Execution routing (sagaflow-first — Contract 6)
 
-When you need durable (session-crash-surviving) execution, launch via sagaflow instead.
+**Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable. See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) Contract 6.
 
+**Routing sequence (mandatory before any in-session work):**
+1. Run `sagaflow doctor`
+2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
+
+**Launch command:**
 ```
 Bash(
   run_in_background=true,
@@ -1137,5 +1143,3 @@ Bash(
 ```
 
 Substitute `<SEED>` with the research topic/question and `<N>` with the direction budget (default 5, max ~15). The workflow writes its report to `~/.sagaflow/runs/<run_id>/research-report.md` with the executive summary, per-direction findings, cross-cutting analysis, fact-verification spot-checks, coverage, sources, and termination label.
-
-Algorithm is identical to the in-session flow above; only the envelope changes.

@@ -11,6 +11,6 @@ argument: |
 
 # deep-debug-temporal (deprecation shim)
 
-This skill has been unified with [`deep-debug`](../deep-debug/SKILL.md) — see its `## Durable execution` section for the sagaflow launch recipe.
+This skill has been unified with [`deep-debug`](../deep-debug/SKILL.md) — see its `## Execution routing` section for the sagaflow launch recipe.
 
 The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.
