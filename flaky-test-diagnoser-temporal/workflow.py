@@ -27,6 +27,61 @@ with workflow.unsafe.imports_passed_through():
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
 
 
+# ── output schemas (Anthropic constrained decoding) ──────────────────────────
+
+_SCHEMA_HYPOTHESES: dict = {
+    "type": "object",
+    "properties": {
+        "HYPOTHESES": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "category": {"type": "string"},
+                    "mechanism": {"type": "string"},
+                },
+                "required": ["id", "category", "mechanism"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["HYPOTHESES"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_RANKINGS: dict = {
+    "type": "object",
+    "properties": {
+        "RANKINGS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "hyp_id": {"type": "string"},
+                    "rank": {"type": "integer"},
+                    "reasoning": {"type": "string"},
+                },
+                "required": ["hyp_id", "rank"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["RANKINGS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_SYNTHESIS: dict = {
+    "type": "object",
+    "properties": {
+        "REPORT": {"type": "string"},
+        "TERMINATION_LABEL": {"type": "string"},
+    },
+    "required": ["REPORT", "TERMINATION_LABEL"],
+    "additionalProperties": False,
+}
+
+
 @dataclass(frozen=True)
 class FlakyTestInput:
     run_id: str
@@ -152,6 +207,7 @@ class FlakyTestWorkflow:
                 user_prompt_path=hyp_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_HYPOTHESES,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -177,6 +233,7 @@ class FlakyTestWorkflow:
                 user_prompt_path=judge_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_RANKINGS,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=HAIKU_POLICY,
@@ -204,6 +261,7 @@ class FlakyTestWorkflow:
                 user_prompt_path=synth_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_SYNTHESIS,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -353,21 +411,25 @@ def _fallback_report(
 # ── parsers ────────────────────────────────────────────────────────────────────
 
 
-def _parse_hypotheses(raw: str) -> list[dict[str, str]]:
+def _parse_hypotheses(raw: str | list) -> list[dict[str, str]]:
+    if isinstance(raw, list):
+        return [h for h in raw if isinstance(h, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [h for h in parsed if isinstance(h, dict)]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []
 
 
-def _parse_rankings(raw: str) -> list[dict[str, str]]:
+def _parse_rankings(raw: str | list) -> list[dict[str, str]]:
+    if isinstance(raw, list):
+        return [r for r in raw if isinstance(r, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [r for r in parsed if isinstance(r, dict)]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []

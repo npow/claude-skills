@@ -82,6 +82,155 @@ _MAX_CRITICS_PER_ROUND = 6
 _QUORUM_THRESHOLD = 4
 
 
+# =========================================================================== #
+# Structured-output schemas (Anthropic JSON-schema mode)                        #
+# =========================================================================== #
+
+_SCHEMA_SPEC: dict = {
+    "type": "object",
+    "properties": {
+        "SPEC": {"type": "string"},
+    },
+    "required": ["SPEC"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_RECOVERY_BEHAVIORS: dict = {
+    "type": "object",
+    "properties": {
+        "RECOVERY_BEHAVIORS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "component": {"type": "string"},
+                    "behavior": {"type": "string"},
+                },
+                "required": ["component", "behavior"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["RECOVERY_BEHAVIORS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_FLAWS_AND_GAPS: dict = {
+    "type": "object",
+    "properties": {
+        "FLAWS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "severity": {"type": "string"},
+                    "dimension": {"type": "string"},
+                    "scenario": {"type": "string"},
+                },
+                "required": ["id", "title", "severity", "dimension", "scenario"],
+                "additionalProperties": False,
+            },
+        },
+        "GAP_REPORTS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "references_flaw_id": {"type": "string"},
+                },
+                "required": ["references_flaw_id"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["FLAWS", "GAP_REPORTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_VERDICT: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT": {"type": "string"},
+    },
+    "required": ["VERDICT"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_CHALLENGE: dict = {
+    "type": "object",
+    "properties": {
+        "CHALLENGE": {"type": "string"},
+    },
+    "required": ["CHALLENGE"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_CONFLICTS: dict = {
+    "type": "object",
+    "properties": {
+        "CONFLICTS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "fix_a": {"type": "string"},
+                    "fix_b": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+                "required": ["fix_a", "fix_b", "description"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["CONFLICTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_REDESIGN: dict = {
+    "type": "object",
+    "properties": {
+        "SPEC": {"type": "string"},
+        "COMPONENTS_ADDED": {"type": "string"},
+    },
+    "required": ["SPEC", "COMPONENTS_ADDED"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_VIOLATIONS: dict = {
+    "type": "object",
+    "properties": {
+        "VIOLATIONS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "key": {"type": "string"},
+                    "invariant": {"type": "string"},
+                    "spec_section": {"type": "string"},
+                    "evidence": {"type": "string"},
+                },
+                "required": ["key", "invariant", "spec_section", "evidence"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["VIOLATIONS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_DRIFT: dict = {
+    "type": "object",
+    "properties": {
+        "DRIFT_SCORE": {"type": "string"},
+        "DRIFT_VERDICT": {"type": "string"},
+    },
+    "required": ["DRIFT_SCORE", "DRIFT_VERDICT"],
+    "additionalProperties": False,
+}
+
+
 @workflow.defn(name="DeepDesignWorkflow")
 class DeepDesignWorkflow:
     @workflow.run
@@ -123,6 +272,7 @@ class DeepDesignWorkflow:
                 user_prompt_path=draft_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_SPEC,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -157,6 +307,7 @@ class DeepDesignWorkflow:
                     user_prompt_path=fact_sheet_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_RECOVERY_BEHAVIORS,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -225,6 +376,7 @@ class DeepDesignWorkflow:
                     user_prompt_path=of_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_FLAWS_AND_GAPS,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -347,6 +499,7 @@ class DeepDesignWorkflow:
                         user_prompt_path=judge_prompt_path,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_VERDICT,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -380,6 +533,7 @@ class DeepDesignWorkflow:
                         user_prompt_path=judge_p2_prompt_path,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_VERDICT,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -431,6 +585,7 @@ class DeepDesignWorkflow:
                         user_prompt_path=challenger_prompt_path,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_CHALLENGE,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -472,6 +627,7 @@ class DeepDesignWorkflow:
                         user_prompt_path=cross_fix_prompt_path,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_CONFLICTS,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -511,6 +667,7 @@ class DeepDesignWorkflow:
                     user_prompt_path=redesign_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_REDESIGN,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=SONNET_POLICY,
@@ -558,6 +715,7 @@ class DeepDesignWorkflow:
                     user_prompt_path=inv_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_VIOLATIONS,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -596,6 +754,7 @@ class DeepDesignWorkflow:
                     user_prompt_path=drift_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_DRIFT,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -1001,7 +1160,9 @@ def _synth_user_prompt(
 # Parsers                                                                       #
 # =========================================================================== #
 
-def _parse_flaws(raw: str) -> list[dict[str, str]]:
+def _parse_flaws(raw: str | list) -> list[dict[str, str]]:
+    if isinstance(raw, list):
+        return [f for f in raw if isinstance(f, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
@@ -1011,7 +1172,9 @@ def _parse_flaws(raw: str) -> list[dict[str, str]]:
     return []
 
 
-def _parse_gap_reports(raw: str) -> list[dict[str, str]]:
+def _parse_gap_reports(raw: str | list) -> list[dict[str, str]]:
+    if isinstance(raw, list):
+        return [g for g in raw if isinstance(g, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
@@ -1021,21 +1184,24 @@ def _parse_gap_reports(raw: str) -> list[dict[str, str]]:
     return []
 
 
-def _parse_recovery_behaviors(raw: str) -> list["RecoveryBehavior"]:
+def _parse_recovery_behaviors(raw: str | list) -> list["RecoveryBehavior"]:
     result = []
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            for item in parsed:
-                if isinstance(item, dict):
-                    result.append(
-                        RecoveryBehavior(
-                            component=item.get("component", ""),
-                            behavior=item.get("behavior", ""),
-                        )
-                    )
-    except (json.JSONDecodeError, TypeError):
-        pass
+    if isinstance(raw, list):
+        items = raw
+    else:
+        try:
+            parsed = json.loads(raw)
+            items = parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            return result
+    for item in items:
+        if isinstance(item, dict):
+            result.append(
+                RecoveryBehavior(
+                    component=item.get("component", ""),
+                    behavior=item.get("behavior", ""),
+                )
+            )
     return result
 
 
@@ -1049,53 +1215,61 @@ def _parse_verdict(raw: str) -> str | None:
     return None
 
 
-def _parse_cross_fix_conflicts(raw: str) -> list["CrossFixConflict"]:
+def _parse_cross_fix_conflicts(raw: str | list) -> list["CrossFixConflict"]:
     result = []
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            for item in parsed:
-                if isinstance(item, dict):
-                    result.append(
-                        CrossFixConflict(
-                            fix_a=item.get("fix_a", ""),
-                            fix_b=item.get("fix_b", ""),
-                            description=item.get("description", ""),
-                        )
-                    )
-    except (json.JSONDecodeError, TypeError):
-        # Unparseable = assumed conflict (fail-safe).
-        result.append(
-            CrossFixConflict(fix_a="unknown", fix_b="unknown", description="parse_error")
-        )
+    if isinstance(raw, list):
+        items = raw
+    else:
+        try:
+            parsed = json.loads(raw)
+            items = parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            # Unparseable = assumed conflict (fail-safe).
+            result.append(
+                CrossFixConflict(fix_a="unknown", fix_b="unknown", description="parse_error")
+            )
+            return result
+    for item in items:
+        if isinstance(item, dict):
+            result.append(
+                CrossFixConflict(
+                    fix_a=item.get("fix_a", ""),
+                    fix_b=item.get("fix_b", ""),
+                    description=item.get("description", ""),
+                )
+            )
     return result
 
 
-def _parse_invariant_violations(raw: str) -> list["InvariantViolation"]:
+def _parse_invariant_violations(raw: str | list) -> list["InvariantViolation"]:
     result = []
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            for item in parsed:
-                if isinstance(item, dict):
-                    result.append(
-                        InvariantViolation(
-                            key=item.get("key", ""),
-                            invariant=item.get("invariant", ""),
-                            spec_section=item.get("spec_section", ""),
-                            evidence=item.get("evidence", ""),
-                        )
-                    )
-    except (json.JSONDecodeError, TypeError):
-        # Unparseable = assumed violation (fail-safe).
-        result.append(
-            InvariantViolation(
-                key="unknown",
-                invariant="parse_error",
-                spec_section="",
-                evidence="",
+    if isinstance(raw, list):
+        items = raw
+    else:
+        try:
+            parsed = json.loads(raw)
+            items = parsed if isinstance(parsed, list) else []
+        except (json.JSONDecodeError, TypeError):
+            # Unparseable = assumed violation (fail-safe).
+            result.append(
+                InvariantViolation(
+                    key="unknown",
+                    invariant="parse_error",
+                    spec_section="",
+                    evidence="",
+                )
             )
-        )
+            return result
+    for item in items:
+        if isinstance(item, dict):
+            result.append(
+                InvariantViolation(
+                    key=item.get("key", ""),
+                    invariant=item.get("invariant", ""),
+                    spec_section=item.get("spec_section", ""),
+                    evidence=item.get("evidence", ""),
+                )
+            )
     return result
 
 

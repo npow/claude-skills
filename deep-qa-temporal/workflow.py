@@ -48,6 +48,95 @@ with workflow.unsafe.imports_passed_through():
     )
 
 
+# ── output schemas (Anthropic constrained decoding) ──────────────────────────
+
+_SCHEMA_ANGLES: dict = {
+    "type": "object",
+    "properties": {
+        "ANGLES": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "question": {"type": "string"},
+                    "dimension": {"type": "string"},
+                },
+                "required": ["id", "question", "dimension"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["ANGLES"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_DEFECTS: dict = {
+    "type": "object",
+    "properties": {
+        "DEFECTS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "severity": {"type": "string"},
+                    "dimension": {"type": "string"},
+                    "scenario": {"type": "string"},
+                    "root_cause": {"type": "string"},
+                },
+                "required": ["id", "title", "severity", "dimension", "scenario", "root_cause"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["DEFECTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_VERDICTS: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICTS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "defect_id": {"type": "string"},
+                    "severity": {"type": "string"},
+                    "confidence": {"type": "string"},
+                    "calibration": {"type": "string"},
+                    "rationale": {"type": "string"},
+                },
+                "required": ["defect_id", "severity", "confidence", "calibration", "rationale"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["VERDICTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_AUDIT: dict = {
+    "type": "object",
+    "properties": {
+        "REPORT_FIDELITY": {"type": "string"},
+    },
+    "required": ["REPORT_FIDELITY"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_REPORT: dict = {
+    "type": "object",
+    "properties": {
+        "REPORT": {"type": "string"},
+    },
+    "required": ["REPORT"],
+    "additionalProperties": False,
+}
+
+
 @dataclass(frozen=True)
 class DeepQaInput:
     run_id: str
@@ -135,6 +224,7 @@ class DeepQaWorkflow:
                 user_prompt_path=dim_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_ANGLES,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -216,6 +306,7 @@ class DeepQaWorkflow:
                         user_prompt_path=ppath,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_DEFECTS,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -310,6 +401,7 @@ class DeepQaWorkflow:
                                 user_prompt_path=judge_input_path,
                                 max_tokens=128000,
                                 tools_needed=False,
+                                output_schema=_SCHEMA_VERDICTS,
                             ),
                             start_to_close_timeout=timedelta(seconds=600),
                             retry_policy=HAIKU_POLICY,
@@ -374,6 +466,7 @@ class DeepQaWorkflow:
                                     user_prompt_path=p2_path,
                                     max_tokens=128000,
                                     tools_needed=False,
+                                    output_schema=_SCHEMA_VERDICTS,
                                 ),
                                 start_to_close_timeout=timedelta(seconds=600),
                                 retry_policy=HAIKU_POLICY,
@@ -448,10 +541,13 @@ class DeepQaWorkflow:
                 retry_policy=HAIKU_POLICY,
             )
             raw_verification = verifier_result.get("VERIFICATION", "{}")
-            try:
-                verification_result = json.loads(raw_verification)
-            except json.JSONDecodeError:
-                verification_result = {"parse_error": raw_verification[:200]}
+            if isinstance(raw_verification, dict):
+                verification_result = raw_verification
+            else:
+                try:
+                    verification_result = json.loads(raw_verification)
+                except (json.JSONDecodeError, TypeError):
+                    verification_result = {"parse_error": str(raw_verification)[:200]}
 
         # ------------------------------------------------------------------
         # Phase 5: termination label selection.
@@ -510,6 +606,7 @@ class DeepQaWorkflow:
                     user_prompt_path=audit_input_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_AUDIT,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=SONNET_POLICY,
@@ -590,6 +687,7 @@ class DeepQaWorkflow:
                     user_prompt_path=synth_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_REPORT,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=SONNET_POLICY,
@@ -785,59 +883,67 @@ def _fallback_report(defects: list["Defect"], rounds_run: int) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _parse_angles(raw: str) -> list["Angle"]:
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            angles = []
-            for i, a in enumerate(parsed):
-                if isinstance(a, dict):
-                    angles.append(
-                        Angle(
-                            id=a.get("id") or f"a{i}",
-                            question=a.get("question", ""),
-                            dimension=a.get("dimension", "general"),
-                        )
+def _parse_angles(raw: str | list) -> list["Angle"]:
+    if isinstance(raw, list):
+        parsed = raw
+    else:
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if isinstance(parsed, list):
+        angles = []
+        for i, a in enumerate(parsed):
+            if isinstance(a, dict):
+                angles.append(
+                    Angle(
+                        id=a.get("id") or f"a{i}",
+                        question=a.get("question", ""),
+                        dimension=a.get("dimension", "general"),
                     )
-            return angles
-    except json.JSONDecodeError:
-        pass
+                )
+        return angles
     return []
 
 
-def _parse_raw_defects(raw: str) -> list[dict]:
+def _parse_raw_defects(raw: str | list) -> list[dict]:
+    if isinstance(raw, list):
+        return [d for d in raw if isinstance(d, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [d for d in parsed if isinstance(d, dict)]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []
 
 
-def _parse_verdicts(raw: str) -> list["JudgeVerdict"]:
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            verdicts = []
-            for v in parsed:
-                if not isinstance(v, dict):
-                    continue
-                sev = v.get("severity", "critical")
-                if sev not in ("critical", "major", "minor"):
-                    sev = "critical"  # fail-safe per spec
-                verdicts.append(
-                    JudgeVerdict(
-                        defect_id=v.get("defect_id", ""),
-                        severity=sev,  # type: ignore[arg-type]
-                        confidence=v.get("confidence", "low"),
-                        calibration=v.get("calibration", "confirm"),
-                        rationale=v.get("rationale", ""),
-                    )
+def _parse_verdicts(raw: str | list) -> list["JudgeVerdict"]:
+    if isinstance(raw, list):
+        parsed = raw
+    else:
+        try:
+            parsed = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            return []
+    if isinstance(parsed, list):
+        verdicts = []
+        for v in parsed:
+            if not isinstance(v, dict):
+                continue
+            sev = v.get("severity", "critical")
+            if sev not in ("critical", "major", "minor"):
+                sev = "critical"  # fail-safe per spec
+            verdicts.append(
+                JudgeVerdict(
+                    defect_id=v.get("defect_id", ""),
+                    severity=sev,  # type: ignore[arg-type]
+                    confidence=v.get("confidence", "low"),
+                    calibration=v.get("calibration", "confirm"),
+                    rationale=v.get("rationale", ""),
                 )
-            return verdicts
-    except json.JSONDecodeError:
-        pass
+            )
+        return verdicts
     return []
 
 

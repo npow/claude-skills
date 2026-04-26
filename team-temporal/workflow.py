@@ -47,6 +47,107 @@ TIER_OPUS = "OPUS"
 TIER_SONNET = "SONNET"
 TIER_HAIKU = "HAIKU"
 
+# ---------------------------------------------------------------------------
+# Structured-output JSON schemas (Anthropic structured output)
+# ---------------------------------------------------------------------------
+
+_SCHEMA_FALSIFIABILITY: dict = {
+    "type": "object",
+    "properties": {
+        "UNFALSIFIABLE_COUNT": {"type": "string"},
+        "AC_VERDICT": {"type": "string"},
+    },
+    "required": ["UNFALSIFIABLE_COUNT", "AC_VERDICT"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_WORKER: dict = {
+    "type": "object",
+    "properties": {
+        "WORK_SUMMARY": {"type": "string"},
+        "FILES_TOUCHED": {"type": "string"},
+        "TEST_EVIDENCE": {"type": "string"},
+    },
+    "required": ["WORK_SUMMARY", "FILES_TOUCHED", "TEST_EVIDENCE"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_VERDICT_DEFECTS: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT": {"type": "string"},
+        "DEFECTS": {"type": "string"},
+    },
+    "required": ["VERDICT", "DEFECTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_VERDICT_QUALITY_DEFECTS: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT": {"type": "string"},
+        "QUALITY_DEFECTS": {"type": "string"},
+    },
+    "required": ["VERDICT", "QUALITY_DEFECTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_DEFECT_COUNTS: dict = {
+    "type": "object",
+    "properties": {
+        "CRITICAL_COUNT": {"type": "string"},
+        "MAJOR_COUNT": {"type": "string"},
+        "MINOR_COUNT": {"type": "string"},
+        "DEFECTS": {"type": "string"},
+    },
+    "required": ["CRITICAL_COUNT", "MAJOR_COUNT", "MINOR_COUNT", "DEFECTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_QUALITY_COUNTS: dict = {
+    "type": "object",
+    "properties": {
+        "QUALITY_CRITICAL_COUNT": {"type": "string"},
+        "QUALITY_MAJOR_COUNT": {"type": "string"},
+        "QUALITY_DEFECTS": {"type": "string"},
+    },
+    "required": ["QUALITY_CRITICAL_COUNT", "QUALITY_MAJOR_COUNT", "QUALITY_DEFECTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_VERIFY_JUDGE: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT": {"type": "string"},
+        "CRITICAL_COUNT": {"type": "string"},
+        "MAJOR_COUNT": {"type": "string"},
+        "MINOR_COUNT": {"type": "string"},
+        "DEFECTS": {"type": "string"},
+    },
+    "required": ["VERDICT", "CRITICAL_COUNT", "MAJOR_COUNT", "MINOR_COUNT", "DEFECTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_FIX_WORKER: dict = {
+    "type": "object",
+    "properties": {
+        "FIX_SUMMARY": {"type": "string"},
+        "NEW_DEFECT_INTRODUCED": {"type": "string"},
+    },
+    "required": ["FIX_SUMMARY", "NEW_DEFECT_INTRODUCED"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_FIX_VERIFIER: dict = {
+    "type": "object",
+    "properties": {
+        "FIX_VERDICT": {"type": "string"},
+        "NEW_DEFECT_INTRODUCED": {"type": "string"},
+    },
+    "required": ["FIX_VERDICT", "NEW_DEFECT_INTRODUCED"],
+    "additionalProperties": False,
+}
+
 
 @dataclass(frozen=True)
 class TeamInput:
@@ -68,7 +169,9 @@ def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
-def _parse_json_list(raw: str) -> list[dict]:
+def _parse_json_list(raw: str | list) -> list[dict]:
+    if isinstance(raw, list):
+        return [x for x in raw if isinstance(x, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
@@ -256,6 +359,7 @@ class TeamWorkflow:
                 f"PRD: {curr_prd_path}\n\nCritique: {critique_path}\n\nACs: {json.dumps(acceptance)}",
                 max_tokens=128000,
                 out_path=falsifiability_path,
+                output_schema=_SCHEMA_FALSIFIABILITY,
             )
 
             unfalsifiable = int(falsify_result.get("UNFALSIFIABLE_COUNT", "1") or "1")
@@ -320,6 +424,7 @@ class TeamWorkflow:
                     max_tokens=128000,
                     out_path=f"{run_dir}/exec/worker-{wid}-output.md",
                     role_suffix=f"-{wid}",
+                    output_schema=_SCHEMA_WORKER,
                 )
 
                 # Stage A: spec-compliance reviewer (independent)
@@ -336,6 +441,7 @@ class TeamWorkflow:
                     max_tokens=128000,
                     out_path=f"{run_dir}/verify/per-worker/worker-{wid}-spec-compliance.md",
                     role_suffix=f"-{wid}",
+                    output_schema=_SCHEMA_VERDICT_DEFECTS,
                 )
 
                 # Stage B: code-quality reviewer (independent, separate agent)
@@ -354,6 +460,7 @@ class TeamWorkflow:
                     max_tokens=128000,
                     out_path=f"{run_dir}/verify/per-worker/worker-{wid}-code-quality.md",
                     role_suffix=f"-{wid}",
+                    output_schema=_SCHEMA_VERDICT_QUALITY_DEFECTS,
                 )
 
                 spec_ok = _get_verdict(spec_result) == "approved"
@@ -415,6 +522,7 @@ class TeamWorkflow:
             f"PRD: {prd_final_path}\n\nDiff: {diff_path}",
             max_tokens=128000,
             out_path=spec_compliance_path,
+            output_schema=_SCHEMA_DEFECT_COUNTS,
         )
 
         # Stage B: code-quality (runs AFTER Stage A)
@@ -432,6 +540,7 @@ class TeamWorkflow:
             f"Diff: {diff_path}\n\nSpec compliance: {spec_compliance_path}",
             max_tokens=128000,
             out_path=code_quality_path,
+            output_schema=_SCHEMA_QUALITY_COUNTS,
         )
 
         # Verify-judge aggregates both (independent Opus)
@@ -450,6 +559,7 @@ class TeamWorkflow:
             f"Spec-compliance: {spec_compliance_path}\n\nCode-quality: {code_quality_path}",
             max_tokens=128000,
             out_path=verdict_path,
+            output_schema=_SCHEMA_VERIFY_JUDGE,
         )
 
         verdict = _get_verdict(verify_judge_result)
@@ -499,6 +609,7 @@ class TeamWorkflow:
                     max_tokens=128000,
                     out_path=f"{iter_dir}/defect-{did}-fix.md",
                     role_suffix=f"-iter{fix_iters}-{did}",
+                    output_schema=_SCHEMA_FIX_WORKER,
                 )
 
                 # Per-fix independent verifier
@@ -515,6 +626,7 @@ class TeamWorkflow:
                     max_tokens=128000,
                     out_path=f"{iter_dir}/defect-{did}-verdict.md",
                     role_suffix=f"-iter{fix_iters}-{did}",
+                    output_schema=_SCHEMA_FIX_VERIFIER,
                 )
 
                 fv = fix_verdict_result.get("FIX_VERDICT", "not_fixed").strip().lower()
@@ -562,6 +674,7 @@ class TeamWorkflow:
                 f"PRD: {prd_final_path}\n\nDiff: {diff_path}",
                 max_tokens=128000,
                 out_path=spec_compliance_path,
+                output_schema=_SCHEMA_DEFECT_COUNTS,
             )
 
             await _spawn_write(
@@ -574,6 +687,7 @@ class TeamWorkflow:
                 f"Diff: {diff_path}\n\nSpec compliance: {spec_compliance_path}",
                 max_tokens=128000,
                 out_path=code_quality_path,
+                output_schema=_SCHEMA_QUALITY_COUNTS,
             )
 
             verify_judge_result = await _spawn_write(
@@ -587,6 +701,7 @@ class TeamWorkflow:
                 f"Spec-compliance: {spec_compliance_path}\n\nCode-quality: {code_quality_path}",
                 max_tokens=128000,
                 out_path=verdict_path,
+                output_schema=_SCHEMA_VERIFY_JUDGE,
             )
 
             verdict = _get_verdict(verify_judge_result)
@@ -646,6 +761,7 @@ async def _spawn_write(
     out_path: str,
     role_suffix: str = "",
     tools_needed: bool = False,
+    output_schema: dict | None = None,
 ) -> dict[str, str]:
     """Write prompt file, call spawn_subagent, write output to out_path, return parsed dict."""
     prompt_path = f"{run_dir}/{role}{role_suffix}-prompt.txt"
@@ -668,6 +784,7 @@ async def _spawn_write(
             user_prompt_path=prompt_path,
             max_tokens=max_tokens,
             tools_needed=tools_needed,
+            output_schema=output_schema,
         ),
         start_to_close_timeout=timedelta(seconds=300),
         retry_policy=policy,
@@ -733,7 +850,9 @@ async def _terminate(
     return f"{label}\nSummary: {summary_path}"
 
 
-def _parse_json_list(raw: str) -> list[dict]:
+def _parse_json_list(raw: str | list) -> list[dict]:
+    if isinstance(raw, list):
+        return [x for x in raw if isinstance(x, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):

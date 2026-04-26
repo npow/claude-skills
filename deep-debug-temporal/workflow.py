@@ -50,6 +50,62 @@ _DEFAULT_MAX_CYCLES = 3
 _DEFAULT_HARD_STOP = 6
 _BATCH_SIZE = 5                  # hypotheses per judge batch
 
+# ── output schemas (Anthropic constrained decoding) ──────────────────────────
+
+_SCHEMA_BLIND_SPOTS: dict = {
+    "type": "object",
+    "properties": {
+        "BLIND_SPOTS": {
+            "type": "array",
+            "items": {"type": "string"},
+        },
+    },
+    "required": ["BLIND_SPOTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_HYPOTHESIS: dict = {
+    "type": "object",
+    "properties": {
+        "DIMENSION": {"type": "string"},
+        "MECHANISM": {"type": "string"},
+        "CONFIDENCE": {"type": "string"},
+    },
+    "required": ["DIMENSION", "MECHANISM", "CONFIDENCE"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_JUDGE_VERDICTS: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICTS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "hyp_id": {"type": "string"},
+                    "plausibility": {"type": "string"},
+                    "rationale": {"type": "string"},
+                },
+                "required": ["hyp_id", "plausibility", "rationale"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["VERDICTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_REBUTTAL: dict = {
+    "type": "object",
+    "properties": {
+        "OUTCOME": {"type": "string"},
+        "NEW_LEADER": {"type": "string"},
+    },
+    "required": ["OUTCOME", "NEW_LEADER"],
+    "additionalProperties": False,
+}
+
 
 @dataclass(frozen=True)
 class DeepDebugInput:
@@ -112,6 +168,7 @@ class DeepDebugWorkflow:
                 user_prompt_path=premortem_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_BLIND_SPOTS,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=HAIKU_POLICY,
@@ -175,6 +232,7 @@ class DeepDebugWorkflow:
                         user_prompt_path=p,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_HYPOTHESIS,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=SONNET_POLICY,
@@ -191,6 +249,7 @@ class DeepDebugWorkflow:
                     user_prompt_path=of_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_HYPOTHESIS,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=SONNET_POLICY,
@@ -258,6 +317,7 @@ class DeepDebugWorkflow:
                         user_prompt_path=p1_prompt,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_JUDGE_VERDICTS,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -282,6 +342,7 @@ class DeepDebugWorkflow:
                         user_prompt_path=p2_prompt,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_JUDGE_VERDICTS,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -317,6 +378,7 @@ class DeepDebugWorkflow:
                         user_prompt_path=rebuttal_prompt,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_REBUTTAL,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=SONNET_POLICY,
@@ -610,22 +672,26 @@ def _flatten_verdicts(hypotheses: list[dict[str, str]]) -> list[dict[str, str]]:
             for h in hypotheses]
 
 
-def _parse_judge_verdicts(raw: str) -> list[dict[str, str]]:
+def _parse_judge_verdicts(raw: str | list) -> list[dict[str, str]]:
+    if isinstance(raw, list):
+        return [x for x in raw if isinstance(x, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [x for x in parsed if isinstance(x, dict)]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []
 
 
-def _parse_json_list_str(raw: str) -> list[str]:
+def _parse_json_list_str(raw: str | list) -> list[str]:
+    if isinstance(raw, list):
+        return [str(x) for x in raw]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [str(x) for x in parsed]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []
 

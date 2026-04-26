@@ -35,6 +35,143 @@ with workflow.unsafe.imports_passed_through():
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
 
+# --------------------------------------------------------------------------- #
+# Structured output schemas (Anthropic structured output).                     #
+# --------------------------------------------------------------------------- #
+
+_SCHEMA_CLAIMS: dict = {
+    "type": "object",
+    "properties": {
+        "CLAIMS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "text": {"type": "string"},
+                    "tier": {"type": "string"},
+                },
+                "required": ["id", "text", "tier"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["CLAIMS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_WEAKNESSES: dict = {
+    "type": "object",
+    "properties": {
+        "WEAKNESSES": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "severity": {"type": "string"},
+                    "dimension": {"type": "string"},
+                    "scenario": {"type": "string"},
+                    "root_cause": {"type": "string"},
+                    "fix_direction": {"type": "string"},
+                    "counter_response": {"type": "string"},
+                },
+                "required": [
+                    "id", "title", "severity", "dimension",
+                    "scenario", "root_cause", "fix_direction",
+                    "counter_response",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["WEAKNESSES"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_FACT_CHECK: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT": {"type": "string"},
+        "CONFIDENCE": {"type": "string"},
+        "EVIDENCE": {"type": "string"},
+    },
+    "required": ["VERDICT", "CONFIDENCE", "EVIDENCE"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_CRED_PASS1: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT_PASS_1": {"type": "string"},
+    },
+    "required": ["VERDICT_PASS_1"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_CRED_PASS2: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT_FINAL": {"type": "string"},
+        "CONFIDENCE": {"type": "string"},
+    },
+    "required": ["VERDICT_FINAL", "CONFIDENCE"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_SEV_PASS1: dict = {
+    "type": "object",
+    "properties": {
+        "FALSIFIABLE": {"type": "string"},
+        "SEVERITY_PASS_1": {"type": "string"},
+    },
+    "required": ["FALSIFIABLE", "SEVERITY_PASS_1"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_SEV_PASS2: dict = {
+    "type": "object",
+    "properties": {
+        "FALSIFIABLE": {"type": "string"},
+        "SEVERITY_FINAL": {"type": "string"},
+        "FIXABILITY": {"type": "string"},
+    },
+    "required": ["FALSIFIABLE", "SEVERITY_FINAL", "FIXABILITY"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_LANDSCAPE: dict = {
+    "type": "object",
+    "properties": {
+        "MARKET_WINDOW": {"type": "string"},
+        "PLATFORM_RISK": {"type": "string"},
+        "BLIND_SPOT": {"type": "string"},
+    },
+    "required": ["MARKET_WINDOW", "PLATFORM_RISK", "BLIND_SPOT"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_AUDIT: dict = {
+    "type": "object",
+    "properties": {
+        "REPORT_FIDELITY": {"type": "string"},
+        "SUSPICIOUS_PATTERN": {"type": "string"},
+        "COMPROMISED_COUNT": {"type": "string"},
+    },
+    "required": ["REPORT_FIDELITY", "SUSPICIOUS_PATTERN", "COMPROMISED_COUNT"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_REPORT: dict = {
+    "type": "object",
+    "properties": {
+        "REPORT": {"type": "string"},
+    },
+    "required": ["REPORT"],
+    "additionalProperties": False,
+}
+
 # Fixed 4 critique dimensions for Phase 2.
 _CRITIQUE_DIMENSIONS = ["viability", "competition", "structural", "evidence"]
 
@@ -109,6 +246,7 @@ class ProposalReviewWorkflow:
                 user_prompt_path=claim_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_CLAIMS,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -143,6 +281,7 @@ class ProposalReviewWorkflow:
                     user_prompt_path=ppath,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_WEAKNESSES,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -228,6 +367,7 @@ class ProposalReviewWorkflow:
                         user_prompt_path=ppath,
                         max_tokens=128000,
                         tools_needed=False,
+                        output_schema=_SCHEMA_FACT_CHECK,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -290,6 +430,7 @@ class ProposalReviewWorkflow:
                     user_prompt_path=p1_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_CRED_PASS1,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -318,6 +459,7 @@ class ProposalReviewWorkflow:
                     user_prompt_path=p2_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_CRED_PASS2,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -363,6 +505,7 @@ class ProposalReviewWorkflow:
                     user_prompt_path=s1_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_SEV_PASS1,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -393,6 +536,7 @@ class ProposalReviewWorkflow:
                     user_prompt_path=s2_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_SEV_PASS2,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
@@ -454,6 +598,7 @@ class ProposalReviewWorkflow:
                 user_prompt_path=landscape_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_LANDSCAPE,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -506,6 +651,7 @@ class ProposalReviewWorkflow:
                 user_prompt_path=audit_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_AUDIT,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -577,6 +723,7 @@ class ProposalReviewWorkflow:
                 user_prompt_path=synth_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_REPORT,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -849,12 +996,15 @@ def _assembly_user_prompt(
 # --------------------------------------------------------------------------- #
 
 
-def _parse_json_list(raw: str) -> list[dict[str, str]]:
+def _parse_json_list(raw: str | list) -> list[dict[str, str]]:
+    # With structured output, the value may already be a parsed list.
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [item for item in parsed if isinstance(item, dict)]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []
 

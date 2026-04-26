@@ -25,6 +25,94 @@ with workflow.unsafe.imports_passed_through():
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
 
+# --- structured-output schemas ---
+
+_SCHEMA_PRD: dict = {
+    "type": "object",
+    "properties": {
+        "STORIES": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "string"},
+                    "title": {"type": "string"},
+                    "criteria": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "criterion": {"type": "string"},
+                                "verification_command": {"type": "string"},
+                                "expected_pattern": {"type": "string"},
+                            },
+                            "required": [
+                                "id",
+                                "criterion",
+                                "verification_command",
+                                "expected_pattern",
+                            ],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["id", "title", "criteria"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["STORIES"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_FALSIFIABILITY: dict = {
+    "type": "object",
+    "properties": {
+        "CRITERION_VERDICTS": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "criterion_id": {"type": "string"},
+                    "pass": {"type": "boolean"},
+                },
+                "required": ["criterion_id", "pass"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["CRITERION_VERDICTS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_EXECUTOR: dict = {
+    "type": "object",
+    "properties": {
+        "WORK_DESCRIPTION": {"type": "string"},
+    },
+    "required": ["WORK_DESCRIPTION"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_VERIFIER: dict = {
+    "type": "object",
+    "properties": {
+        "VERIFIED": {"type": "string"},
+    },
+    "required": ["VERIFIED"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_REVIEWER: dict = {
+    "type": "object",
+    "properties": {
+        "OVERALL_VERDICT": {"type": "string"},
+    },
+    "required": ["OVERALL_VERDICT"],
+    "additionalProperties": False,
+}
+
 
 @dataclass(frozen=True)
 class LoopUntilDoneInput:
@@ -73,6 +161,7 @@ class LoopUntilDoneWorkflow:
                 user_prompt_path=prd_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_PRD,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -118,6 +207,7 @@ class LoopUntilDoneWorkflow:
                 user_prompt_path=falsifiability_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_FALSIFIABILITY,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=HAIKU_POLICY,
@@ -157,6 +247,7 @@ class LoopUntilDoneWorkflow:
                     user_prompt_path=executor_prompt_path,
                     max_tokens=128000,
                     tools_needed=False,
+                    output_schema=_SCHEMA_EXECUTOR,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=SONNET_POLICY,
@@ -205,6 +296,7 @@ class LoopUntilDoneWorkflow:
                 user_prompt_path=reviewer_prompt_path,
                 max_tokens=128000,
                 tools_needed=False,
+                output_schema=_SCHEMA_REVIEWER,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -243,12 +335,15 @@ async def _run_verifier(
             user_prompt_path=verifier_prompt_path,
             max_tokens=128000,
             tools_needed=False,
+            output_schema=_SCHEMA_VERIFIER,
         ),
         start_to_close_timeout=timedelta(seconds=600),
         retry_policy=HAIKU_POLICY,
     )
     verified_raw = result.get("VERIFIED", "false")
-    return verified_raw.strip().lower() == "true"
+    if isinstance(verified_raw, bool):
+        return verified_raw
+    return str(verified_raw).strip().lower() == "true"
 
 
 async def _write_summary_and_emit(
@@ -363,21 +458,25 @@ def _build_summary(task: str, stories: list[dict[str, object]], verdict: str) ->
 # --- JSON helpers ---
 
 
-def _parse_stories(raw: str) -> list[dict[str, object]]:
+def _parse_stories(raw: str | list) -> list[dict[str, object]]:
+    if isinstance(raw, list):
+        return [s for s in raw if isinstance(s, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [s for s in parsed if isinstance(s, dict)]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []
 
 
-def _parse_verdicts(raw: str) -> list[dict[str, object]]:
+def _parse_verdicts(raw: str | list) -> list[dict[str, object]]:
+    if isinstance(raw, list):
+        return [v for v in raw if isinstance(v, dict)]
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [v for v in parsed if isinstance(v, dict)]
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         pass
     return []

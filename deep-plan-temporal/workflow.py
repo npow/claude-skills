@@ -44,6 +44,54 @@ with workflow.unsafe.imports_passed_through():
     from sagaflow.durable.retry_policies import HAIKU_POLICY
 
 # ---------------------------------------------------------------------------
+# Structured-output JSON schemas (Anthropic structured output)
+# ---------------------------------------------------------------------------
+
+_SCHEMA_PLANNER: dict = {
+    "type": "object",
+    "properties": {
+        "PLAN": {"type": "string"},
+        "ACCEPTANCE_CRITERIA": {"type": "string"},
+        "PREMORTEM": {"type": "string"},
+    },
+    "required": ["PLAN", "ACCEPTANCE_CRITERIA", "PREMORTEM"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_ARCHITECT: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT": {"type": "string"},
+        "CONCERN": {"type": "string"},
+        "CONCERN_SEVERITY": {"type": "string"},
+        "TRADEOFF": {"type": "string"},
+        "PRINCIPLE_VIOLATION": {"type": "string"},
+    },
+    "required": ["VERDICT", "CONCERN", "CONCERN_SEVERITY", "TRADEOFF", "PRINCIPLE_VIOLATION"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_CRITIC: dict = {
+    "type": "object",
+    "properties": {
+        "VERDICT": {"type": "string"},
+        "REJECTION": {"type": "string"},
+        "DETAILS": {"type": "string"},
+    },
+    "required": ["VERDICT", "REJECTION", "DETAILS"],
+    "additionalProperties": False,
+}
+
+_SCHEMA_ADR: dict = {
+    "type": "object",
+    "properties": {
+        "ADR": {"type": "string"},
+    },
+    "required": ["ADR"],
+    "additionalProperties": False,
+}
+
+# ---------------------------------------------------------------------------
 # High-risk signal patterns that auto-enable deliberate mode
 # ---------------------------------------------------------------------------
 _HIGH_RISK_PATTERNS = re.compile(
@@ -167,6 +215,7 @@ class DeepPlanWorkflow:
                 max_tokens=128000,
                 reg_spawn=_reg_spawn,
                 reg_unparseable=_reg_unparseable,
+                output_schema=_SCHEMA_PLANNER,
             )
             if planner_result is None:
                 _set_terminal(planner_label)
@@ -191,6 +240,7 @@ class DeepPlanWorkflow:
                 max_tokens=128000,
                 reg_spawn=_reg_spawn,
                 reg_unparseable=_reg_unparseable,
+                output_schema=_SCHEMA_ARCHITECT,
             )
             if architect_result is None:
                 _set_terminal(architect_label)
@@ -236,6 +286,7 @@ class DeepPlanWorkflow:
                 max_tokens=128000,
                 reg_spawn=_reg_spawn,
                 reg_unparseable=_reg_unparseable,
+                output_schema=_SCHEMA_CRITIC,
             )
             if critic_result is None:
                 _set_terminal(critic_label)
@@ -350,6 +401,7 @@ class DeepPlanWorkflow:
             reg_spawn=_reg_spawn,
             reg_unparseable=_reg_unparseable,
             override_prompt_path=adr_prompt_path,
+            output_schema=_SCHEMA_ADR,
         )
         if adr_result is None:
             _set_terminal("adr_scribe_failed")
@@ -405,6 +457,7 @@ async def _spawn_with_retry(
     reg_spawn,
     reg_unparseable,
     override_prompt_path: str | None = None,
+    output_schema: dict | None = None,
 ) -> tuple[dict[str, str] | None, str]:
     """Attempt to spawn a subagent up to _MAX_ROLE_RETRIES times.
 
@@ -433,6 +486,7 @@ async def _spawn_with_retry(
                     user_prompt_path=prompt_path,
                     max_tokens=max_tokens,
                     tools_needed=False,
+                    output_schema=output_schema,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
                 retry_policy=HAIKU_POLICY,
