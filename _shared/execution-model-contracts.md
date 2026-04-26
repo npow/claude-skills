@@ -1,6 +1,6 @@
 # Execution-Model Contracts (Shared)
 
-Four contracts that every parallel-critic / independent-judge skill in this repo enforces. Written once here; each skill's SKILL.md references this file rather than re-stating the contracts verbatim.
+Five contracts that every parallel-critic / independent-judge skill in this repo enforces. Written once here; each skill's SKILL.md references this file rather than re-stating the contracts verbatim.
 
 **Used by:** deep-qa, deep-design, deep-debug, deep-research, proposal-reviewer, deep-plan, team, autopilot, loop-until-done.
 
@@ -112,10 +112,40 @@ An unparseable output means the agent might have failed to understand the task. 
 
 ---
 
+## 5. Coverage Completeness Invariant
+
+**Contract:** when a skill defines required coverage categories (e.g., deep-design's 5 required dimension categories, deep-qa's defect categories), ALL required categories MUST have `explored_count >= 1` before the coordinator may proceed to final synthesis. This is a hard gate — not a quality judgment, not a "nice to have," not something the coordinator can waive.
+
+**What the coordinator MUST do when categories are uncovered:**
+- Run coverage extension rounds targeting uncovered categories (up to the skill's defined extension limit)
+- If extensions are exhausted and gaps remain: label the output `INCOMPLETE — uncovered: {list}`
+- If the execution environment has context constraints: use sagaflow durable execution instead of skipping coverage
+
+**What the coordinator MUST NOT do:**
+- Proceed to synthesis with uncovered categories and a "Conditions Met" or equivalent label
+- Note uncovered categories in a coverage report while presenting the output as complete work
+- Cite context constraints, tooling limitations, or time pressure as reasons to skip required coverage
+- Unilaterally decide that an uncovered category "isn't relevant to this concept"
+
+**Why this is a shared contract:** every parallel-critic skill has the same failure mode — the coordinator runs out of context or patience, declares the work done, and lists the gaps as if noting them is equivalent to closing them. This contract makes the gate explicit: coverage categories are structural requirements, not aspirational targets.
+
+**Verification pattern:**
+```python
+for category in required_categories:
+    assert state.categories[category].explored_count >= 1, \
+        f"INCOMPLETE: {category} has zero explored angles"
+# Only after ALL pass: proceed to synthesis
+```
+
+**Common failure mode:** "I covered the 3 most important categories and noted the other 2 as gaps." The user asked for all 5. Noting gaps while declaring completion is the bug, not the mitigation.
+
+---
+
 ## Integration checklist for a skill importing this reference
 
 - [ ] SKILL.md has a one-line cross-reference near the Execution Model section: `See [_shared/execution-model-contracts.md](../_shared/execution-model-contracts.md) for the shared contracts.`
-- [ ] If the skill restates any of the 4 contracts inline, either delete the duplicate OR mark it as "elaborated for this skill's domain" with explicit divergence noted.
+- [ ] If the skill restates any of the 5 contracts inline, either delete the duplicate OR mark it as "elaborated for this skill's domain" with explicit divergence noted.
+- [ ] If the skill defines required coverage categories, verify they are enforced by Contract 5 (coverage completeness invariant) — the coordinator MUST NOT proceed to synthesis with uncovered categories.
 - [ ] Skill-specific extensions (e.g., "files must use the `{run_id}/angles/` directory") go in the skill's own SKILL.md, not in this shared reference.
 - [ ] The skill's self-review checklist references these contracts by name so it's clear which items are inherited from the shared spec vs. skill-specific.
 

@@ -18,8 +18,9 @@ All operations use Claude Code primitives. The following contracts are non-negot
 - **Structured output is the contract; free-text is ignored.** Every judge and checker produces machine-parseable structured lines as the final lines of output. Coordinator reads only structured fields. Unparseable output triggers fail-safe classification (critical or conflict). Critic output files MUST contain `STRUCTURED_OUTPUT_START`/`STRUCTURED_OUTPUT_END` markers; files without these markers are treated as failed (not partially consumed).
 - **No coordinator self-review of anything load-bearing.** Fact sheets, severity classifications, cross-fix checks, form-switch dedup, section-impact scores — all delegated to independent agents. The coordinator orchestrates; it does not evaluate.
 - **Termination labels are honest.** "Conditions Met" or "Max Rounds Reached" — never "no critical flaws remain." Coverage fraction includes the denominator caveat. Unverified sections are listed explicitly.
+- **Coverage completeness is a hard invariant — not a judgment call.** All 5 required dimension categories (correctness, usability_ux, economics_cost, operability, security_trust) MUST have `explored_count >= 1` before any run (in-session or sagaflow) can proceed to final synthesis. If a category has zero explored angles, the coordinator MUST spawn critics targeting that category — not skip it, not label it "out of scope," not cite context constraints. "Context is running low" is NOT a valid reason to skip required categories; the coordinator MUST either (a) use sagaflow durable execution to avoid context limits, (b) run coverage extension rounds, or (c) label the run `INCOMPLETE — uncovered: {list}` and refuse to present it as finished work. A run that declares completion while listing known uncovered categories is a protocol violation, not a judgment call.
 
-**Shared contracts:** this skill inherits the four execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
+**Shared contracts:** this skill inherits the five execution-model contracts (files-not-inline, state-before-agent-spawn, structured-output, independence-invariant, coverage-completeness) from [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md). The items listed above are the skill-specific elaborations; the shared file is authoritative for the base contracts.
 
 **Cross-finding coherence:** this skill applies the coherence-integrator pattern from [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md) at Step 5, after all critics complete and BEFORE severity judges are spawned. The integrator reads all deduped critic output files simultaneously and annotates each flaw with cross-finding relationships (contradictions, emergent patterns, coverage gaps). These annotations are included in judge input files so judges see the cross-finding context when classifying severity.
 
@@ -291,6 +292,26 @@ The "INCOMPLETE" label is a hard signal that the output has known gaps. It appea
 Note: "no major flaws unfixed" is tracked as a quality metric but is NOT a hard termination gate — major flaws may be accepted with rationale.
 
 Note: "frontier empty" is NOT a termination condition. The frontier fill rate (up to +8 angles/round with outside-frame critic) exceeds drain rate (6/round) in most domains, making an empty frontier structurally unreachable under normal operation.
+
+### Step 7b: Pre-Synthesis Verification Gate (mandatory)
+
+Before proceeding to final synthesis, the coordinator MUST programmatically verify coverage completeness. This is not optional — it fires on every run, in-session and sagaflow alike.
+
+**Verification checks (all must pass):**
+1. For each of the 5 required categories: `explored_count >= 1` in the exhaustion map
+2. No critical flaws with status `open` (flaws in `persistent_tension` or `pending_user_acknowledgment` are excluded)
+3. State file exists and is parseable
+
+**If any check fails:**
+- Categories with `explored_count == 0` → run coverage extension (up to 2 rounds, 1 critic per uncovered category)
+- After extension: re-check. If gaps remain → label `INCOMPLETE — uncovered: {list}` and include the label prominently in the final spec header
+- The coordinator MUST NOT proceed to Step 8 with a "Conditions Met" or "Max Rounds Reached" label while required categories are uncovered. The only valid labels for incomplete runs are `INCOMPLETE — uncovered: {list}`
+
+**What is NOT a valid reason to skip this gate:**
+- "Context window is running low" → use sagaflow durable execution or label INCOMPLETE
+- "The spec is already good enough" → coverage completeness is structural, not qualitative
+- "The uncovered categories aren't relevant to this concept" → the categories are required by the protocol, not by the coordinator's judgment of relevance
+- "I'll note the gaps in the coverage report" → noting gaps while declaring completion IS the bug this gate prevents
 
 ### Step 8: Final Spec
 
