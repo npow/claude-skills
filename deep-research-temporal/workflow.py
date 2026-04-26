@@ -81,7 +81,12 @@ class DeepResearchWorkflow:
         report_path = f"{run_dir}/research-report.md"
         findings_dir = f"{run_dir}/deep-research-findings"
         progress_path = f"{run_dir}/progress.json"
+        seed_path = f"{run_dir}/seed-topic.md"
         abs_cap = inp.max_rounds * 3
+
+        # Write seed to a separate file — agents read it via tools.
+        # Follows files-not-inline contract from _shared/execution-model-contracts.md.
+        await _write(seed_path, inp.seed)
 
         progress: dict = {
             "phase": "starting",
@@ -108,7 +113,8 @@ class DeepResearchWorkflow:
         # ------------------------------------------------------------------ #
         lang_prompt_path = f"{run_dir}/lang-locus-prompt.txt"
         await _write(lang_prompt_path,
-            f"Seed: {inp.seed}\n\n"
+            f"Research topic file: {seed_path}\n"
+            "Read the file above for the full research topic.\n\n"
             "Identify 1-4 authoritative languages for this topic.\n"
             "Output STRICT JSON:\n"
             '{"authoritative_languages": ["en"], '
@@ -129,7 +135,7 @@ class DeepResearchWorkflow:
             ),
             prompt_path=lang_prompt_path,
             max_tokens=128000,
-            tools_needed=False,
+            tools_needed=True,
         )
         raw_langs = lang_result.get("AUTHORITATIVE_LANGUAGES", '["en"]')
         try:
@@ -146,7 +152,8 @@ class DeepResearchWorkflow:
         # ------------------------------------------------------------------ #
         novelty_prompt_path = f"{run_dir}/novelty-prompt.txt"
         await _write(novelty_prompt_path,
-            f'Topic: "{inp.seed}"\n\n'
+            f"Research topic file: {seed_path}\n"
+            "Read the file above for the full research topic.\n\n"
             "List up to 5 specific sources you recall from memory. Do NOT WebSearch.\n"
             "Output STRICT JSON with recalled_sources and topic_novelty "
             "(familiar|emerging|novel|cold_start).\n"
@@ -215,7 +222,8 @@ class DeepResearchWorkflow:
         if state.topic_novelty in ("novel", "cold_start"):
             vocab_prompt_path = f"{run_dir}/vocab-bootstrap-prompt.txt"
             await _write(vocab_prompt_path,
-                f'Topic: "{inp.seed}"\n\n'
+                f"Research topic file: {seed_path}\n"
+                "Read the file above for the full research topic.\n\n"
                 "Build domain vocabulary using Wikipedia WebFetch.\n"
                 "1. WebFetch Wikipedia opensearch API for this topic.\n"
                 "2. WebFetch top-3 Wikipedia articles.\n"
@@ -272,7 +280,7 @@ class DeepResearchWorkflow:
                 "Use canonical_terms in your direction questions.\n"
             )
         await _write(dim_prompt_path,
-            f"Seed: {inp.seed}\n{vocab_hint}\n"
+            f"Research topic file: {seed_path}\n{vocab_hint}\n"
             f"Generate {inp.max_directions} research directions across dimensions "
             f"(WHO/WHAT/HOW/WHERE/WHEN/WHY/LIMITS).\n"
             "REQUIRED: also include at least one direction each for these cross-cutting "
@@ -342,7 +350,7 @@ class DeepResearchWorkflow:
                     if state.vocab_bootstrap_path else ""
                 )
                 await _write(p,
-                    f"Seed: {inp.seed}\n"
+                    f"Research topic file: {seed_path}\n"
                     f"Direction ({d.dimension}): {d.question}\n"
                     f"Priority: {d.priority}\n"
                     f"{vocab_section}\n"
@@ -538,7 +546,7 @@ class DeepResearchWorkflow:
                 for f in round_findings
             )
             await _write(expand_prompt_path,
-                f"Seed: {inp.seed}\n\n"
+                f"Research topic file: {seed_path}\n\n"
                 f"Round {round_num} just completed. Findings summary:\n{findings_summary}\n\n"
                 f"Already explored ({len(explored_questions)} directions):\n"
                 + "\n".join(f"- {q}" for q in list(explored_questions)[:30]) + "\n\n"
@@ -627,7 +635,7 @@ class DeepResearchWorkflow:
             sample = _risk_stratified_sample(all_claims, budget=len(all_claims))
             verify_prompt_path = f"{run_dir}/verifier-prompt.txt"
             await _write(verify_prompt_path,
-                f"Seed: {inp.seed}\n\n"
+                f"Research topic file: {seed_path}\n\n"
                 "Risk-stratified claim sample to verify:\n"
                 f"{json.dumps(sample, indent=2)}\n\n"
                 "For each claim:\n"
@@ -687,7 +695,7 @@ class DeepResearchWorkflow:
 
         synth_prompt_path = f"{run_dir}/synth-prompt.txt"
         await _write(synth_prompt_path,
-            f"Seed: {inp.seed}\n\n"
+            f"Research topic file: {seed_path}\n\n"
             f"Termination: {state.termination_label}\n\n"
             f"Findings ({len(all_findings)} directions):\n"
             f"{json.dumps(all_findings, indent=2)}\n\n"

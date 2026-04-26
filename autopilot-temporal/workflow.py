@@ -113,6 +113,14 @@ class AutopilotWorkflow:
             budget_used += cost
             return True
 
+        idea_path = f"{run_dir}/idea.md"
+        await workflow.execute_activity(
+            "write_artifact",
+            WriteArtifactInput(path=idea_path, content=inp.initial_idea),
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=HAIKU_POLICY,
+        )
+
         # ------------------------------------------------------------------
         # Phase 1: expand — ambiguity + spec draft
         # ------------------------------------------------------------------
@@ -126,8 +134,9 @@ class AutopilotWorkflow:
                 "CONCRETE_ANCHORS|<int>\n"
                 "ROUTED_TO|spec|deep-interview|deep-design\n"
                 "STRUCTURED_OUTPUT_END",
-                f"Idea: {inp.initial_idea}",
+                f"Idea file: {idea_path}\nRead the file above for the full idea.",
                 max_tokens=128000,
+                tools_needed=True,
             )
             ambiguity_class = ambiguity.get("AMBIGUITY_CLASS", "medium")
             routed_to = ambiguity.get("ROUTED_TO", "spec")
@@ -138,10 +147,13 @@ class AutopilotWorkflow:
                 "STRUCTURED_OUTPUT_START\n"
                 "SPEC|<markdown>\n"
                 "STRUCTURED_OUTPUT_END",
-                f"Idea: {inp.initial_idea}\n\nAmbiguity: {ambiguity_class}\n"
+                f"Idea file: {idea_path}\n"
+                f"Read the file above for the full idea.\n\n"
+                f"Ambiguity: {ambiguity_class}\n"
                 f"Routed to: {routed_to}\n\n"
                 "Draft a 1-2 page spec: goal, non-goals, success criteria, constraints.",
                 max_tokens=128000,
+                tools_needed=True,
             )
             spec_markdown = spec_result.get("SPEC", "")
             if not spec_markdown:
@@ -320,9 +332,11 @@ class AutopilotWorkflow:
                         "DIMENSION|correctness|security|quality\n"
                         "STRUCTURED_OUTPUT_END",
                         f"Evidence:\n{json.dumps(phase_evidence, indent=2)}\n\n"
-                        f"Original idea: {inp.initial_idea}\n"
+                        f"Original idea file: {idea_path}\n"
+                        f"Read the file above for the full original idea.\n"
                         f"Round: {validate_round}",
                         max_tokens=128000,
+                        tools_needed=True,
                     ))
                 results = await asyncio.gather(*judge_coros, return_exceptions=True)
                 judge_verdicts = []
@@ -461,6 +475,7 @@ async def _spawn(
     system_prompt: str,
     user_prompt: str,
     max_tokens: int,
+    tools_needed: bool = False,
 ) -> dict[str, str]:
     """Spawn a direct subagent (used for expand + per-round judges)."""
     prompt_path = f"{run_dir}/{role}-prompt.txt"
@@ -479,7 +494,7 @@ async def _spawn(
             system_prompt=system_prompt,
             user_prompt_path=prompt_path,
             max_tokens=max_tokens,
-            tools_needed=False,
+            tools_needed=tools_needed,
         ),
         start_to_close_timeout=timedelta(seconds=600),
         retry_policy=policy,

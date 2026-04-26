@@ -100,6 +100,9 @@ class TeamWorkflow:
         # Compute task SHA-256 once; guards against resume tampering.
         task_sha = _sha256(inp.task)
 
+        task_path = f"{run_dir}/task.md"
+        await _write(run_dir, task_path, inp.task)
+
         # ---------------------------------------------------------------
         # Stage 1: team-plan
         # ---------------------------------------------------------------
@@ -111,9 +114,11 @@ class TeamWorkflow:
             "STRUCTURED_OUTPUT_START\n"
             "CODEBASE_SUMMARY|<1-3 sentence description of structure and relevant prior art>\n"
             "STRUCTURED_OUTPUT_END",
-            f"Task: {inp.task}\n\nIdentify relevant files, modules, and prior art.",
+            f"Task file: {task_path}\nRead the file above for the full task.\n\n"
+            "Identify relevant files, modules, and prior art.",
             max_tokens=128000,
             out_path=codebase_ctx_path,
+            tools_needed=True,
         )
 
         # Step 1b: planner (Opus) with rework loop driven by plan-validator
@@ -136,9 +141,11 @@ class TeamWorkflow:
                 "SUBTASKS|<json array of {id, title, description, files_likely_touched}>\n"
                 "PLAN_SUMMARY|<1 sentence>\n"
                 "STRUCTURED_OUTPUT_END",
-                f"Codebase context: {codebase_ctx_path}\n\nTask: {inp.task}{rework_note}",
+                f"Codebase context: {codebase_ctx_path}\n\n"
+                f"Task file: {task_path}\nRead the file above for the full task.\n{rework_note}",
                 max_tokens=128000,
                 out_path=plan_path,
+                tools_needed=True,
             )
 
             # Step 1c: plan-validator (independent Opus)
@@ -152,9 +159,10 @@ class TeamWorkflow:
                 "ISSUE|<severity>|<description>  (repeat for each issue, omit if none)\n"
                 "MISSING_FIELD|<field>  (repeat for each, omit if none)\n"
                 "STRUCTURED_OUTPUT_END",
-                f"Plan file: {plan_path}\n\nTask: {inp.task}",
+                f"Plan file: {plan_path}\n\nTask file: {task_path}\nRead the file above for the full task.",
                 max_tokens=128000,
                 out_path=plan_verdict_path,
+                tools_needed=True,
             )
 
             if _get_verdict(validator_reasons_out) == "approved":
@@ -213,9 +221,10 @@ class TeamWorkflow:
                 "STRUCTURED_OUTPUT_START\n"
                 "ACCEPTANCE_CRITERIA|<json array of {id, statement, verification_command, expected_output_pattern}>\n"
                 "STRUCTURED_OUTPUT_END",
-                f"Plan: {plan_path}\n\nTask: {inp.task}{rework_note}",
+                f"Plan: {plan_path}\n\nTask file: {task_path}\nRead the file above for the full task.\n{rework_note}",
                 max_tokens=128000,
                 out_path=curr_prd_path,
+                tools_needed=True,
             )
 
             # Independent critic
@@ -227,9 +236,10 @@ class TeamWorkflow:
                 "CRITICAL_COUNT|<N>\n"
                 "CONCERNS|<json array of {id, severity, description}>\n"
                 "STRUCTURED_OUTPUT_END",
-                f"PRD: {curr_prd_path}\n\nTask: {inp.task}",
+                f"PRD: {curr_prd_path}\n\nTask file: {task_path}\nRead the file above for the full task.",
                 max_tokens=128000,
                 out_path=critique_path,
+                tools_needed=True,
             )
 
             # Falsifiability judge (independent)
@@ -635,6 +645,7 @@ async def _spawn_write(
     max_tokens: int,
     out_path: str,
     role_suffix: str = "",
+    tools_needed: bool = False,
 ) -> dict[str, str]:
     """Write prompt file, call spawn_subagent, write output to out_path, return parsed dict."""
     prompt_path = f"{run_dir}/{role}{role_suffix}-prompt.txt"
@@ -656,7 +667,7 @@ async def _spawn_write(
             system_prompt=system_prompt,
             user_prompt_path=prompt_path,
             max_tokens=max_tokens,
-            tools_needed=False,
+            tools_needed=tools_needed,
         ),
         start_to_close_timeout=timedelta(seconds=300),
         retry_policy=policy,

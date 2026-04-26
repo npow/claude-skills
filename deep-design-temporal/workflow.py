@@ -92,6 +92,13 @@ class DeepDesignWorkflow:
         )
         state.set_core_claim(inp.concept, calibrated=True)
         spec_path = f"{inp.run_dir}/spec.md"
+        concept_path = f"{inp.run_dir}/concept.md"
+        await workflow.execute_activity(
+            "write_artifact",
+            WriteArtifactInput(path=concept_path, content=inp.concept),
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=HAIKU_POLICY,
+        )
         max_rounds = max(1, min(inp.max_rounds, 5))
 
         # ------------------------------------------------------------------ #
@@ -171,7 +178,7 @@ class DeepDesignWorkflow:
                         path=ppath,
                         content=inp.critic_user_prompt or _critic_user_prompt(  # runtime-dynamic
                             spec_md=state.spec_draft,
-                            concept=inp.concept,
+                            concept_path=concept_path,
                             critic_index=i,
                         ),
                     ),
@@ -202,7 +209,7 @@ class DeepDesignWorkflow:
                         system_prompt=inp.critic_system_prompt,
                         user_prompt_path=ppath,
                         max_tokens=128000,
-                        tools_needed=False,
+                        tools_needed=True,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
                     retry_policy=HAIKU_POLICY,
@@ -619,7 +626,7 @@ class DeepDesignWorkflow:
             WriteArtifactInput(
                 path=synth_prompt_path,
                 content=inp.synth_user_prompt or _synth_user_prompt(  # runtime-dynamic
-                    concept=inp.concept,
+                    concept_path=concept_path,
                     spec_md=state.spec_draft,
                     flaws=[vars(f) for f in state.flaws],
                     termination_label=state.termination_label,
@@ -636,7 +643,7 @@ class DeepDesignWorkflow:
                 system_prompt=inp.synth_system_prompt,
                 user_prompt_path=synth_prompt_path,
                 max_tokens=128000,
-                tools_needed=False,
+                tools_needed=True,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
@@ -724,7 +731,7 @@ def _fact_sheet_user_prompt(spec_md: str) -> str:
 
 
 
-def _critic_user_prompt(spec_md: str, concept: str, critic_index: int) -> str:
+def _critic_user_prompt(spec_md: str, concept_path: str, critic_index: int) -> str:
     dimensions = [
         "correctness",
         "usability_ux",
@@ -735,7 +742,8 @@ def _critic_user_prompt(spec_md: str, concept: str, critic_index: int) -> str:
     ]
     focus = dimensions[critic_index % len(dimensions)]
     return (
-        f"Design concept: {concept}\n"
+        f"Design concept file: {concept_path}\n"
+        "Read the file above for the full design concept.\n"
         f"Your focus dimension: {focus}\n\n"
         "--- SPEC START ---\n"
         f"{spec_md[:20000]}\n"
@@ -875,13 +883,14 @@ def _drift_judge_user_prompt(
 
 
 def _synth_user_prompt(
-    concept: str,
+    concept_path: str,
     spec_md: str,
     flaws: "list[dict]",
     termination_label: str,
 ) -> str:
     return (
-        f"Original concept: {concept}\n"
+        f"Original concept file: {concept_path}\n"
+        "Read the file above for the full original concept.\n"
         f"Termination label: {termination_label}\n\n"
         "--- REFINED SPEC START ---\n"
         f"{spec_md[:20000]}\n"
