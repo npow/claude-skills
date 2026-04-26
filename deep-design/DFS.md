@@ -242,7 +242,18 @@ Note: "frontier empty" is no longer a termination condition. Under normal operat
 critics generating new angles, the frontier does not empty. Removing it as a condition
 makes termination honest about how the run actually ends.
 
-**Hard stop:** `max_rounds` (default 5) → label "Max Rounds Reached". Final spec MUST list unresolved flaws, uncovered dimensions, and open issues.
+**Hard stop:** `max_rounds` (default 5) → triggers **coverage extension** before labeling.
+
+**Coverage extension (mandatory at max_rounds):**
+If `required_categories_covered` has any category with `explored_count == 0` at max_rounds:
+1. Run up to 2 extension rounds targeting ONLY uncovered required categories
+2. Each extension spawns 1 critic per uncovered category (not full frontier drain)
+3. Mark category as covered on parseable critic output (regardless of flaw count)
+4. After extensions: all covered → "Max Rounds Reached"; gaps remain → "INCOMPLETE — uncovered: {list}"
+
+Extension rounds are automatic and non-optional. The "INCOMPLETE" label signals known gaps in coverage and the run must NOT be presented as finished work.
+
+Final spec MUST list unresolved flaws, uncovered dimensions, and open issues.
 
 ## Priority Ordering
 

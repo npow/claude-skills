@@ -95,6 +95,9 @@ class DeepDesignState(WorkflowState):
         }
     )
 
+    # Critic-discovered categories beyond the original 5 required
+    discovered_categories: list[str] = field(default_factory=list)
+
     # Spec state
     spec_draft: str = ""
 

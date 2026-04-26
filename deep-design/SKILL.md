@@ -275,7 +275,18 @@ See "Invariant-Validation Agent" section below. Violations block round advanceme
 2. No new DIMENSION CATEGORIES discovered by spec-derived critics for 2 consecutive rounds (outside-frame critic new-category discoveries do not reset this clock)
 3. No open critical flaws (excluding those tagged `accepted_with_tension` or in `pending_user_acknowledgment` state)
 
-**Hard stop:** `max_rounds` (default 5) → label "Max Rounds Reached"
+**Hard stop:** `max_rounds` (default 5) → triggers **coverage extension** before labeling.
+
+**Coverage extension (mandatory at max_rounds):**
+If any of the 5 required dimension categories have zero explored angles at max_rounds:
+1. Force up to 2 additional extension rounds, targeting ONLY uncovered required categories
+2. Each extension round spawns 1 critic per uncovered category (not the full frontier)
+3. Extension critics follow the same quorum, judge, and redesign pipeline as regular critics
+4. Mark category as covered on parseable critic output (regardless of flaw count — a critic that runs and finds nothing still explored the dimension)
+5. After extension rounds complete: if all required categories now have ≥ 1 explored angle → label "Max Rounds Reached"; if gaps remain → label "INCOMPLETE — uncovered: {list}"
+6. Extension rounds are NOT optional — they fire automatically when coverage is incomplete
+
+The "INCOMPLETE" label is a hard signal that the output has known gaps. It appears in the coverage report and final spec header. Runs labeled "INCOMPLETE" must NOT be presented as finished work.
 
 Note: "no major flaws unfixed" is tracked as a quality metric but is NOT a hard termination gate — major flaws may be accepted with rationale.
 

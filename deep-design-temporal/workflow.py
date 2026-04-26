@@ -247,6 +247,17 @@ class DeepDesignWorkflow:
             )
             quorum_met = parseable_count >= _QUORUM_THRESHOLD
 
+            # Mark required categories as covered based on successful critics.
+            _CRITIC_DIMS = [
+                "correctness", "usability_ux", "economics_cost",
+                "operability", "security_trust", "scalability and performance",
+            ]
+            for i, result in enumerate(spec_critic_results):
+                if not isinstance(result, BaseException):
+                    dim = _CRITIC_DIMS[i % len(_CRITIC_DIMS)]
+                    if dim in state.required_categories_covered:
+                        state.required_categories_covered[dim] = True
+
             # Collect new flaws from all critics.
             round_flaws: list[Flaw] = []
             existing_flaw_ids = {f.id for f in state.flaws}
@@ -618,6 +629,91 @@ class DeepDesignWorkflow:
             state.termination_label = "Max Rounds Reached"
 
         # ------------------------------------------------------------------ #
+        # Phase c.5: coverage extension (gap-closing for uncovered categories) #
+        # ------------------------------------------------------------------ #
+        # If required categories remain uncovered at max_rounds, force up to 2
+        # extension rounds targeting ONLY uncovered categories before synthesis.
+        _MAX_EXTENSION_ROUNDS = 2
+        for ext_idx in range(_MAX_EXTENSION_ROUNDS):
+            uncovered = [
+                cat for cat, covered in state.required_categories_covered.items()
+                if not covered
+            ]
+            if not uncovered:
+                break
+
+            ext_round = max_rounds + ext_idx
+            state.current_round = ext_round
+            ext_existing_ids = {f.id for f in state.flaws}
+
+            ext_prompt_paths: list[tuple[str, str]] = []
+            for cat in uncovered:
+                ppath = f"{inp.run_dir}/ext-critic-r{ext_round}-{cat}.txt"
+                await workflow.execute_activity(
+                    "write_artifact",
+                    WriteArtifactInput(
+                        path=ppath,
+                        content=_critic_user_prompt(
+                            spec_md=state.spec_draft,
+                            concept_path=concept_path,
+                            critic_index=0,
+                            focus_override=cat,
+                        ),
+                    ),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=HAIKU_POLICY,
+                )
+                ext_prompt_paths.append((ppath, cat))
+
+            ext_coros = [
+                workflow.execute_activity(
+                    "spawn_subagent",
+                    SpawnSubagentInput(
+                        role="critic",
+                        tier_name="HAIKU",
+                        system_prompt=inp.critic_system_prompt,
+                        user_prompt_path=ppath,
+                        max_tokens=128000,
+                        tools_needed=True,
+                    ),
+                    start_to_close_timeout=timedelta(seconds=600),
+                    retry_policy=HAIKU_POLICY,
+                )
+                for ppath, _ in ext_prompt_paths
+            ]
+
+            ext_results = await asyncio.gather(
+                *ext_coros, return_exceptions=True
+            )
+
+            for (_, cat), result in zip(ext_prompt_paths, ext_results):
+                if not isinstance(result, BaseException):
+                    state.required_categories_covered[cat] = True
+                    for raw_flaw in _parse_flaws(result.get("FLAWS", "[]")):
+                        fid = raw_flaw.get("id", "")
+                        if fid and fid not in ext_existing_ids:
+                            ext_existing_ids.add(fid)
+                            state.flaws.append(
+                                Flaw(
+                                    id=fid,
+                                    title=raw_flaw.get("title", ""),
+                                    severity=raw_flaw.get("severity", "minor"),  # type: ignore[arg-type]
+                                    dimension=raw_flaw.get("dimension", ""),
+                                    scenario=raw_flaw.get("scenario", ""),
+                                )
+                            )
+
+        # Update label if gaps remain after extension.
+        still_uncovered = [
+            cat for cat, covered in state.required_categories_covered.items()
+            if not covered
+        ]
+        if still_uncovered:
+            state.termination_label = (
+                "INCOMPLETE — uncovered: " + ", ".join(still_uncovered)
+            )
+
+        # ------------------------------------------------------------------ #
         # Phase d: final synthesis                                             #
         # ------------------------------------------------------------------ #
         synth_prompt_path = f"{inp.run_dir}/synth-prompt.txt"
@@ -731,7 +827,7 @@ def _fact_sheet_user_prompt(spec_md: str) -> str:
 
 
 
-def _critic_user_prompt(spec_md: str, concept_path: str, critic_index: int) -> str:
+def _critic_user_prompt(spec_md: str, concept_path: str, critic_index: int, focus_override: str | None = None) -> str:
     dimensions = [
         "correctness",
         "usability_ux",
@@ -740,7 +836,7 @@ def _critic_user_prompt(spec_md: str, concept_path: str, critic_index: int) -> s
         "security_trust",
         "scalability and performance",
     ]
-    focus = dimensions[critic_index % len(dimensions)]
+    focus = focus_override or dimensions[critic_index % len(dimensions)]
     return (
         f"Design concept file: {concept_path}\n"
         "Read the file above for the full design concept.\n"
