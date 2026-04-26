@@ -127,7 +127,7 @@ class AutopilotWorkflow:
                 "ROUTED_TO|spec|deep-interview|deep-design\n"
                 "STRUCTURED_OUTPUT_END",
                 f"Idea: {inp.initial_idea}",
-                max_tokens=512,
+                max_tokens=128000,
             )
             ambiguity_class = ambiguity.get("AMBIGUITY_CLASS", "medium")
             routed_to = ambiguity.get("ROUTED_TO", "spec")
@@ -141,7 +141,7 @@ class AutopilotWorkflow:
                 f"Idea: {inp.initial_idea}\n\nAmbiguity: {ambiguity_class}\n"
                 f"Routed to: {routed_to}\n\n"
                 "Draft a 1-2 page spec: goal, non-goals, success criteria, constraints.",
-                max_tokens=2048,
+                max_tokens=128000,
             )
             spec_markdown = spec_result.get("SPEC", "")
             if not spec_markdown:
@@ -322,7 +322,7 @@ class AutopilotWorkflow:
                         f"Evidence:\n{json.dumps(phase_evidence, indent=2)}\n\n"
                         f"Original idea: {inp.initial_idea}\n"
                         f"Round: {validate_round}",
-                        max_tokens=512,
+                        max_tokens=128000,
                     ))
                 results = await asyncio.gather(*judge_coros, return_exceptions=True)
                 judge_verdicts = []

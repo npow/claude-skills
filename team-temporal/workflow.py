@@ -112,7 +112,7 @@ class TeamWorkflow:
             "CODEBASE_SUMMARY|<1-3 sentence description of structure and relevant prior art>\n"
             "STRUCTURED_OUTPUT_END",
             f"Task: {inp.task}\n\nIdentify relevant files, modules, and prior art.",
-            max_tokens=512,
+            max_tokens=128000,
             out_path=codebase_ctx_path,
         )
 
@@ -137,7 +137,7 @@ class TeamWorkflow:
                 "PLAN_SUMMARY|<1 sentence>\n"
                 "STRUCTURED_OUTPUT_END",
                 f"Codebase context: {codebase_ctx_path}\n\nTask: {inp.task}{rework_note}",
-                max_tokens=1024,
+                max_tokens=128000,
                 out_path=plan_path,
             )
 
@@ -153,7 +153,7 @@ class TeamWorkflow:
                 "MISSING_FIELD|<field>  (repeat for each, omit if none)\n"
                 "STRUCTURED_OUTPUT_END",
                 f"Plan file: {plan_path}\n\nTask: {inp.task}",
-                max_tokens=512,
+                max_tokens=128000,
                 out_path=plan_verdict_path,
             )
 
@@ -214,7 +214,7 @@ class TeamWorkflow:
                 "ACCEPTANCE_CRITERIA|<json array of {id, statement, verification_command, expected_output_pattern}>\n"
                 "STRUCTURED_OUTPUT_END",
                 f"Plan: {plan_path}\n\nTask: {inp.task}{rework_note}",
-                max_tokens=1024,
+                max_tokens=128000,
                 out_path=curr_prd_path,
             )
 
@@ -228,7 +228,7 @@ class TeamWorkflow:
                 "CONCERNS|<json array of {id, severity, description}>\n"
                 "STRUCTURED_OUTPUT_END",
                 f"PRD: {curr_prd_path}\n\nTask: {inp.task}",
-                max_tokens=512,
+                max_tokens=128000,
                 out_path=critique_path,
             )
 
@@ -244,7 +244,7 @@ class TeamWorkflow:
                 "AC_VERDICT|<ac_id>|falsifiable|unfalsifiable  (one per AC)\n"
                 "STRUCTURED_OUTPUT_END",
                 f"PRD: {curr_prd_path}\n\nCritique: {critique_path}\n\nACs: {json.dumps(acceptance)}",
-                max_tokens=512,
+                max_tokens=128000,
                 out_path=falsifiability_path,
             )
 
@@ -307,7 +307,7 @@ class TeamWorkflow:
                     "TEST_EVIDENCE|<red/green/verify file paths>\n"
                     "STRUCTURED_OUTPUT_END",
                     f"Assignment: {assignment_path}",
-                    max_tokens=1024,
+                    max_tokens=128000,
                     out_path=f"{run_dir}/exec/worker-{wid}-output.md",
                     role_suffix=f"-{wid}",
                 )
@@ -323,7 +323,7 @@ class TeamWorkflow:
                     "DEFECTS|<json array of {id, severity, description}>\n"
                     "STRUCTURED_OUTPUT_END",
                     f"PRD: {prd_final_path}\n\nWorker output: {run_dir}/exec/worker-{wid}-output.md",
-                    max_tokens=512,
+                    max_tokens=128000,
                     out_path=f"{run_dir}/verify/per-worker/worker-{wid}-spec-compliance.md",
                     role_suffix=f"-{wid}",
                 )
@@ -341,7 +341,7 @@ class TeamWorkflow:
                     "STRUCTURED_OUTPUT_END",
                     f"Worker output: {run_dir}/exec/worker-{wid}-output.md\n\n"
                     f"Spec-compliance review: {run_dir}/verify/per-worker/worker-{wid}-spec-compliance.md",
-                    max_tokens=512,
+                    max_tokens=128000,
                     out_path=f"{run_dir}/verify/per-worker/worker-{wid}-code-quality.md",
                     role_suffix=f"-{wid}",
                 )
@@ -403,7 +403,7 @@ class TeamWorkflow:
             "DEFECTS|<json array of {id, severity, description}>\n"
             "STRUCTURED_OUTPUT_END",
             f"PRD: {prd_final_path}\n\nDiff: {diff_path}",
-            max_tokens=1024,
+            max_tokens=128000,
             out_path=spec_compliance_path,
         )
 
@@ -420,7 +420,7 @@ class TeamWorkflow:
             "QUALITY_DEFECTS|<json array of {id, severity, description}>\n"
             "STRUCTURED_OUTPUT_END",
             f"Diff: {diff_path}\n\nSpec compliance: {spec_compliance_path}",
-            max_tokens=1024,
+            max_tokens=128000,
             out_path=code_quality_path,
         )
 
@@ -438,7 +438,7 @@ class TeamWorkflow:
             "DEFECTS|<json array of {id, severity, description}>\n"
             "STRUCTURED_OUTPUT_END",
             f"Spec-compliance: {spec_compliance_path}\n\nCode-quality: {code_quality_path}",
-            max_tokens=512,
+            max_tokens=128000,
             out_path=verdict_path,
         )
 
@@ -486,7 +486,7 @@ class TeamWorkflow:
                     "NEW_DEFECT_INTRODUCED|none|<severity>|<description>\n"
                     "STRUCTURED_OUTPUT_END",
                     f"Work file: {work_path}",
-                    max_tokens=1024,
+                    max_tokens=128000,
                     out_path=f"{iter_dir}/defect-{did}-fix.md",
                     role_suffix=f"-iter{fix_iters}-{did}",
                 )
@@ -502,7 +502,7 @@ class TeamWorkflow:
                     "STRUCTURED_OUTPUT_END",
                     f"Defect: {json.dumps(defect)}\n\n"
                     f"Fix: {iter_dir}/defect-{did}-fix.md",
-                    max_tokens=512,
+                    max_tokens=128000,
                     out_path=f"{iter_dir}/defect-{did}-verdict.md",
                     role_suffix=f"-iter{fix_iters}-{did}",
                 )
@@ -550,7 +550,7 @@ class TeamWorkflow:
                 "DEFECTS|<json array of {id, severity, description}>\n"
                 "STRUCTURED_OUTPUT_END",
                 f"PRD: {prd_final_path}\n\nDiff: {diff_path}",
-                max_tokens=1024,
+                max_tokens=128000,
                 out_path=spec_compliance_path,
             )
 
@@ -562,7 +562,7 @@ class TeamWorkflow:
                 "QUALITY_DEFECTS|<json array of {id, severity, description}>\n"
                 "STRUCTURED_OUTPUT_END",
                 f"Diff: {diff_path}\n\nSpec compliance: {spec_compliance_path}",
-                max_tokens=1024,
+                max_tokens=128000,
                 out_path=code_quality_path,
             )
 
@@ -575,7 +575,7 @@ class TeamWorkflow:
                 "DEFECTS|<json array of {id, severity, description}>\n"
                 "STRUCTURED_OUTPUT_END",
                 f"Spec-compliance: {spec_compliance_path}\n\nCode-quality: {code_quality_path}",
-                max_tokens=512,
+                max_tokens=128000,
                 out_path=verdict_path,
             )
 

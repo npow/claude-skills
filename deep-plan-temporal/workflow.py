@@ -164,7 +164,7 @@ class DeepPlanWorkflow:
                     feedback=feedback_lines,
                 ),
                 system_prompt=inp.planner_system_prompt or _planner_system_prompt(mode=mode),  # mode-dependent
-                max_tokens=2048,
+                max_tokens=128000,
                 reg_spawn=_reg_spawn,
                 reg_unparseable=_reg_unparseable,
             )
@@ -188,7 +188,7 @@ class DeepPlanWorkflow:
                     mode=mode,
                 ),
                 system_prompt=inp.architect_system_prompt or _architect_system_prompt(mode=mode),  # mode-dependent
-                max_tokens=1024,
+                max_tokens=128000,
                 reg_spawn=_reg_spawn,
                 reg_unparseable=_reg_unparseable,
             )
@@ -233,7 +233,7 @@ class DeepPlanWorkflow:
                     mode=mode,
                 ),
                 system_prompt=inp.critic_system_prompt or _critic_system_prompt(mode=mode),  # mode-dependent
-                max_tokens=1024,
+                max_tokens=128000,
                 reg_spawn=_reg_spawn,
                 reg_unparseable=_reg_unparseable,
             )
@@ -346,7 +346,7 @@ class DeepPlanWorkflow:
             run_dir=inp.run_dir,
             prompt_content=None,  # already written above; use a sentinel
             system_prompt=inp.adr_system_prompt,
-            max_tokens=2048,
+            max_tokens=128000,
             reg_spawn=_reg_spawn,
             reg_unparseable=_reg_unparseable,
             override_prompt_path=adr_prompt_path,
