@@ -2,6 +2,14 @@
 name: slides
 description: Turns bullet points, research, or structured content into a browser-based Reveal.js slide deck. Use when the user asks to create slides, a presentation, a deck, a slideshow, or says "present this", "turn this into slides", "make a deck", or mentions keynote, powerpoint, or reveal.
 allowed-tools: Write, Edit, mcp__chrome-devtools__new_page, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__take_screenshot
+
+category: tool
+input_types: [git-diff, question]
+output_types: [presentation, code]
+complexity: moderate
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Slides

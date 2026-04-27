@@ -9,6 +9,15 @@ argument: |
     --diff [ref]                     QA a git diff instead of a full artifact;
                                      ref defaults to HEAD~1 (last commit);
                                      use HEAD~3, a SHA, or a branch name
+
+category: qa
+capabilities: [ensemble-judges, parallel-agents, defect-detection, severity-classification]
+input_types: [git-diff]
+output_types: [code]
+complexity: complex
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Deep QA Skill — Ensemble Variant v1

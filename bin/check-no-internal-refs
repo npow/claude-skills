@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# check-no-internal-refs — fail if any files contain Netflix-internal references.
+#
+# Usage:
+#   bin/check-no-internal-refs [file ...]
+#
+# With no arguments, checks all git-tracked files.
+# With arguments, checks only those files (used by pre-commit and CI).
+#
+# Exemption: append  # oss-ok  to a line to silence that specific match.
+
+set -euo pipefail
+
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# ---------------------------------------------------------------------------
+# Patterns — each is a grep -E extended-regex fragment.
+# Keep patterns as plain strings so they don't accidentally match themselves
+# in the grep invocation below (the heredoc approach avoids that).
+# ---------------------------------------------------------------------------
+mapfile -t PATTERNS <<'PATTERNS'
+netflix\.net
+netflix\.com
+genpop
+commuter\.dynprod
+scribe\.prod
+metatron
+meechum
+pandora
+netflix-ci-official
+netflix_search_api
+netflix_search_data
+netflix-dataoven
+TitusContainerRole
+rag-slack-prod
+nflx-
+PATTERNS
+
+# ---------------------------------------------------------------------------
+# Build file list
+# ---------------------------------------------------------------------------
+if [[ $# -gt 0 ]]; then
+    FILES=("$@")
+else
+    # All tracked files, resolved to absolute paths
+    mapfile -t FILES < <(
+        git -C "$REPO_ROOT" ls-files \
+            ':!:.git' \
+            ':!:docs/specs/' \
+            ':!:run_results/'
+    )
+    # Prepend repo root so paths are usable regardless of cwd
+    FILES=("${FILES[@]/#/$REPO_ROOT/}")
+fi
+
+# ---------------------------------------------------------------------------
+# Filter: drop non-existent files, this script itself, .github workflow files
+# that intentionally reference the script name, and directories.
+# ---------------------------------------------------------------------------
+FILTERED=()
+for f in "${FILES[@]}"; do
+    # Normalise to absolute path when a relative path was passed in
+    [[ "$f" = /* ]] || f="$REPO_ROOT/$f"
+    [[ -f "$f" ]] || continue
+    # Self-exemption: skip this script
+    [[ "$f" -ef "$SCRIPT_PATH" ]] && continue
+    # Skip the .github workflows directory (they reference this script by name)
+    [[ "$f" == */\.github/workflows/* ]] && continue
+    # Skip docs/specs and run_results even when passed explicitly
+    [[ "$f" == */docs/specs/* ]] && continue
+    [[ "$f" == */run_results/* ]] && continue
+    FILTERED+=("$f")
+done
+
+if [[ ${#FILTERED[@]} -eq 0 ]]; then
+    echo "check-no-internal-refs: no files to check"
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# Build a single combined pattern for one grep pass
+# ---------------------------------------------------------------------------
+COMBINED_PATTERN="$(IFS='|'; echo "${PATTERNS[*]}")"
+
+# ---------------------------------------------------------------------------
+# Grep and collect matches, filtering out lines with # oss-ok
+# ---------------------------------------------------------------------------
+FOUND=0
+
+while IFS= read -r match; do
+    # Strip the exemption marker lines
+    if [[ "$match" == *"# oss-ok"* ]]; then
+        continue
+    fi
+    echo "$match"
+    FOUND=1
+done < <(
+    grep -rn --with-filename -E "$COMBINED_PATTERN" "${FILTERED[@]}" 2>/dev/null || true
+)
+
+if [[ $FOUND -eq 1 ]]; then
+    echo ""
+    echo "ERROR: Netflix-internal references found. Remove them or add  # oss-ok  to exempt a line."
+    exit 1
+fi
+
+exit 0

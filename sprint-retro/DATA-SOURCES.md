@@ -27,7 +27,7 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 
 **Output per member:** PR count (merged/reviewed/open), notable PRs (title only, no diff content), review load distribution.
 
-## Source 2: Slack (rag-slack-prod, netflix_search_api)
+## Source 2: Slack (semantic search)
 
 **What to gather:**
 - Public channel discussions involving team members
@@ -35,8 +35,8 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 - Positive signals: kudos, thanks, celebrations
 
 **Search strategy:**
-1. Use `rag-slack-prod` with semantic queries: team member names + sprint-relevant topics ("deploy", "release", "incident", "blocked", "shipped", "launched")
-2. Use `netflix_search_api` with `sources: ["SLACK"]` for broader coverage
+1. Use a Slack semantic search tool with queries: team member names + sprint-relevant topics ("deploy", "release", "incident", "blocked", "shipped", "launched")
+2. Use a search API with Slack source for broader coverage if available
 3. For each result, check `channel_id` metadata
 
 **PRIVACY RULES (HARD):**
@@ -48,7 +48,7 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 
 **Output per member:** Key discussion topics, blockers raised, incidents handled, kudos received.
 
-## Source 3: Jira / Confluence (netflix_search_api)
+## Source 3: Jira / Confluence
 
 **What to gather:**
 - Tickets completed (status changed to Done/Closed in sprint window)
@@ -57,8 +57,8 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 - Sprint velocity if available
 
 **Search strategy:**
-1. Use `netflix_search_api` with `sources: ["JIRA"]` and team member names
-2. Use `netflix_search_api` with `sources: ["CONFLUENCE"]` for sprint docs, decision records
+1. Use a project search API with Jira source and team member names
+2. Use a project search API with Confluence source for sprint docs, decision records
 3. Search by project key if known, otherwise by assignee names
 
 **Privacy notes:** Jira tickets are generally team-visible. However:
@@ -67,7 +67,7 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 
 **Output:** Ticket counts by status, notable completions, blockers, velocity trends.
 
-## Source 4: Google Docs (netflix_search_api)
+## Source 4: Google Docs
 
 **What to gather:**
 - Sprint planning docs
@@ -75,7 +75,7 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 - Meeting notes (retro-relevant only)
 
 **Search strategy:**
-1. Use `netflix_search_api` with `sources: ["GOOGLE_DOCS"]` and sprint-related terms
+1. Use a document search API with Google Docs source and sprint-related terms
 2. Search for docs authored by team members in the sprint window
 
 **PRIVACY RULES (HARD):**
@@ -87,7 +87,7 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 
 **Output:** List of team-visible docs produced during sprint (title, author, type).
 
-## Source 5: CI/CD (Jenkins via netflix-ci-official, Spinnaker)
+## Source 5: CI/CD (Jenkins, Spinnaker)
 
 **What to gather:**
 - Build success/failure rates for team repos
@@ -95,7 +95,7 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 - Failed builds and their resolution time
 
 **Search strategy:**
-1. Use `mcp__netflix-ci-official__search_builds` filtered by team repos and sprint window
+1. Use a CI search API (e.g., `search_builds`) filtered by team repos and sprint window
 2. Check completion status distribution
 
 **Privacy notes:** CI data is team-visible. No special filtering needed.
@@ -127,9 +127,9 @@ When input is a Slack alias (starts with `@`):
 
 Fire both searches concurrently — don't wait for Pandora to fail before trying Slack:
 
-- `netflix_search_api(sources: ["PANDORA"], queryString: "{alias_without_@}")` — may match a team or org unit
-- `netflix_search_api(sources: ["SLACK"], queryString: "{alias_without_@}")` — find Slack mentions that list usergroup members
-- `rag-slack-prod(query_str: "{alias} members team")` — semantic search for membership context
+- Use a people directory API to search for the alias — may match a team or org unit
+- Search Slack for the alias to find mentions that list usergroup members
+- Use semantic search: `"{alias} members team"` — find membership context
 
 Slack usergroups (e.g. `@metaflow-dev-group`) are NOT indexed in Pandora — they're Slack-specific constructs. If Pandora returns nothing, use the Slack results to discover individual names from channel bot responses, thread authors, or group mentions.
 

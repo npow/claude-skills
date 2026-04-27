@@ -14,7 +14,7 @@ metadata_source: inferred
 
 # Weekly DORA-Lite Report
 
-Produce a weekly software delivery performance report using the four DORA metrics: Deployment Frequency, Lead Time for Changes, Change Failure Rate (CFR), and Failed Deployment Recovery Time (FDRT, formerly MTTR). Data comes from the Netflix Scribe DORA API with a Spinnaker-based fallback.
+Produce a weekly software delivery performance report using the four DORA metrics: Deployment Frequency, Lead Time for Changes, Change Failure Rate (CFR), and Failed Deployment Recovery Time (FDRT, formerly MTTR). Data comes from a configurable DORA metrics API with a Spinnaker-based fallback.
 
 **Important context (DORA 2025):** The Elite/High/Medium/Low performance tiers were RETIRED in DORA 2025. Do NOT classify teams into those buckets. Report raw numbers with period-over-period trends. If the reader wants a framework, reference the 7 team archetypes model from the 2024/2025 DORA reports, but do not assign an archetype — that requires a full survey, not just metrics.
 
@@ -28,7 +28,7 @@ Reads defaults from `~/.claude/skills/dora-lite-report/config.json` if it exists
   "period_days": 7,
   "comparison_periods": 2,
   "digest_channel": "#team-digests",
-  "scribe_base_url": "https://scribe.prod.netflix.net/api/v1/dora"
+  "scribe_base_url": "https://your-dora-api.example.com/api/v1/dora"
 }
 ```
 
@@ -42,7 +42,7 @@ Reads defaults from `~/.claude/skills/dora-lite-report/config.json` if it exists
 - **period_days**: reporting period length in days (default: 7)
 - **comparison_periods**: how many past periods to compare for trend (default: 2, meaning current vs previous)
 - **digest_channel**: Slack channel for posting (default: `#team-digests` — never a primary team channel)
-- **scribe_base_url**: Scribe DORA API base (default: `https://scribe.prod.netflix.net/api/v1/dora`)
+- **scribe_base_url**: DORA metrics API base URL
 
 ## Workflow
 
@@ -50,7 +50,7 @@ Reads defaults from `~/.claude/skills/dora-lite-report/config.json` if it exists
 
 1. **Fetch DORA metrics from Scribe.** For each app, attempt to call the Scribe DORA API:
    ```
-   curl -s --negotiate -u: "https://scribe.prod.netflix.net/api/v1/dora/metrics?app={app}&window=90d" \
+   curl -s "https://{scribe_base_url}/metrics?app={app}&window=90d" \
      -H "Accept: application/json"
    ```
    The Scribe API returns a 90-day trailing window by default. Extract:

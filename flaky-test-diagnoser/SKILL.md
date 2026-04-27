@@ -1,6 +1,44 @@
 ---
 name: flaky-test-diagnoser
 description: Systematically diagnoses why a test is flaky by running multi-run experiments, isolation tests, ordering permutations, and timing analysis. Use when the user says a test is flaky, intermittent, non-deterministic, randomly failing, passes sometimes, or asks to debug test flakiness.
+
+category: debug
+capabilities:
+  - hypothesis-testing
+  - root-cause-analysis
+  - backoff-retry
+best_for:
+  - "Diagnosing intermittent or flaky test failures"
+  - "Running multi-run experiments to isolate non-determinism"
+  - "Distinguishing ordering, timing, shared state, and resource leak causes"
+not_for:
+  - "Consistently failing tests (use deep-debug)"
+  - "Reviewing code for defects (use deep-qa)"
+  - "Fixing the flaky test after diagnosis (use loop-until-done)"
+input_types:
+  - code-path
+output_types:
+  - diagnosis
+output_signals:
+  - termination_label
+  - hypothesis_count
+  - fail_rate
+  - root_cause_category
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: flaky-test-diagnoser-temporal
+  estimated_duration: "20-60min"
+related_skills:
+  - name: deep-debug
+    relation: alternative
+    note: "For consistently failing bugs rather than intermittent ones"
+  - name: loop-until-done
+    relation: follow-up
+    note: "Fix the flaky test after diagnosis"
+maturity: stable
 ---
 
 # Flaky Test Diagnoser

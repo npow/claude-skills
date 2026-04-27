@@ -48,16 +48,16 @@ Reads defaults from `~/.claude/skills/ci-health-report/config.json` if it exists
 
 2. **Get recent builds.** For each job, call `search_builds`. Compute per-job: total builds, failures, success rate.
 
-3. **Resolve what each build was building.** For each failed build, use the commitId to determine the PR or branch context. Use `gh pr list --search <commitSha>` or parse the triggerEventType + ref. The report must show linked PRs — not bare build numbers or commit SHAs. Construct the PR URL from the repo discovered in step 1: `https://github.netflix.net/{projectKey}/{repoSlug}/pull/{number}`. Format as Slack mrkdwn links: `<https://github.netflix.net/{projectKey}/{repoSlug}/pull/1234|PR #1234>: title`.
+3. **Resolve what each build was building.** For each failed build, use the commitId to determine the PR or branch context. Use `gh pr list --search <commitSha>` or parse the triggerEventType + ref. The report must show linked PRs — not bare build numbers or commit SHAs. Construct the PR URL from the repo discovered in step 1: `https://{github_host}/{projectKey}/{repoSlug}/pull/{number}`. Format as Slack mrkdwn links: `<https://{github_host}/{projectKey}/{repoSlug}/pull/1234|PR #1234>: title`.
 
 4. **Fetch build logs and root-cause failures.** For EVERY failed build:
    - Get the build UUID from the `id` field in search_builds results
-   - Read the log via `ReadMcpResourceTool(server="netflix-ci-official", uri="build-log://{build_uuid}")`
+   - Read the log via `ReadMcpResourceTool(server="{ci_mcp_server}", uri="build-log://{build_uuid}")`
    - This returns a presigned S3 URL — download it with `curl -sL "{url}" | tail -50`
    - Extract the actual error: test failure name, compilation error, timeout, setup failure, etc.
    - Classify each failure into a root cause category.
-   - Capture the Jenkins build URL from the build result (construct from controller + job name + build number: `https://{controller}.build.netflix.net/job/{job_name}/{build_number}/`). Include this link in the report so readers can jump straight to the build console.
-   - NEVER use WebFetch on Jenkins URLs — they're behind Meechum auth. Always use `build-log://`.
+   - Capture the Jenkins build URL from the build result (construct from controller + job name + build number: `https://{controller_host}/job/{job_name}/{build_number}/`). Include this link in the report so readers can jump straight to the build console.
+   - NEVER use WebFetch on Jenkins URLs — they may require authentication. Always use `build-log://`.
 
 5. **Group failures by root cause.** Multiple builds may fail for the same reason (same test, same compilation error, same infra issue). Deduplicate. The report should say "TestWorkerRetry.test_timeout failed 5 times across 3 PRs" — not list 5 separate failures.
 
@@ -74,7 +74,7 @@ Period: last {lookback_days} days | Builds: {total} | Success rate: {pct}%
 
 #### 1. {root cause category} — {N} failures
 Error: {actual error message or test name}
-Affected PRs: <https://github.netflix.net/{project}/{repo}/pull/{number}|PR #{number}>: {title}, ...
+Affected PRs: <https://{github_host}/{project}/{repo}/pull/{number}|PR #{number}>: {title}, ...
 Pattern: {infra flake / test bug / code bug / timeout}
 Example log snippet: {2-3 key lines from the log}
 Failed builds: <{jenkins_build_url}|Build #{number}>, ...

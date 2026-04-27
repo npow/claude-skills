@@ -1,0 +1,305 @@
+#!/usr/bin/env python3
+"""Backfill SKILL.md frontmatter with inferred metadata.
+
+Reads each SKILL.md, infers category/capabilities/input_types/output_types/
+complexity/cost_profile/maturity from the description and directory name,
+then merges the inferred fields into the YAML frontmatter.
+
+Skips skills that already have a `category:` field (Tier 1 hand-curated)
+and temporal shims (*-temporal directories).
+
+All inferred entries are marked with `metadata_source: inferred`.
+"""
+
+import argparse
+import os
+import re
+import sys
+from pathlib import Path
+
+SKILLS_DIR = Path(os.path.expanduser("~/.claude/skills"))
+
+# ── Directory-name overrides for known misclassifications ────────────────
+
+CATEGORY_OVERRIDES = {
+    "gen-smoke": "meta",
+    "gen-crash-test": "meta",
+    "magic-fetch": "tool",
+    "upload-presentation": "tool",
+    "parallel-exec": "execution",
+    "js-client-context": "tool",
+    "ccr-run": "tool",
+    "ccr-models": "tool",
+    "platform-friction-detector": "qa",
+    "create-skill": "meta",
+}
+
+# ── Keyword → enum mappings ─────────────────────────────────────────────
+
+CATEGORY_KEYWORDS = {
+    "debug": ["debug", "diagnose", "diagnoser", "fix bug", "error", "failure", "root cause",
+              "hypothesis", "flaky", "bug", "crash", "troubleshoot", "bisect"],
+    "design": ["design", "architect", "spec", "blueprint", "system design", "schema"],
+    "qa": ["review", "audit", "quality", "defect", "check", "verify", "validate",
+           "critique", "flaw", "test coverage"],
+    "research": ["research", "explore", "discover", "investigate", "analyze", "analysis",
+                 "find information", "deep dive", "literature", "survey"],
+    "plan": ["plan", "roadmap", "strategy", "consensus", "decision", "adr", "prioritize"],
+    "execution": ["execute", "build", "implement", "deploy", "automate", "loop",
+                  "ship", "run workflow", "orchestrat"],
+    "report": ["report", "summary", "digest", "dashboard", "brief", "retro",
+               "status", "trends", "metrics", "activity", "health"],
+    "tool": ["tool", "utility", "setup", "config", "init", "create", "generate",
+             "template", "fetch", "upload", "render", "compile", "context"],
+    "meta": ["skill", "catalog", "meta", "introspect"],
+}
+
+CAPABILITY_KEYWORDS = {
+    "adversarial-critique": ["adversarial", "critique", "challenge", "red team"],
+    "parallel-agents": ["parallel", "concurrent", "ensemble", "multiple agents"],
+    "defect-detection": ["defect", "bug", "flaw", "issue detection", "find problems"],
+    "severity-classification": ["severity", "priority", "classification", "rank"],
+    "hypothesis-testing": ["hypothesis", "hypotheses", "experiment", "test theory"],
+    "root-cause-analysis": ["root cause", "diagnosis", "diagnose", "why"],
+    "multi-model": ["multi-model", "multiple models", "cross-model"],
+    "ensemble-judges": ["ensemble", "judges", "voting", "panel"],
+    "claim-extraction": ["claim", "extract assertion"],
+    "evidence-scoring": ["evidence", "scoring", "weight"],
+    "loop-based": ["loop", "iterate", "retry", "until", "repeat"],
+    "consensus-building": ["consensus", "agree", "alignment"],
+    "trend-tracking": ["trend", "tracking", "time series", "over time", "historical"],
+    "static-analysis": ["static analysis", "lint", "ast", "parse code"],
+    "temporal-workflow": ["temporal", "durable", "sagaflow"],
+    "backoff-retry": ["backoff", "retry", "exponential", "rate limit"],
+    "adr-generation": ["adr", "decision record"],
+    "novelty-discovery": ["novel", "discover", "new insight", "unknown"],
+}
+
+INPUT_TYPE_KEYWORDS = {
+    "artifact-file": ["file", "document", "artifact", "upload", "attachment", "csv", "json"],
+    "git-diff": ["diff", "pull request", "PR", "commit", "git change"],
+    "concept": ["concept", "design idea", "architecture idea"],
+    "task": ["task", "work item", "implement", "build this"],
+    "question": ["question", "ask", "query", "how to", "what is", "why"],
+    "topic": ["topic", "subject", "area", "domain"],
+    "idea": ["idea", "brainstorm", "proposal"],
+    "code-path": ["code", "test path", "function", "class", "module", "file path",
+                  "test.*path", "source"],
+    "url": ["url", "link", "page", "website"],
+    "repo": ["repo", "repository", "codebase", "project"],
+}
+
+OUTPUT_TYPE_KEYWORDS = {
+    "defect-registry": ["defect", "flaw list", "issue list", "bug list"],
+    "design-spec": ["spec", "design document", "architecture doc", "blueprint"],
+    "report": ["report", "summary", "digest", "brief", "retro", "overview", "analysis"],
+    "plan": ["plan", "roadmap", "strategy", "action items"],
+    "code": ["code", "implementation", "fix", "patch", "PR", "pull request"],
+    "diagnosis": ["diagnosis", "root cause", "explanation"],
+    "presentation": ["presentation", "slides", "deck", "html"],
+    "chart": ["chart", "graph", "visualization", "plot"],
+    "data": ["data", "table", "export", "csv", "dataset"],
+}
+
+COMPLEX_KEYWORDS = ["multi-agent", "parallel", "ensemble", "adversarial", "iterative",
+                    "multiple rounds", "sagaflow", "temporal", "durable", "long-running",
+                    "orchestrat"]
+MODERATE_KEYWORDS = ["multi-step", "workflow", "pipeline", "several", "phases"]
+SIMPLE_KEYWORDS = ["single", "one-shot", "quick", "simple", "trivial", "utility",
+                   "render", "generate", "fetch", "lookup"]
+
+HIGH_COST_KEYWORDS = ["multi-agent", "parallel agents", "ensemble", "adversarial",
+                      "multiple rounds", "sagaflow: required"]
+MEDIUM_COST_KEYWORDS = ["workflow", "multi-step", "analysis", "research"]
+LOW_COST_KEYWORDS = ["utility", "simple", "quick", "render", "lookup", "fetch", "single"]
+
+
+def parse_frontmatter(text: str) -> tuple[dict[str, str], str, str]:
+    """Return (frontmatter_lines_dict, raw_frontmatter, body)."""
+    m = re.match(r"^---\n(.*?)\n---\n?(.*)", text, re.DOTALL)
+    if not m:
+        return {}, "", text
+    raw_fm = m.group(1)
+    body = m.group(2)
+    fields: dict[str, str] = {}
+    for line in raw_fm.split("\n"):
+        if ":" in line:
+            key = line.split(":", 1)[0].strip()
+            val = line.split(":", 1)[1].strip()
+            fields[key] = val
+    return fields, raw_fm, body
+
+
+def score_keywords(text: str, keyword_map: dict[str, list[str]]) -> list[tuple[str, int]]:
+    """Return sorted (enum_value, hit_count) pairs with hits > 0."""
+    text_lower = text.lower()
+    scores = []
+    for value, keywords in keyword_map.items():
+        hits = sum(1 for kw in keywords if kw.lower() in text_lower)
+        if hits > 0:
+            scores.append((value, hits))
+    scores.sort(key=lambda x: -x[1])
+    return scores
+
+
+def infer_category(name: str, description: str, body: str) -> str:
+    if name in CATEGORY_OVERRIDES:
+        return CATEGORY_OVERRIDES[name]
+    combined = f"{name} {description} {body[:500]}"
+    scores = score_keywords(combined, CATEGORY_KEYWORDS)
+    if scores:
+        return scores[0][0]
+    if any(x in name for x in ["report", "brief", "digest", "retro", "status"]):
+        return "report"
+    if any(x in name for x in ["chart", "diagram", "slides", "table", "timeline"]):
+        return "tool"
+    return "tool"
+
+
+def infer_capabilities(description: str, body: str) -> list[str]:
+    combined = f"{description} {body[:1000]}"
+    scores = score_keywords(combined, CAPABILITY_KEYWORDS)
+    return [v for v, _ in scores[:4]]  # cap at 4
+
+
+def infer_input_types(description: str) -> list[str]:
+    scores = score_keywords(description, INPUT_TYPE_KEYWORDS)
+    return [v for v, _ in scores[:3]]  # cap at 3
+
+
+def infer_output_types(name: str, description: str, body: str) -> list[str]:
+    combined = f"{name} {description} {body[:500]}"
+    scores = score_keywords(combined, OUTPUT_TYPE_KEYWORDS)
+    return [v for v, _ in scores[:2]]  # cap at 2
+
+
+def infer_complexity(description: str, body: str) -> str:
+    combined = f"{description} {body[:1000]}"
+    complex_hits = sum(1 for kw in COMPLEX_KEYWORDS if kw.lower() in combined.lower())
+    moderate_hits = sum(1 for kw in MODERATE_KEYWORDS if kw.lower() in combined.lower())
+    simple_hits = sum(1 for kw in SIMPLE_KEYWORDS if kw.lower() in combined.lower())
+    if complex_hits >= 2:
+        return "complex"
+    if complex_hits >= 1 or moderate_hits >= 2:
+        return "moderate"
+    if simple_hits >= 2:
+        return "simple"
+    return "moderate"  # safe default
+
+
+def infer_cost_profile(description: str, body: str) -> str:
+    combined = f"{description} {body[:1000]}"
+    high = sum(1 for kw in HIGH_COST_KEYWORDS if kw.lower() in combined.lower())
+    med = sum(1 for kw in MEDIUM_COST_KEYWORDS if kw.lower() in combined.lower())
+    low = sum(1 for kw in LOW_COST_KEYWORDS if kw.lower() in combined.lower())
+    if high >= 2:
+        return "high"
+    if high >= 1 or med >= 2:
+        return "medium"
+    if low >= 2:
+        return "low"
+    return "low"  # most uncurated skills are lightweight
+
+
+def yaml_list(items: list[str]) -> str:
+    if not items:
+        return "[]"
+    return "[" + ", ".join(items) + "]"
+
+
+def build_metadata_block(name: str, description: str, body: str) -> str:
+    category = infer_category(name, description, body)
+    capabilities = infer_capabilities(description, body)
+    input_types = infer_input_types(description)
+    output_types = infer_output_types(name, description, body)
+    complexity = infer_complexity(description, body)
+    cost_profile = infer_cost_profile(description, body)
+
+    lines = []
+    lines.append(f"category: {category}")
+    if capabilities:
+        lines.append(f"capabilities: {yaml_list(capabilities)}")
+    if input_types:
+        lines.append(f"input_types: {yaml_list(input_types)}")
+    if output_types:
+        lines.append(f"output_types: {yaml_list(output_types)}")
+    lines.append(f"complexity: {complexity}")
+    lines.append(f"cost_profile: {cost_profile}")
+    lines.append("maturity: beta")
+    lines.append("metadata_source: inferred")
+    return "\n".join(lines)
+
+
+def inject_metadata(skill_path: Path, dry_run: bool = False) -> dict:
+    text = skill_path.read_text()
+    fields, raw_fm, body = parse_frontmatter(text)
+    name = fields.get("name", skill_path.parent.name)
+    description = fields.get("description", "")
+
+    if "category" in fields:
+        return {"skill": name, "status": "skipped", "reason": "already has category"}
+
+    metadata_block = build_metadata_block(name, description, body)
+
+    # Insert metadata after existing frontmatter fields
+    new_fm = raw_fm.rstrip() + "\n\n" + metadata_block
+    new_text = f"---\n{new_fm}\n---\n{body}"
+
+    result = {
+        "skill": name,
+        "status": "dry-run" if dry_run else "updated",
+        "category": infer_category(name, description, body),
+        "capabilities": infer_capabilities(description, body),
+    }
+
+    if not dry_run:
+        skill_path.write_text(new_text)
+
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Backfill SKILL.md metadata")
+    parser.add_argument("--dry-run", action="store_true", help="Print inferred metadata without writing")
+    parser.add_argument("--skills-dir", type=Path, default=SKILLS_DIR)
+    parser.add_argument("--skill", type=str, help="Process a single skill by name")
+    args = parser.parse_args()
+
+    skills_dir = args.skills_dir
+    updated = 0
+    skipped = 0
+    shims = 0
+    results = []
+
+    for skill_md in sorted(skills_dir.glob("*/SKILL.md")):
+        dir_name = skill_md.parent.name
+
+        # Skip temporal shims
+        if dir_name.endswith("-temporal"):
+            shims += 1
+            continue
+
+        # Skip _shared
+        if dir_name.startswith("_"):
+            continue
+
+        # Filter to single skill if requested
+        if args.skill and dir_name != args.skill:
+            continue
+
+        result = inject_metadata(skill_md, dry_run=args.dry_run)
+        results.append(result)
+
+        if result["status"] == "skipped":
+            skipped += 1
+        else:
+            updated += 1
+            caps = ", ".join(result.get("capabilities", [])[:3]) or "none"
+            print(f"  {'[dry-run] ' if args.dry_run else ''}✓ {result['skill']:30s} → {result['category']:10s} [{caps}]")
+
+    print(f"\n{'Dry run' if args.dry_run else 'Done'}: {updated} updated, {skipped} skipped (already curated), {shims} shims ignored")
+    return 0 if updated > 0 or skipped > 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -57,7 +57,7 @@ Reads defaults from `~/.claude/skills/oncall-handoff-brief/config.json` if it ex
 
 3. **Check Maestro pipelines.** For each `maestro_workflow_owner`, call `search_workflows` with `owner` and cluster="prod". Then for each workflow, call `get_latest_instance` with cluster="prod". For any FAILED instance, call `get_instance_failures` with cluster="prod" to get step-level detail.
 
-4. **Search Slack for incidents.** For each `slack_channel_id`, call `rag-slack-prod` with query "incident outage SEV alert pages degradation" and metadata filter for `channel_id` and `thread_ts >= {lookback_epoch}`. Fetch full threads via `fetch-slack-thread` for any that match.
+4. **Search Slack for incidents.** For each `slack_channel_id`, use a Slack semantic search tool with query "incident outage SEV alert pages degradation" and metadata filter for `channel_id` and `thread_ts >= {lookback_epoch}`. Fetch full threads via `fetch-slack-thread` for any that match.
 
 5. **Compile open items.** Identify anything that needs attention from the incoming on-call:
    - Unresolved incidents from Slack

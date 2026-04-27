@@ -3,6 +3,15 @@ name: deep-debug-ensemble-v1
 description: Benchmark variant of deep-debug that ensembles the hypothesis-plausibility judge phase (Phase 3) across three heterogeneous providers (Anthropic Sonnet 4.6 + OpenAI GPT-5.4 + Google Gemini 2.5 Pro) instead of a single Haiku judge. Purpose is skill-bench A/B comparison against baseline deep-debug to measure whether heterogeneous judges classify hypothesis plausibility more honestly than a single-model panel. Trigger phrases, argument semantics, and all other phases (critic, probe, fix, architect escalation) are identical to deep-debug. ONLY the pass-1 blind and pass-2 informed hypothesis judges differ.
 user_invocable: true
 argument: The bug description, symptom, error message, or reproduction context
+
+category: debug
+capabilities: [ensemble-judges, hypothesis-testing, parallel-agents, defect-detection]
+input_types: [git-diff, code-path]
+output_types: [code]
+complexity: moderate
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Deep Debug Skill — Ensemble Variant v1

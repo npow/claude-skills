@@ -23,8 +23,8 @@ Reads defaults from `~/.claude/skills/dependency-audit/config.json` if it exists
 ```json
 {
   "repos": [
-    "github.netflix.net/myorg/repo1",
-    "github.netflix.net/myorg/repo2"
+    "github.com/myorg/repo1",
+    "github.com/myorg/repo2"
   ]
 }
 ```

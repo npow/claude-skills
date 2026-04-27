@@ -1,6 +1,15 @@
 ---
 name: code-quality-trends
 description: "Use when checking code quality trends, tech debt accumulation, TODO/FIXME growth, test coverage ratios, PR size distribution, or generating a code quality report. Trigger phrases: code quality, code trends, tech debt trends, quality report."
+
+category: qa
+capabilities: [trend-tracking, static-analysis]
+input_types: [git-diff, code-path, repo]
+output_types: [code, report]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Code Quality Trends Report
@@ -14,8 +23,8 @@ Reads defaults from `~/.claude/skills/code-quality-trends/config.json` if it exi
 ```json
 {
   "repos": [
-    "github.netflix.net/myorg/repo1",
-    "github.netflix.net/myorg/repo2"
+    "github.com/myorg/repo1",
+    "github.com/myorg/repo2"
   ],
   "lookback_days": 30
 }

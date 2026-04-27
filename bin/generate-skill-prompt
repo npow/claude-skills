@@ -1,0 +1,146 @@
+#!/usr/bin/env python3
+"""Generate a categorized skill prompt fragment from the catalog.
+
+Reads catalog.json (or rebuilds from SKILL.md files) and outputs a markdown
+fragment grouping skills by category with annotations. Designed to replace
+the flat skill list in Aimee's session prompt.
+
+Usage:
+    bin/generate-skill-prompt              # markdown to stdout
+    bin/generate-skill-prompt --json       # JSON for programmatic use
+    bin/generate-skill-prompt -o prompt.md # write to file
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "code" / "sagaflow"))
+
+from sagaflow.catalog import build_catalog, SkillMetadata
+
+CATEGORY_DISPLAY = {
+    "qa": "QA & Review",
+    "debug": "Debugging & Diagnosis",
+    "design": "Design & Architecture",
+    "research": "Research & Exploration",
+    "plan": "Planning & Strategy",
+    "execution": "Execution & Automation",
+    "report": "Reports & Dashboards",
+    "tool": "Tools & Utilities",
+    "meta": "Meta & Introspection",
+}
+
+CATEGORY_ORDER = list(CATEGORY_DISPLAY.keys())
+
+COST_DISPLAY = {
+    "low": "<$0.50",
+    "medium": "$0.50-$5",
+    "high": "$5+",
+}
+
+
+def _short_description(s: SkillMetadata, max_len: int = 80) -> str:
+    desc = s.description.split(".")[0].strip()
+    if len(desc) > max_len:
+        desc = desc[:max_len - 1].rsplit(" ", 1)[0] + "…"
+    return desc
+
+
+def _annotation(s: SkillMetadata) -> str:
+    parts = []
+    if s.complexity:
+        parts.append(s.complexity)
+    cost = COST_DISPLAY.get(s.cost_profile or "", "")
+    if cost:
+        parts.append(cost)
+    sagaflow = (s.execution or {}).get("sagaflow", "")
+    if sagaflow in ("required", "recommended"):
+        parts.append(f"sagaflow: {sagaflow}")
+    return ", ".join(parts)
+
+
+def _is_temporal_shim(s: SkillMetadata) -> bool:
+    return s.name.endswith("-temporal")
+
+
+def generate_markdown(catalog) -> str:
+    skills = [s for s in catalog.list_all() if not _is_temporal_shim(s)]
+    by_cat: dict[str, list[SkillMetadata]] = {}
+    uncategorized: list[SkillMetadata] = []
+    for s in skills:
+        if s.category:
+            by_cat.setdefault(s.category, []).append(s)
+        else:
+            uncategorized.append(s)
+
+    lines = ["## Available Skills", ""]
+    for cat in CATEGORY_ORDER:
+        group = by_cat.get(cat, [])
+        if not group:
+            continue
+        display = CATEGORY_DISPLAY.get(cat, cat.title())
+        lines.append(f"### {display}")
+        for s in sorted(group, key=lambda x: x.name):
+            desc = _short_description(s)
+            ann = _annotation(s)
+            line = f"- **{s.name}** — {desc}"
+            if ann:
+                line += f" ({ann})"
+            lines.append(line)
+        lines.append("")
+
+    if uncategorized:
+        lines.append("### Other")
+        for s in sorted(uncategorized, key=lambda x: x.name):
+            desc = _short_description(s)
+            lines.append(f"- **{s.name}** — {desc}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def generate_json(catalog) -> str:
+    skills = [s for s in catalog.list_all() if not _is_temporal_shim(s)]
+    by_cat: dict[str, list[dict]] = {}
+    for s in skills:
+        cat = s.category or "other"
+        entry = {
+            "name": s.name,
+            "description": _short_description(s),
+            "category": cat,
+            "capabilities": s.capabilities,
+            "complexity": s.complexity,
+            "cost_profile": s.cost_profile,
+            "maturity": s.maturity,
+        }
+        if s.best_for:
+            entry["best_for"] = s.best_for
+        if s.not_for:
+            entry["not_for"] = s.not_for
+        by_cat.setdefault(cat, []).append(entry)
+    return json.dumps({"categories": by_cat}, indent=2)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Generate skill prompt from catalog")
+    parser.add_argument("--json", action="store_true", help="Output JSON instead of markdown")
+    parser.add_argument("-o", "--output", type=Path, help="Write to file instead of stdout")
+    parser.add_argument("--force-rebuild", action="store_true", help="Force catalog rebuild")
+    args = parser.parse_args()
+
+    catalog = build_catalog(force=args.force_rebuild)
+    output = generate_json(catalog) if args.json else generate_markdown(catalog)
+
+    if args.output:
+        args.output.write_text(output)
+        print(f"Wrote {len(output)} bytes to {args.output}", file=sys.stderr)
+    else:
+        print(output, end="")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

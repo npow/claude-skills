@@ -1,6 +1,14 @@
 ---
 name: init-github-repo
 description: Initializes a Git repository with a complete GitHub presence — JTBD-focused README with badges, CI/CD workflow, license, .gitignore, and SEO-optimized repo description and topics. Use when the user asks to initialize a repo, set up GitHub, create a readme, push to GitHub, set up CI/CD, or prepare a project for open source.
+
+category: tool
+input_types: [repo, git-diff, question]
+output_types: [code, data]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Init GitHub Repo

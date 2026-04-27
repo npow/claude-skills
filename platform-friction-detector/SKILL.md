@@ -1,6 +1,14 @@
 ---
 name: platform-friction-detector
 description: "Use when scanning for silent user workarounds, platform friction signals, dependency removals, or users routing around your libraries. Trigger phrases: platform friction, user workarounds, who's dropping our libs, silent churn, friction scan, are users working around us."
+
+category: qa
+capabilities: [defect-detection, static-analysis]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Platform Friction Detector
@@ -13,9 +21,9 @@ Reads defaults from `~/.claude/skills/platform-friction-detector/config.json` if
 
 ```json
 {
-  "platform_packages": ["metaflow", "nflx-fastdata", "dagobah"],
-  "platform_imports": ["from metaflow", "import metaflow", "from nflx_fastdata", "from dagobah"],
-  "search_scope": "github.netflix.net/corp/*",
+  "platform_packages": ["my-platform-lib", "my-data-lib"],
+  "platform_imports": ["from my_platform", "import my_platform", "from my_data_lib"],
+  "search_scope": "github.com/myorg/*",
   "exclude_repos": ["corp/mlp-mlp", "corp/mli-metaflow-custom"],
   "slack_channels": [],
   "lookback_days": 30
@@ -30,7 +38,7 @@ Reads defaults from `~/.claude/skills/platform-friction-detector/config.json` if
 
 - **platform_packages**: package names your team owns that downstream users depend on
 - **platform_imports**: import patterns to search for in diffs (auto-derived from packages if not set)
-- **search_scope**: Sourcegraph repo pattern to search (default: `github.netflix.net/corp/*`)
+- **search_scope**: Sourcegraph repo pattern to search (default: org-specific, configure in config.json)
 - **exclude_repos**: your own platform repos to skip (signals in these are internal, not friction)
 - **slack_channels**: channel IDs where users discuss your platform
 - **lookback_days**: how far back to scan (default: 30)
@@ -40,7 +48,7 @@ Reads defaults from `~/.claude/skills/platform-friction-detector/config.json` if
 Sourcegraph `diff_search` on `corp/*` times out for common patterns. Handle this:
 
 1. **One package per query.** Never batch multiple packages into one diff_search. Search `"from metaflow"` separately from `"from dagobah"`.
-2. **On timeout, narrow scope.** If `repos=["github.netflix.net/corp/*"]` times out, retry with `repos=["github.netflix.net/corp/algo*", "github.netflix.net/corp/ppp-*", "github.netflix.net/corp/dse-*", ...]` — break the wildcard into smaller prefixes.
+2. **On timeout, narrow scope.** If the wildcard scope times out, retry with narrower prefixes (e.g., `repos=["github.com/myorg/team-a-*", "github.com/myorg/team-b-*", ...]`) — break the wildcard into smaller prefixes.
 3. **On second timeout, add count limit.** Retry with `count:10` to get partial results rather than nothing.
 4. **Never let one failed query skip the rest.** A timeout on dagobah doesn't excuse skipping metaflow. Each package is searched independently.
 5. **Record what timed out.** The report notes which packages had incomplete coverage and why.
@@ -67,12 +75,12 @@ Sourcegraph `diff_search` on `corp/*` times out for common patterns. Handle this
    - If step 1 found removed metaflow S3 imports, search the same repos for added `import boto3` or `from boto3` in the same time window
    - Common replacements: raw boto3 for S3 ops, raw requests for API calls, custom implementations of platform features
 
-5. **Search Slack for friction signals.** If slack_channels configured, use `rag-slack-prod`:
+5. **Search Slack for friction signals.** If slack_channels configured, use a Slack semantic search tool:
    - Search for: "{package} broken", "{package} issue", "{package} conflict", "alternative to {package}", "can't use {package}", "{package} too heavy", "{package} dependency"
    - For each hit, fetch the full thread via `fetch-slack-thread` to get context
 
 6. **Fetch PR context for each signal.** For every diff/commit signal found, resolve the PR:
-   - Use `gh api repos/{org}/{repo}/commits/{sha}/pulls --hostname github.netflix.net` to find the associated PR
+   - Use `gh api repos/{org}/{repo}/commits/{sha}/pulls` to find the associated PR
    - Get PR title, body, author — the PR description often explains the "why" behind the workaround
 
 7. **Classify and group signals.** For each signal, classify:
@@ -136,7 +144,7 @@ Suggested action: {what the platform team should do}
 |---|---|
 | "I found the removed imports, that's enough." | The PR body has the root cause. Fetch it. "They removed it" is not actionable without knowing why. |
 | "Only one user removed the package, it's probably fine." | One visible workaround often means 5 users who struggled and stayed silent. Investigate. |
-| "The Slack search didn't find anything, so users are happy." | Slack is noisy and rag-slack-prod is semantic search. Absence of Slack signal doesn't mean absence of friction. The code signals (removed imports) are definitive. |
+| "The Slack search didn't find anything, so users are happy." | Slack is noisy and semantic search has limited recall. Absence of Slack signal doesn't mean absence of friction. The code signals (removed imports) are definitive. |
 | "I'll just search for the package name in diffs." | Undirected search returns both additions and removals. Filter `removed=true` for friction signals. |
 | "The PR is too old to matter." | A workaround from 3 months ago that's still in production means the friction is ongoing. Age doesn't reduce severity. |
 | "The search timed out so I'll skip that package." | Narrow the scope and retry. One package per query, smaller repo prefixes on timeout. A timeout is not a pass — it's incomplete coverage that must be noted. |

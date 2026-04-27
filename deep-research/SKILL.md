@@ -3,6 +3,48 @@ name: deep-research
 description: Use when researching, investigating, or exploring a topic systematically with orthogonal multi-dimensional coverage and source-quality tiers. Trigger phrases include "research this deeply", "deep research on", "investigate this topic thoroughly", "explore this topic", "systematic research", "multi-dimensional research", "comprehensive research", "cover all angles of", "thorough research on", "deep dive into (research)", "exhaustive research". Spawns parallel agents across WHO/WHAT/HOW/WHERE/WHEN/WHY/LIMITS with risk-stratified spot-checking. Bounded by a user-controlled round budget with honest coverage reporting on what was and wasn't covered.
 user_invocable: true
 argument: The seed topic/question to research deeply
+
+category: research
+capabilities:
+  - parallel-agents
+  - novelty-discovery
+  - evidence-scoring
+best_for:
+  - "Systematic multi-dimensional exploration of a topic"
+  - "Gathering evidence across WHO/WHAT/HOW/WHERE/WHEN/WHY/LIMITS"
+  - "Cold-start research with vocabulary bootstrap"
+not_for:
+  - "Reviewing an existing artifact (use deep-qa)"
+  - "Designing a system (use deep-design)"
+  - "Planning implementation (use deep-plan)"
+input_types:
+  - topic
+  - question
+output_types:
+  - report
+output_signals:
+  - termination_label
+  - direction_count
+  - dimension_count
+  - novelty_class
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: deep-research-temporal
+  estimated_duration: "20-60min"
+related_skills:
+  - name: deep-design
+    relation: follow-up
+    note: "Design a system based on research findings"
+  - name: deep-qa
+    relation: follow-up
+    note: "Audit research report for defects"
+  - name: proposal-reviewer
+    relation: alternative
+    note: "When evaluating a specific proposal rather than open exploration"
+maturity: stable
 ---
 
 # Deep Research Skill

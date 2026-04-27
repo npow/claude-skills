@@ -2,6 +2,14 @@
 name: chart
 description: Renders interactive charts in the browser using Chart.js. Use when the user wants to visualize data, plot numbers, draw a bar chart, line chart, pie chart, doughnut chart, radar chart, graph metrics, compare benchmarks, show a cost curve, or display a time series. Always renders live in browser — never as a static image.
 allowed-tools: Write, Edit, mcp__chrome-devtools__new_page, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__list_pages
+
+category: tool
+capabilities: [trend-tracking]
+output_types: [chart, data]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Chart

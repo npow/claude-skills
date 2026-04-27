@@ -2,6 +2,14 @@
 name: diagram
 description: Renders interactive diagrams in the browser using Cytoscape.js. Use when the user asks to visualize, diagram, draw, render, or show a graph, flowchart, dependency tree, roadmap, architecture diagram, or any node-and-edge structure. Always renders live in browser — never as a static image.
 allowed-tools: Write, Edit, mcp__chrome-devtools__new_page, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__evaluate_script, mcp__chrome-devtools__list_pages
+
+category: tool
+input_types: [question]
+output_types: [chart, plan]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Diagram

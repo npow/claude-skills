@@ -1,57 +1,13 @@
 {
-  "platform_packages": [
-    "metaflow",
-    "nflx-metaflow",
-    "nflx-metaflow-stubs",
-    "nflx-metaflow-functions",
-    "nflx-metaflow-chronon",
-    "nflx-metaflow-serving",
-    "nflx-fastdata",
-    "nflx-dagobah",
-    "dagobah",
-    "amber",
-    "algo_commons_python",
-    "runway-sdk-python",
-    "mlp-embedding-python",
-    "feature-store-py",
-    "algohooks"
-  ],
-  "platform_imports": [
-    "from metaflow",
-    "import metaflow",
-    "from nflx_fastdata",
-    "import nflx_fastdata",
-    "from dagobah",
-    "import dagobah",
-    "from amber",
-    "import amber",
-    "from algo_commons",
-    "import algo_commons",
-    "from runway",
-    "import runway",
-    "from algohooks",
-    "import algohooks"
-  ],
-  "search_scope": "github.netflix.net/corp/*",
-  "exclude_repos": [
-    "corp/mlp-mlp",
-    "corp/github.com_netflix_metaflow",
-    "corp/github.com_netflix_metaflow-nflx-extensions",
-    "corp/mli-metaflow-custom",
-    "corp/mli-metaflow-service",
-    "corp/nflx-metaflow-mcp-server",
-    "corp/mfh-explorer"
-  ],
+  "platform_packages": ["my-platform-lib", "my-data-lib"],
+  "platform_imports": ["from my_platform", "import my_platform", "from my_data_lib", "import my_data_lib"],
+  "search_scope": "github.com/myorg/*",
+  "exclude_repos": ["myorg/platform-lib-repo", "myorg/data-lib-repo"],
   "replacement_patterns": {
-    "metaflow": ["from dagster", "import dagster", "from prefect", "import prefect", "from airflow", "import airflow"],
-    "nflx-fastdata": ["import boto3", "from boto3", "from s3fs", "import s3fs"],
-    "dagobah": ["import boto3", "from boto3"]
+    "my-platform-lib": ["from alternative_lib", "import alternative_lib"],
+    "my-data-lib": ["import boto3", "from boto3"]
   },
-  "slack_channels": ["C0TR849N0", "C7P782J02", "C0RAD0ZG8"],
-  "slack_channel_names": {
-    "C0TR849N0": "#ask-mlp",
-    "C7P782J02": "#ask-metaflow",
-    "C0RAD0ZG8": "#bigdata-analytics-help"
-  },
+  "slack_channels": [],
+  "slack_channel_names": {},
   "lookback_days": 30
 }

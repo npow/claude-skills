@@ -2,6 +2,15 @@
 name: develop-board-game
 description: Creates a complete, faithful digital version of a board game as a single-file HTML/JS/CSS application. Use when the user asks to build, implement, or digitize a board game, card game, or tabletop game. Handles rules implementation, turn management, multiplayer (local hot-seat, split-tab, online P2P), UI layout, and automated testing via Playwright.
 argument-hint: "[game name or description]"
+
+category: execution
+capabilities: [ensemble-judges, loop-based]
+input_types: [artifact-file, task, question]
+output_types: [code, presentation]
+complexity: moderate
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Develop Board Game

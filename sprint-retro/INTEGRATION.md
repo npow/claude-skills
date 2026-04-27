@@ -4,15 +4,15 @@ How sprint-retro composes with other skills and handles degraded modes.
 
 ## Required MCP tools
 
-The skill uses these Netflix MCP tools. If any are unavailable, the skill degrades gracefully.
+The skill uses these MCP tools. If any are unavailable, the skill degrades gracefully.
 
 | Tool | Purpose | Degraded fallback |
 |------|---------|-------------------|
-| `rag-slack-prod` | Slack semantic search | Use `netflix_search_api` with `sources: ["SLACK"]` |
-| `netflix_search_api` | Jira, Confluence, Google Docs, Pandora search | Note source as unavailable in coverage table |
-| `netflix_search_data` | Fetch full content of found docs | Reference title/summary only, skip full content |
+| Slack semantic search | Slack thread discovery | Use a Slack search API with keyword queries |
+| Project/docs search API | Jira, Confluence, Google Docs, people directory search | Note source as unavailable in coverage table |
+| Document content fetch | Fetch full content of found docs | Reference title/summary only, skip full content |
 | `fetch-slack-thread` | Get full thread context | Use snippet from search result only |
-| `netflix-ci-official` (search_builds) | CI/CD build data | Skip CI/CD section, note in coverage |
+| CI search API (e.g. `search_builds`) | CI/CD build data | Skip CI/CD section, note in coverage |
 | `gh` CLI | GitHub PR/commit data | Use Sourcegraph as fallback |
 | Sourcegraph (commit_search, diff_search) | Cross-repo code search | Use `gh` CLI per-repo |
 

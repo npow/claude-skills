@@ -24,8 +24,8 @@ Reads defaults from `~/.claude/skills/doc-freshness-report/config.json` if it ex
 {
   "manual_bundles": ["myservice", "myplatform"],
   "repo_doc_paths": [
-    {"repo": "github.netflix.net/myorg/repo1", "path": "docs/"},
-    {"repo": "github.netflix.net/myorg/repo2", "path": "README.md"}
+    {"repo": "github.com/myorg/repo1", "path": "docs/"},
+    {"repo": "github.com/myorg/repo2", "path": "README.md"}
   ]
 }
 ```

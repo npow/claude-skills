@@ -3,6 +3,48 @@ name: deep-design
 description: Use when designing, specifying, architecting, or drafting a design for any system, feature, product, protocol, game, or workflow, and you want adversarial stress-testing before writing code. Trigger phrases include "design this", "design the system", "architect this", "draft a design", "design a feature", "design spec", "stress-test the design", "battle-test the design", "find flaws in this design", "design review", "harden the design", "pressure-test the design", "think through the design". DFS-based flaw-finding with parallel critic agents that stress-test until coverage saturates. Output is a battle-tested design document with an honest coverage report.
 user_invocable: true
 argument: The design concept or idea to spec out (a game, product, system, protocol, etc.)
+
+category: design
+capabilities:
+  - adversarial-critique
+  - parallel-agents
+  - defect-detection
+  - severity-classification
+best_for:
+  - "Designing systems, features, protocols, or products"
+  - "Battle-testing a design before implementation"
+  - "Producing adversarially stress-tested specs"
+not_for:
+  - "Reviewing existing artifacts (use deep-qa)"
+  - "Planning implementation steps (use deep-plan)"
+  - "Exploring a topic (use deep-research)"
+input_types:
+  - concept
+  - idea
+output_types:
+  - design-spec
+output_signals:
+  - termination_label
+  - flaw_count
+  - critique_rounds
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: deep-design-temporal
+  estimated_duration: "30-60min"
+related_skills:
+  - name: deep-plan
+    relation: follow-up
+    note: "Turn a design spec into an implementation plan"
+  - name: deep-qa
+    relation: follow-up
+    note: "Audit the produced design spec for defects"
+  - name: loop-until-done
+    relation: follow-up
+    note: "Implement the design"
+maturity: stable
 ---
 
 # Deep Design Skill

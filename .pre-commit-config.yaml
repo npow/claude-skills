@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: no-internal-refs
+        name: No Netflix-internal references
+        language: script
+        entry: bin/check-no-internal-refs
+        pass_filenames: true
+        types: [text]

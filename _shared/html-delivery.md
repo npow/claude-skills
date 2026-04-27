@@ -1,10 +1,10 @@
 # HTML Report Delivery
 
-Shared delivery pattern for all report-generating skills. Converts reports to styled HTML pages, uploads to S3, and shares a TLDR + commuter link in Slack.
+Shared delivery pattern for all report-generating skills. Converts reports to styled HTML pages and delivers them locally or via a configurable remote upload.
 
 ## When to use
 
-- **Always** when the report is delivered to Slack or any chat context (long text gets truncated)
+- **Always** when the report is delivered to a chat context (long text gets truncated)
 - **By default** for all runs unless `--no-html` is explicitly passed
 - The markdown file is still written locally as the source of truth
 
@@ -18,43 +18,50 @@ Convert the markdown report into a self-contained, dark-themed HTML page with:
 - Clean typography, readable on desktop and mobile
 - Report footer preserved
 
-Every cited source (PR link, Slack thread permalink, Jira ticket, doc URL) must be a clickable `<a href="...">` hyperlink in the HTML — not plain text. The reader should be able to click through to the supporting evidence directly from the report.
+Every cited source (PR link, Slack thread permalink, ticket URL, doc URL) must be a clickable `<a href="...">` hyperlink in the HTML — not plain text. The reader should be able to click through to the supporting evidence directly from the report.
 
 The HTML must be a single self-contained file (inline CSS, no external dependencies).
 
-## S3 upload
+## Local delivery
 
-Upload the HTML file to the `netflix-dataoven-test-users` S3 bucket (writable from Workbench via TitusContainerRole):
+Save the HTML file to a local reports directory:
 
 ```
-s3://netflix-dataoven-test-users/reports/$(whoami)/<report-name>-YYYY-MM-DD-HHmmss/index.html
+./reports/<report-name>-YYYY-MM-DD-HHmmss/index.html
 ```
 
 Where `<report-name>` matches the skill name (e.g. `sprint-retro`, `activity-report`, `friction-report`, `pipeline-health`).
 
-Set `--content-type "text/html"` on the upload so commuter renders it in the browser instead of triggering a download.
+Attempt to open in the default browser (`open` on macOS, `xdg-open` on Linux). If that fails, print the local file path.
 
-**Why not genpop?** `s3://us-east-1.netflix.s3.genpop.prod/presentations/` requires `weep` for cross-account auth, which isn't available on Workbench. The dataoven-test-users bucket is writable via the ambient TitusContainerRole and commuter serves it with Metatron browser auth.
+## Remote upload (optional)
 
-## Slack delivery
+If `~/.claude/skills/_shared/delivery-config.json` exists, use it for remote upload:
 
-After upload, provide the commuter link:
+```json
+{
+  "method": "s3",
+  "bucket": "my-reports-bucket",
+  "prefix": "reports/$(whoami)",
+  "base_url": "https://my-viewer.example.com/s3-files",
+  "content_type": "text/html"
+}
 ```
-https://commuter.dynprod.netflix.net:7002/s3-files/netflix-dataoven-test-users/reports/<username>/<report-name>-YYYY-MM-DD-HHmmss/index.html
-```
 
-Readers need Metatron browser auth (standard Netflix SSO) to view the link.
+Supported methods: `s3` (requires `aws` CLI configured). After upload, provide the viewer URL. If upload fails, fall back to the local file and note the failure.
 
-Post a **TLDR in Slack** (5-8 lines max) with:
+## Chat delivery
+
+Post a **TLDR** (5-8 lines max) with:
 - Report title and date range
 - Top 2-3 key findings or highlights
-- Link to the full HTML report
+- Link to the HTML report (remote URL if uploaded, local path otherwise)
 
-Never paste the full report into Slack. The TLDR gives readers enough context to decide whether to click through.
+Never paste the full report into chat. The TLDR gives readers enough context to decide whether to click through.
 
 ## Fallback
 
-If S3 upload fails (no credentials, bucket access denied), fall back to the markdown file and note the failure in the output. Don't block the report on upload.
+If HTML generation or upload fails, fall back to the markdown file and note the failure in the output. Don't block the report on delivery.
 
 ## Evidence file integration
 
@@ -63,8 +70,8 @@ When the skill uses an evidence/termination file, include:
 ```json
 "html_delivery": {
   "uploaded": true,
-  "s3_path": "s3://...",
-  "commuter_url": "https://commuter.dynprod.netflix.net:7002/...",
+  "url": "...",
+  "local_path": "./reports/...",
   "error": null
 }
 ```
@@ -73,20 +80,20 @@ Set `uploaded: false` and populate `error` if the upload failed.
 
 ## Mandatory deep-qa-temporal pass
 
-**Before uploading to S3**, run a deep-qa-temporal → fix loop on the generated report markdown until it converges. This is load-bearing — it catches attribution errors (bystander items attributed to the team), privacy leaks, uncited filler, and factual mistakes that the generating skill's self-review checklist misses.
+**Before publishing**, run a deep-qa-temporal -> fix loop on the generated report markdown until it converges. This is load-bearing — it catches attribution errors (bystander items attributed to the team), privacy leaks, uncited filler, and factual mistakes that the generating skill's self-review checklist misses.
 
 **General principle: every factual claim must trace to a specific data source.** If it can't, it's fabricated — even if it "sounds right." The LLM narrates and synthesizes; it does not invent facts.
 
 **QA dimensions to check (in addition to deep-qa-temporal's default dimensions):**
-- **Fabricated identity metadata**: roles, titles, levels, team names not sourced from Pandora
+- **Fabricated identity metadata**: roles, titles, levels, team names not sourced from a people directory
 - **Wrong numbers**: PR counts, review counts, ticket counts that don't match the actual data queried
 - **Wrong status**: claiming something "shipped" when the PR is still open, or "in progress" when it was abandoned
 - **Inflated/deflated scope**: "38 tables impacted" when the source says "38 tables scanned" — misquoting severity or scale
 - **Causal claims without evidence**: "X caused Y" when the data only shows temporal proximity
 - **Wrong dates/timing**: attributing work to the wrong sprint window, or saying "this week" for something from last month
-- **Bystander attribution**: items the team observed but didn't own (golden rule 9)
-- **Uncited claims**: any statement without a linked source (PR, Slack thread, Jira ticket)
-- **Dead or placeholder links**: every `<a href>` must resolve to a real URL (GitHub PR, Slack permalink, Jira ticket). Placeholder `#` links or `example.com` links are critical defects — they mean the generating skill failed to capture the actual URL from the tool result
+- **Bystander attribution**: items the team observed but didn't own
+- **Uncited claims**: any statement without a linked source (PR, thread, ticket)
+- **Dead or placeholder links**: every `<a href>` must resolve to a real URL. Placeholder `#` links or `example.com` links are critical defects
 - **Missing members**: group alias resolved to N members but report shows fewer
 
 **Loop:**
@@ -100,5 +107,5 @@ Cap at 3 rounds to avoid infinite loops. If still failing after 3 rounds, delive
 ## Self-review checklist items
 
 Add these to the skill's self-review checklist:
-- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
-- [ ] Slack/chat delivery uses TLDR + link, not the full report
+- [ ] HTML version saved locally and optionally uploaded (unless `--no-html` or upload failed with noted fallback)
+- [ ] Chat delivery uses TLDR + link, not the full report

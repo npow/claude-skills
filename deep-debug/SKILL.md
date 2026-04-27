@@ -3,6 +3,50 @@ name: deep-debug
 description: Use when a bug, test failure, or unexpected behavior needs diagnosing — including production incidents, regressions, stack traces, mysterious failures, flaky tests, or any symptom needing root-cause analysis. Trigger phrases include "debug this", "why is this failing", "find the bug", "fix the bug", "root cause", "what's wrong with", "this is broken", "diagnose", "troubleshoot", "investigate this failure", "the test is failing", "this used to work", "why doesn't this work", "where's the bug". Adversarial hypothesis-driven debugging with parallel competing hypotheses across orthogonal dimensions, blind independent judging, discriminating probes that falsify leaders, TDD-gated fix loops, and mandatory architectural escalation after 3 failed attempts.
 user_invocable: true
 argument: The bug description, symptom, error message, or reproduction context
+
+category: debug
+capabilities:
+  - hypothesis-testing
+  - root-cause-analysis
+  - parallel-agents
+  - ensemble-judges
+best_for:
+  - "Diagnosing bugs with competing hypotheses"
+  - "Root-cause analysis for test failures or production incidents"
+  - "Debugging when the cause is unclear or disputed"
+not_for:
+  - "Flaky tests (use flaky-test-diagnoser)"
+  - "Reviewing code for defects (use deep-qa)"
+  - "Simple known bugs that just need fixing (use loop-until-done)"
+input_types:
+  - code-path
+  - artifact-file
+output_types:
+  - diagnosis
+  - code
+output_signals:
+  - termination_label
+  - hypothesis_count
+  - fix_applied
+  - test_passes
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: deep-debug-temporal
+  estimated_duration: "15-45min"
+related_skills:
+  - name: flaky-test-diagnoser
+    relation: alternative
+    note: "Specialized for intermittent/flaky test failures"
+  - name: deep-qa
+    relation: alternative
+    note: "When you want to find defects rather than diagnose a symptom"
+  - name: loop-until-done
+    relation: follow-up
+    note: "Drive a fix to completion after diagnosis"
+maturity: stable
 ---
 
 # Deep Debug Skill

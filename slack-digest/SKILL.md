@@ -13,7 +13,7 @@ metadata_source: inferred
 
 # Slack Digest
 
-Produce a weekly digest of key Slack threads from configured channels using rag-slack-prod MCP tools. The digest surfaces high-engagement threads, groups by topic, and highlights unanswered questions.
+Produce a weekly digest of key Slack threads from configured channels using Slack semantic search MCP tools. The digest surfaces high-engagement threads, groups by topic, and highlights unanswered questions.
 
 ## Configuration
 
@@ -39,7 +39,7 @@ Reads defaults from `~/.claude/skills/slack-digest/config.json` if it exists.
 
 1. **Compute time window.** Calculate the epoch timestamp for `now - lookback_days` using `date -d "{lookback_days} days ago" +%s`. This becomes the `thread_ts` filter lower bound.
 
-2. **Search each channel for threads.** For each channel_id, call `rag-slack-prod` with a metadata filter combining `channel_id == {id}` AND `thread_ts >= {epoch}`. Use a broad query like "discussion update question issue decision" to cast a wide net. Request `size=20` results per channel.
+2. **Search each channel for threads.** For each channel_id, call a Slack semantic search tool with a metadata filter combining `channel_id == {id}` AND `thread_ts >= {epoch}`. Use a broad query like "discussion update question issue decision" to cast a wide net. Request `size=20` results per channel.
 
 3. **Fetch full thread context.** For each thread returned, use `fetch-slack-thread` with the permalink to get the full thread (all replies, not just the matched snippet). Count replies per thread — this is the engagement signal.
 

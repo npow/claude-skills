@@ -2,6 +2,15 @@
 name: research-brief
 description: Produces a structured, evidence-based research brief on any topic. Use when the user asks to research, summarize, synthesize, or brief a topic — including "what do we know about", "give me a brief on", "research this topic", "background on", "landscape analysis", "due diligence on", or "deep dive into". Grounds all claims in real sources via web search.
 allowed-tools: WebSearch
+
+category: research
+capabilities: [claim-extraction, evidence-scoring, static-analysis]
+input_types: [git-diff, question, topic]
+output_types: [report, design-spec]
+complexity: moderate
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Research Brief

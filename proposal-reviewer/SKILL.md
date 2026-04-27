@@ -1,6 +1,46 @@
 ---
 name: proposal-reviewer
 description: Critically reviews project proposals, grant applications, and business plans. Use when the user asks to review, critique, evaluate, or assess a proposal, pitch, grant application, or business plan for viability, competition, or flaws. Fact-checks claims, maps competitive landscape, identifies structural problems, and provides honest recommendations.
+
+category: qa
+capabilities:
+  - claim-extraction
+  - evidence-scoring
+  - adversarial-critique
+  - parallel-agents
+  - ensemble-judges
+best_for:
+  - "Reviewing proposals, pitches, or grant applications"
+  - "Fact-checking claims and mapping competitive landscape"
+  - "Evaluating business plans for viability and structural flaws"
+not_for:
+  - "Technical artifact review (use deep-qa)"
+  - "Designing a system (use deep-design)"
+  - "Open-ended research (use deep-research)"
+input_types:
+  - artifact-file
+output_types:
+  - report
+output_signals:
+  - termination_label
+  - claim_count
+  - weakness_count
+  - viability_verdict
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: proposal-reviewer-temporal
+  estimated_duration: "15-45min"
+related_skills:
+  - name: deep-qa
+    relation: alternative
+    note: "When reviewing technical artifacts rather than proposals"
+  - name: deep-research
+    relation: prerequisite
+    note: "Research the domain before reviewing a proposal in it"
+maturity: stable
 ---
 
 # Proposal Reviewer Skill

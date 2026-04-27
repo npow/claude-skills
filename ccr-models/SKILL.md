@@ -1,6 +1,15 @@
 ---
 name: ccr-models
 description: List available models from claude-code-router
+
+category: tool
+capabilities: [backoff-retry]
+input_types: [code-path]
+output_types: [code, data]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 ## Prerequisites

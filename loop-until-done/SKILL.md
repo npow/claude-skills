@@ -10,6 +10,45 @@ argument: |
                                       reviewer selection (default: architect)
     --budget=N                        iteration budget cap (default: 25)
     --resume=<run_id>                 resume a prior run from state.json
+
+category: execution
+capabilities:
+  - loop-based
+  - defect-detection
+best_for:
+  - "Driving a well-defined task to guaranteed completion"
+  - "PRD-driven story-by-story execution with verification"
+  - "Iterating until all acceptance criteria pass"
+not_for:
+  - "Vague ideas needing design first (use autopilot)"
+  - "Multi-agent parallel work (use team)"
+  - "Finding bugs without fixing them (use deep-qa)"
+input_types:
+  - task
+output_types:
+  - code
+output_signals:
+  - termination_label
+  - stories_completed
+  - stories_total
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: loop-until-done-temporal
+  estimated_duration: "30-120min"
+related_skills:
+  - name: deep-qa
+    relation: prerequisite
+    note: "Find defects first, then loop-until-done to fix them"
+  - name: team
+    relation: alternative
+    note: "When you need parallel agents on the same task"
+  - name: autopilot
+    relation: alternative
+    note: "When the idea is vague and needs design/plan first"
+maturity: stable
 ---
 
 # Loop Until Done

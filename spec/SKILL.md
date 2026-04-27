@@ -3,6 +3,15 @@ name: spec
 description: Turns a conversation, idea, or discussion into a structured technical specification document. Use when the user asks to write a spec, technical spec, design doc, RFC, API design, data model, spec this out, turn this into a spec, write up the design, document this, implementation spec, spec for this feature.
 argument-hint: "[feature or system to specify]"
 allowed-tools: Write
+
+category: design
+capabilities: [loop-based]
+input_types: [artifact-file, task, question]
+output_types: [code, design-spec]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Spec

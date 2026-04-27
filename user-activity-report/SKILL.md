@@ -1,6 +1,14 @@
 ---
 name: user-activity-report
 description: "Use when researching what someone has been working on, getting up to speed on a colleague's recent activity, or preparing for a 1:1. Trigger phrases: what has X been working on, catch me up on X, person report, activity report for X, what's X been up to."
+
+category: report
+input_types: [git-diff, repo]
+output_types: [design-spec, report]
+complexity: simple
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Person Activity Report
@@ -21,25 +29,25 @@ Research all available sources to produce a comprehensive picture of what a spec
 
    **a) GitHub activity** (`gh` CLI — use `gh api`, NOT `gh search` which fails on GHE):
    - First discover their repos via Sourcegraph: `get_contributor_repos(authors=["{name}", "{email}"])`
-   - For each active repo: `gh api repos/{org}/{repo}/pulls?state=all&sort=created&direction=desc --hostname github.netflix.net` and filter by author
-   - For reviews: `gh api repos/{org}/{repo}/pulls?state=all --hostname github.netflix.net` and check reviewers
-   - For commits: `gh api repos/{org}/{repo}/commits?author={username}&since={lookback_date} --hostname github.netflix.net`
+   - For each active repo: `gh api repos/{org}/{repo}/pulls?state=all&sort=created&direction=desc` and filter by author
+   - For reviews: `gh api repos/{org}/{repo}/pulls?state=all` and check reviewers
+   - For commits: `gh api repos/{org}/{repo}/commits?author={username}&since={lookback_date}`
 
    **b) Code changes** (Sourcegraph):
    - `commit_search` with `authors=["{name}", "{email}"]` across relevant repos
    - `diff_search` with `author="{username}"` for significant code patterns added
 
-   **c) Slack threads** (`rag-slack-prod`):
+   **c) Slack threads** (Slack semantic search):
    - Search for their name/username in recent threads
    - Look for threads they started or had significant participation in
    - Focus on public channels only — NEVER search DMs or private channels
 
-   **d) Documents & Confluence** (`netflix_search_api`):
+   **d) Documents & Confluence** (search API):
    - Search DOCUMENTS source for docs authored/edited by this person
    - Search CONFLUENCE source for pages they've created or updated
    - Search MANUAL source for any internal docs they've contributed to
 
-   **e) Jira/Projects** (`netflix_search_api`):
+   **e) Jira/Projects** (search API):
    - Search PROJECTS source for tickets assigned to or created by this person
 
 3. **Synthesize by work area.** Group findings into work areas (not by source). A "work area" is a project, feature, or initiative — not "their GitHub activity" vs "their Slack activity." Cross-reference: a PR + Slack discussion + Jira ticket about the same feature = one work area.

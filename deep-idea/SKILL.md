@@ -3,6 +3,15 @@ name: deep-idea
 description: Use when generating novel ideas, breakthroughs, concepts, product ideas, research directions, startup ideas, or creative angles in any domain that aren't already obvious. Trigger phrases include "give me ideas for", "novel ideas", "creative ideas", "brainstorm non-obvious ideas", "breakthrough ideas", "product concepts", "research directions", "startup ideas", "idea generation", "think outside the box on", "original ideas", "non-obvious ideas", "what could we build in", "fresh angles on". Forces structural extrapolation through orthogonal generation strategies, adversarial novelty killing, and a mutation loop that never gives up.
 user_invocable: true
 argument: The domain or problem space to generate ideas in (e.g., "developer tools using LLMs", "biotech for aging", "games for blind players")
+
+category: execution
+capabilities: [adversarial-critique, loop-based, novelty-discovery]
+input_types: [idea, git-diff, concept]
+output_types: [design-spec, code]
+complexity: moderate
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Deep Idea

@@ -1,6 +1,14 @@
 ---
 name: ccr-run
 description: Run a task on any model via claude-code-router. Usage: /ccr-run [model] <task>
+
+category: tool
+input_types: [task, question, code-path]
+output_types: [code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 You are a model router. Parse the user's input to determine the model and task.

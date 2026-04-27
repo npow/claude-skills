@@ -3,6 +3,46 @@ name: deep-plan
 description: Use before touching code for any multi-step task — features, refactors, migrations, architectural decisions, bug fixes, or any work that needs to be broken into verifiable steps. Trigger phrases include "write a plan", "implementation plan", "plan this", "plan the work", "break this down", "how should I approach this", "make a plan", "design the approach", "before I code this", "I need a plan", "write up the plan", "spec to plan", "requirements to plan". Produces an ADR-backed plan with verification-backed acceptance criteria via a Planner → Architect → Critic consensus loop.
 user_invocable: true
 argument: The task description or problem statement to produce a deep plan for.
+
+category: plan
+capabilities:
+  - consensus-building
+  - adr-generation
+best_for:
+  - "Breaking multi-step tasks into verifiable implementation plans"
+  - "Architectural decisions needing Planner/Architect/Critic consensus"
+  - "Producing ADR-backed plans with acceptance criteria"
+not_for:
+  - "Designing a system spec (use deep-design)"
+  - "Executing code (use loop-until-done or team)"
+  - "Reviewing existing work (use deep-qa)"
+input_types:
+  - task
+  - concept
+output_types:
+  - plan
+output_signals:
+  - termination_label
+  - iteration_count
+  - verdict
+complexity: moderate
+model_tier: sonnet
+cost_profile: medium
+execution:
+  sagaflow: required
+  temporal_skill: deep-plan-temporal
+  estimated_duration: "10-30min"
+related_skills:
+  - name: deep-design
+    relation: prerequisite
+    note: "Design spec should exist before planning implementation"
+  - name: loop-until-done
+    relation: follow-up
+    note: "Execute the plan"
+  - name: team
+    relation: follow-up
+    note: "Execute the plan with multiple agents"
+maturity: stable
 ---
 
 # Deep Plan Skill

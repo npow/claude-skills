@@ -2,6 +2,14 @@
 name: magic-fetch
 description: Logs capability gaps as they arise during a session — what Claude couldn't do and exactly what tool, access, or data would have made it possible. Use when the user wants to capture integration needs, track where Claude hits walls, build a roadmap from blocked requests, log capability gaps, or says "remember what you couldn't do". Auto-activates when Claude is about to say it cannot access, fetch, or perform something.
 argument-hint: "[optional: path to log file, default: ./magic-fetch.jsonl]"
+
+category: tool
+capabilities: [trend-tracking]
+output_types: [plan, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Magic Fetch

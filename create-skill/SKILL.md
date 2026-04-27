@@ -2,6 +2,15 @@
 name: create-skill
 description: Use when creating, editing, scaffolding, designing, reviewing, improving, or refactoring a Claude Code skill, slash command, subagent, or agent capability. Trigger phrases include "create skill", "build skill", "scaffold skill", "edit skill", "write skill", "design skill", "improve skill", "fix skill", "review skill", "audit skill", "refactor skill", "new slash command", "new subagent", "turn this workflow into a skill", "add a skill", "authoring skills", "writing skills".
 argument-hint: "[skill purpose or domain]"
+
+category: meta
+capabilities: [loop-based]
+input_types: [git-diff, code-path]
+output_types: [code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Create Skill

@@ -1,6 +1,15 @@
 ---
 name: build-python-library
 description: Implements pip-installable Python libraries from scratch using src layout, pyproject.toml, and pytest. Use when the user asks to build, create, implement, or scaffold a Python library, package, pip package, middleware, SDK, or wrapper. Covers project scaffolding, proxy/wrapper patterns, provider-agnostic interfaces, async/sync support, and test infrastructure.
+
+category: execution
+capabilities: [static-analysis]
+input_types: [git-diff, task, question]
+output_types: [code, data]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Build Python Library

@@ -2,6 +2,13 @@
 name: table
 description: Renders interactive sortable, filterable tables in the browser using pure vanilla HTML/CSS/JS — no external dependencies. Use when the user wants to compare alternatives, show a feature matrix, display structured data, create a comparison table, render a sortable table, show options side-by-side, or visualize rows and columns of data. Always renders live in browser — never as static text.
 allowed-tools: Write, Edit, mcp__chrome-devtools__new_page, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__list_pages
+
+category: tool
+output_types: [data, presentation]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Table

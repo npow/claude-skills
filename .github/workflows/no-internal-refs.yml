@@ -1,0 +1,14 @@
+name: No Internal Refs
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for Netflix-internal references
+        run: bin/check-no-internal-refs

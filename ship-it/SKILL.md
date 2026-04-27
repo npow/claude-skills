@@ -1,6 +1,15 @@
 ---
 name: ship-it
 description: Takes a validated product idea and builds it into a complete, shippable project through a multi-phase pipeline with parallel subagents. Use when the user says "build this idea", "ship it", "go to product", "implement this", "make this real", or wants to turn a product spec into working code with tests, docs, and packaging. Handles TypeScript, Python, or Node.js projects end-to-end.
+
+category: execution
+capabilities: [parallel-agents, ensemble-judges, claim-extraction, evidence-scoring]
+input_types: [task, git-diff, idea]
+output_types: [code, design-spec]
+complexity: complex
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Ship It

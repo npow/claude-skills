@@ -4,6 +4,15 @@ description: Smoke test for the sagaflow generic interpreter. Writes a greeting 
 user_invocable: true
 argument: |
   --arg name=<someone>
+
+category: meta
+capabilities: [temporal-workflow]
+input_types: [git-diff, repo]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # gen-smoke

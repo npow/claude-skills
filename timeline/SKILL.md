@@ -2,6 +2,14 @@
 name: timeline
 description: Renders interactive Gantt-style project timelines and roadmaps in the browser using vis-timeline. Use when the user mentions timeline, gantt, roadmap, project plan, phases, milestones, schedule, sprints, quarters, or asks when things happen or to show a schedule. Writes /tmp/timeline.html and opens it via Chrome DevTools MCP.
 allowed-tools: Write, Edit, mcp__chrome-devtools__new_page, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__list_pages
+
+category: tool
+input_types: [git-diff, question, repo]
+output_types: [plan, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Timeline

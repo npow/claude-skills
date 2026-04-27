@@ -4,6 +4,15 @@ description: Crash-recovery test for the sagaflow generic interpreter. Multiple 
 user_invocable: true
 argument: |
   --arg name=<someone>
+
+category: meta
+capabilities: [temporal-workflow]
+input_types: [git-diff]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # gen-crash-test

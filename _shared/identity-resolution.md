@@ -1,155 +1,87 @@
 # Cross-Platform Identity Resolution
 
-Resolve a person's identity across Netflix systems given any starting identifier (Slack handle, GitHub username, email, or name). Used by `user-activity-report`, `sprint-retro`, and any skill that needs to map a person across platforms.
+Resolve a person's identity across systems given any starting identifier (chat handle, GitHub username, email, or name). Used by `user-activity-report`, `sprint-retro`, and any skill that needs to map a person across platforms.
 
 ## The Problem
 
-Netflix has no single lookup that maps `any_identifier → all_identifiers`. Each system stores identity differently:
+People have different identifiers on different systems. A single person might be `jdoe` on GitHub, `Jane Doe` in git commits, `jane@example.com` in email, and `@jane` on chat. Reports that hardcode one identifier miss activity under the others.
 
-| System | Identifier format | Searchable by |
+## Input formats
+
+| Input | Type | Action |
 |---|---|---|
-| Pandora/PEOPLE | Full name, email, team | Full name or email. **Usernames alone don't match.** |
-| GitHub Enterprise | Username (e.g. `npow`) | Username, email (via `gh api`) |
-| Sourcegraph | Git commit metadata: `Name <email>` | Partial name, email, or username (fuzzy) |
-| Slack (rag-slack-prod) | Content search only | Message text. **Cannot filter by author.** |
-| Jira/Confluence | Email or display name | Name or email via `netflix_search_api` |
+| `jdoe` | Username | Look up on GitHub, then cross-reference git log |
+| `Jane Doe` | Full name | Search GitHub users, then git log |
+| `jane@example.com` | Email | Search git log by email, then GitHub |
+| `@team-name` | Group handle | Resolve via GitHub team API or org membership |
 
-## Resolution Cascade
+## Resolution cascade
 
-Execute steps in order. Stop expanding once you have: **full name + email + GitHub username**.
+### Step 1: Determine input type
 
-**CRITICAL: Never fabricate identity metadata.** Role, title, team, level (e.g. "Staff Engineer", "Senior SWE") must come from Pandora PEOPLE results — never inferred, guessed, or filled in from context. If Pandora doesn't return a field, use `[not resolved]` in the report. Presenting guessed metadata as fact is a defect that deep-qa must catch.
-
-### Step 1: Normalize the input
-
-| Input looks like | Action |
+| Pattern | Type |
 |---|---|
-| `@something` | Strip `@`, treat as username/alias |
-| `user@netflix.com` | Email — skip to Step 2b |
-| Contains space (e.g. "Nissan Pow") | Full name — skip to Step 2a |
-| Single word, no `@` | Ambiguous — could be username, first name, or alias. Try all paths. |
+| Contains `@` and `.` (email-like) | Email — skip to Step 2b |
+| Starts with `@` | Group handle — skip to Group Resolution |
+| Contains a space | Full name — search by name |
+| Otherwise | Username — search by username |
 
-### Step 2: Pandora/PEOPLE lookup
+### Step 2a: Username or name lookup
 
-**2a) If you have a full name or email:**
-```
-netflix_search_api(sources: ["PANDORA", "PEOPLE"], queryString: "{full_name_or_email}")
-```
-This reliably returns: full name, email, team, role, manager.
+1. GitHub API: `gh api users/{username}` or `gh api search/users?q={name}`
+2. Git log: `git log --all --format='%an <%ae>' | sort -u | grep -i "{query}"`
+3. If a people directory or search API is available (configured via MCP tools), use it to enrich with role/team info
 
-**2b) If you only have a username:**
-- Construct email guess: `{username}@netflix.com`
-- Search Pandora by email: `netflix_search_api(sources: ["PANDORA"], queryString: "{username}@netflix.com")`
-- If nothing: search by username as a name: `netflix_search_api(sources: ["PEOPLE"], queryString: "{username}")`
-- If still nothing: proceed to Step 3 with the username only.
+### Step 2b: Email lookup
 
-**What you get:** Full name, email, team, role. If Pandora matched, you now have enough for most sources.
+1. Git log: `git log --all --format='%an <%ae>' | sort -u | grep -i "{email}"`
+2. GitHub API: `gh api search/users?q={email}+in:email`
+3. Extract username from email prefix as a fallback guess
 
-### Step 3: Sourcegraph commit metadata (the bridge)
+### Step 3: Build identity map
 
-This is the most reliable cross-reference for code contributors. Git commits embed both name and email.
+Cross-reference results to build:
+- **username**: primary GitHub handle
+- **full_name**: display name
+- **email**: primary email
+- **team**: if discoverable
+- **role**: if discoverable
 
-```
-get_contributor_repos(authors=["{name}", "{email}", "{username}"])
-```
+Use this map consistently across all queries in the report.
 
-Pass ALL identifiers you have so far — Sourcegraph matches any of them against commit author fields. The response includes repos with commit counts, and the matched author string reveals the `Name <email>` pair from git config.
-
-**What you get:** GitHub username (from email domain convention), full name, email, active repos.
-
-**Limitation:** Only works for people who have committed code. Non-code contributors (PMs, managers, data analysts who only use notebooks) won't appear.
-
-### Step 4: GitHub API confirmation
-
-If you have a suspected GitHub username:
-```
-gh api users/{username} --hostname github.netflix.net
-```
-
-Returns the profile including name and email (if set). If 404, the username is wrong — fall back to email-based search or Sourcegraph commit metadata.
-
-For email-based lookup (when you have email but not username):
-```
-gh api search/users?q={email}+in:email --hostname github.netflix.net
-```
-
-### Step 5: Slack (best effort)
-
-`rag-slack-prod` is content-based search, not author-based. You cannot reliably find "messages by person X." Instead:
-
-- Search for their **full name** (not username) in recent threads
-- Search for topics they're known to work on (discovered from GitHub/Jira)
-- Accept that Slack coverage for a specific person will be noisy
-
-**Known failure mode:** Common first names or names that match other words (e.g. "nissan" matches car discussions). Use full name when possible.
-
-## Resolution Output
-
-After the cascade, you should have:
-
-```
-{
-  "full_name": "Nissan Pow",
-  "email": "npow@netflix.com",
-  "github_username": "npow",
-  "team": "ML Platform",
-  "role": "Senior Software Engineer",
-  "slack_search_terms": ["Nissan Pow", "npow"],
-  "active_repos": ["org/repo1", "org/repo2"],
-  "resolution_confidence": "high|medium|low",
-  "resolution_path": "username → email guess → Pandora → Sourcegraph confirmed"
-}
-```
-
-Include `resolution_confidence` and `resolution_path` in any report that depends on identity resolution. If confidence is `low`, note it — the reader should know the data may be incomplete or mixed with another person's activity.
-
-## Confidence Levels
+## Confidence levels
 
 | Level | Criteria |
 |---|---|
-| `high` | Pandora returned a match AND Sourcegraph confirmed via commit metadata |
-| `medium` | One source confirmed (Pandora OR Sourcegraph), other assumed from convention |
-| `low` | Email guessed from convention, no confirmation from any system. Results may be wrong. |
+| `high` | Exact username match confirmed via GitHub profile, or email matches git + GitHub |
+| `medium` | Name match with plausible email, or single search result |
+| `low` | Partial match or best guess — flag in report header |
 
-## Team/Alias Resolution
+Include `resolution_confidence` in the report output.
 
-When input is a team alias (e.g. `@ml-platform`, `@metaflow-dev-group`):
+## Group resolution
 
-**Steps 1 & 2: Try Pandora AND Slack in parallel**
+For group handles (e.g., `@team-name`):
 
-Fire both searches concurrently — don't wait for Pandora to fail before trying Slack:
-- `netflix_search_api(sources: ["PANDORA"], queryString: "{alias_without_@}")` — may match a team or org unit
-- `netflix_search_api(sources: ["SLACK"], queryString: "{alias_without_@}")` — find Slack mentions that list usergroup members
-- `rag-slack-prod(query_str: "{alias} members team")` — semantic search for membership context
+1. Try GitHub team membership: `gh api orgs/{org}/teams/{team}/members`
+2. If that fails, identify frequent committers to repos associated with the team
+3. If a search API is available, query it for team/group membership
 
-Slack usergroups (e.g. `@metaflow-dev-group`) are NOT indexed in Pandora — they're Slack-specific constructs. If Pandora returns nothing, use the Slack results to discover individual names from channel bot responses, thread authors, or group mentions.
+Once individual names are found, resolve ALL members through the cascade above **in parallel** — fire all lookups concurrently, not one at a time.
 
-**Step 3: Resolve ALL members in parallel**
-- Fire the identity cascade (Steps 1-5 above) for ALL discovered members concurrently — batch all Pandora lookups and Sourcegraph `get_contributor_repos` calls into a single parallel request, not one at a time
-- Resolve full name, email, GitHub username, team, role via Pandora
+**Show every resolved member.** When reporting on a group, every resolved member gets a section — even if sparse. Never silently drop members.
 
-**Step 4: Verify**
-- List all resolved members in the report header
-- Note any members that could not be fully resolved (with confidence level)
-- Never silently drop members — sparse data is not grounds for exclusion
-- Never stop to ask the user for names — degrade gracefully with confidence notes
+## Cross-platform identity
 
-## Failure Diagnosis
+A subject may have different handles on different systems: GitHub login, email username, ticket assignee field, chat handle. Build the identity map once and use it in every query. A report that hardcodes one handle in all queries will silently miss attributions on other platforms.
 
-| Symptom | Cause | Fix |
-|---|---|---|
-| Pandora returns 0 for username | Pandora doesn't index usernames | Try `{username}@netflix.com` as email |
-| Sourcegraph returns 0 repos | Person doesn't commit code (PM, analyst) | Rely on Pandora + email convention. Note reduced GitHub coverage. |
-| `gh api users/{x}` returns 404 | Wrong GitHub username | Check Sourcegraph commit metadata for the actual username |
-| Slack search returns irrelevant results | Name matches common words | Use full name in quotes, or search for their known project topics instead |
-| Multiple people match | Common name, ambiguous input | Use email for precision. If still ambiguous, include all matches with a note — never stop to ask. |
+## Failure diagnosis
 
-## Anti-Rationalization
-
-| Excuse | Reality |
+| Symptom | Fix |
 |---|---|
-| "Pandora didn't find them, they probably don't exist." | Pandora doesn't match usernames. Try email convention `{user}@netflix.com` or full name. |
-| "I'll just use the username for everything." | Each system uses different identifiers. A GitHub username won't match in Jira or Pandora. Run the cascade. |
-| "Sourcegraph found repos, that's enough to confirm identity." | Sourcegraph matches fuzzy. Verify the matched author string actually contains the right person's name/email. |
-| "Slack search returned results mentioning them, so I found their activity." | Content mentions != authored by. Someone else may be discussing them. Note this limitation. |
-| "I'll skip identity resolution for known teammates." | Even known teammates may use different handles across systems. Always resolve — it's fast and prevents silent mismatches. |
+| GitHub returns 404 for username | Try search API, try email lookup, check for alt handles |
+| Git log returns nothing | Try broader name search, check other repos |
+| Multiple matches for a name | Ask user to disambiguate, or pick highest-confidence match and note it |
+| Group resolution returns 0 members | Try alternative: repo committer analysis, ask user for member list |
+
+**Never stop to ask for names — degrade gracefully with confidence notes.** A report with `resolution_confidence: low` is better than a blocked report.

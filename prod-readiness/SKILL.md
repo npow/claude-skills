@@ -1,6 +1,15 @@
 ---
 name: prod-readiness
 description: Scans a codebase and config for 24 production readiness items and produces a scored report. Use when the user asks to check production readiness, audit for prod, review operational concerns, scan for health checks, verify deployment readiness, or assess if code is ready for production.
+
+category: qa
+capabilities: [parallel-agents, defect-detection, ensemble-judges, evidence-scoring]
+input_types: [repo, git-diff, question]
+output_types: [code, defect-registry]
+complexity: complex
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Production Readiness Scanner

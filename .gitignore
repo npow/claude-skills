@@ -36,7 +36,7 @@ debug-run
 # Local OAuth credentials — never commit
 google-workspace-setup/client_secrets.json
 
-# Netflix-internal skills hosted separately at github.netflix.net/npow/claude-skills
+# Netflix-internal skills hosted separately at github.netflix.net/npow/claude-skills # oss-ok
 mako-gpu-status
 upload-presentation
 

@@ -2,6 +2,46 @@
 name: team
 description: Use when coordinating multiple agents on a staged pipeline — plan → PRD → exec → verify → fix — with independent critic/verifier gates and 4-reviewer parallel panel on every source modification. Trigger phrases include "spawn a team", "team of agents", "coordinate agents", "staged pipeline", "multi-agent pipeline", "agent team", "run a team on this", "PRD-driven team", "team workflow", "agents working together", "assemble a team", "delegate to a team", "orchestrate agents", "pipeline of agents". File-based state, no external MCP dependencies, honest termination labels, Claude Code native team tools.
 argument-hint: "[N:agent-type] <task description>"
+
+category: execution
+capabilities:
+  - parallel-agents
+  - loop-based
+  - defect-detection
+best_for:
+  - "Multi-agent coordinated execution on a staged pipeline"
+  - "Tasks benefiting from parallel workers with independent verification"
+  - "Plan to PRD to exec to verify to fix pipelines"
+not_for:
+  - "Single-threaded sequential tasks (use loop-until-done)"
+  - "Full lifecycle from vague idea (use autopilot)"
+  - "Just planning without executing (use deep-plan)"
+input_types:
+  - task
+output_types:
+  - code
+output_signals:
+  - termination_label
+  - workers_completed
+  - stage_reached
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: team-temporal
+  estimated_duration: "30-120min"
+related_skills:
+  - name: loop-until-done
+    relation: alternative
+    note: "When single-agent sequential execution is sufficient"
+  - name: autopilot
+    relation: alternative
+    note: "When the idea needs design and planning first"
+  - name: deep-plan
+    relation: prerequisite
+    note: "Plan should exist before spawning the team"
+maturity: stable
 ---
 
 # Team Skill

@@ -1,6 +1,15 @@
 ---
 name: gap-finder
 description: Finds viable product, business, or project ideas in any domain by generating candidates in batches, rigorously validating each against real competitors and market data, and killing weak ideas with documented reasons. Use when the user asks to brainstorm ideas, find market gaps, identify business opportunities, figure out what to build, come up with side project ideas, or find underserved niches. Works for SaaS, open source, MCP servers, apps, tools, APIs, or any product category.
+
+category: execution
+capabilities: [loop-based, adversarial-critique, static-analysis]
+input_types: [idea, artifact-file, git-diff]
+output_types: [code, data]
+complexity: moderate
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Gap Finder

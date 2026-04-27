@@ -3,6 +3,48 @@ name: autopilot
 description: Use when running full-lifecycle autonomous execution from a vague idea to working verified code — idea to battle-tested design to consensus plan to executed code to audited defects to three independent judge verdicts to honest completion report. Trigger phrases include "autopilot", "build me end to end", "full lifecycle", "idea to working code", "auto-run this project", "run this autonomously", "just build it", "go from idea to code", "do everything", "autonomous execution", "end-to-end build", "build this for me", "make it real end to end", "full autonomous build". Iron-law phase gates between every stage; no coordinator self-approval; honest termination labels.
 user_invocable: true
 argument: The product idea, feature request, or task description (may be vague — Phase 0 handles ambiguity detection)
+
+category: execution
+capabilities:
+  - loop-based
+  - parallel-agents
+  - defect-detection
+best_for:
+  - "End-to-end autonomous builds from vague ideas"
+  - "Full lifecycle: idea to design to plan to code to verification"
+  - "When you want to hand off entirely and check back later"
+not_for:
+  - "Well-defined single tasks (use loop-until-done)"
+  - "Just designing without building (use deep-design)"
+  - "Just reviewing existing code (use deep-qa)"
+input_types:
+  - idea
+  - task
+output_types:
+  - code
+  - report
+output_signals:
+  - termination_label
+  - phase_reached
+  - judge_verdicts
+complexity: complex
+model_tier: sonnet
+cost_profile: high
+execution:
+  sagaflow: required
+  temporal_skill: autopilot-temporal
+  estimated_duration: "60-180min"
+related_skills:
+  - name: loop-until-done
+    relation: alternative
+    note: "When the task is well-defined and doesn't need design/plan phases"
+  - name: team
+    relation: alternative
+    note: "When you want multi-agent execution without full lifecycle"
+  - name: deep-design
+    relation: prerequisite
+    note: "Autopilot calls deep-design internally for Phase 0"
+maturity: stable
 ---
 
 # Autopilot Skill
