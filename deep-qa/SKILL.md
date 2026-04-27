@@ -9,6 +9,50 @@ argument: |
     --diff [ref]                     QA a git diff instead of a full artifact;
                                      ref defaults to HEAD~1 (last commit);
                                      use HEAD~3, a SHA, or a branch name
+
+category: qa
+capabilities:
+  - adversarial-critique
+  - parallel-agents
+  - defect-detection
+  - severity-classification
+  - ensemble-judges
+best_for:
+  - "Reviewing existing artifacts for defects"
+  - "Auditing specs, code diffs, PRs, research reports"
+  - "Finding problems you haven't thought of"
+not_for:
+  - "Fixing defects (use loop-until-done)"
+  - "Designing from scratch (use deep-design)"
+  - "Exploring a topic (use deep-research)"
+input_types:
+  - artifact-file
+  - git-diff
+output_types:
+  - defect-registry
+output_signals:
+  - termination_label
+  - critical_count
+  - major_count
+  - minor_count
+complexity: moderate
+model_tier: sonnet
+cost_profile: medium
+execution:
+  sagaflow: required
+  temporal_skill: deep-qa-temporal
+  estimated_duration: "10-30min"
+related_skills:
+  - name: loop-until-done
+    relation: follow-up
+    note: "Fix defects that deep-qa finds"
+  - name: deep-design
+    relation: alternative
+    note: "When you need to design, not just review"
+  - name: proposal-reviewer
+    relation: alternative
+    note: "When reviewing a proposal rather than a technical artifact"
+maturity: stable
 ---
 
 # Deep QA Skill
@@ -170,7 +214,11 @@ min_rounds = ceil(initial_angles / 6)     # 6 agents/round
 recommended = ceil(min_rounds * 1.3)      # 30% expansion from agent-discovered sub-angles
 recommended = max(recommended, 3)         # never suggest < 3 rounds
 recommended = min(recommended, 6)         # cap at 6 for typical artifacts
+if auto_mode:
+    recommended = min(recommended, 2)     # --auto caps at 2 to reserve budget for synthesis
 ```
+
+**Why cap `--auto` at 2 rounds:** Round 3+ rarely discovers critical new defects but adds ~33% more context, often causing truncation on complex artifacts before the skill reaches Phase 6 synthesis. Two rounds with 6 critics each (12 total critic passes) is sufficient for most artifacts. Interactive mode retains the higher cap since the user can manage the budget.
 
 ---
 
@@ -217,8 +265,8 @@ Continue? [y/N/redirect:<focus>]
    - Known defects file: `deep-qa-{run_id}/known-defects.md`
    - Angle files: `deep-qa-{run_id}/angles/{angle.id}.md`
    - If any verification fails: halt with error, do not spawn
-3. For each angle, write `status: "in_progress"` and `spawn_time_iso` to state.json **BEFORE** calling Agent tool. After writing, **re-read state.json and verify `generation == N+1`**. If mismatch: log conflict, retry once with fresh read, then halt.
-4. Spawn critic agents in parallel (120s timeout)
+3. **Batch state update:** Write `status: "in_progress"` and `spawn_time_iso` for ALL angles in a single state.json write. Re-read state.json and verify `generation == N+1`. If mismatch: log conflict, retry once with fresh read, then halt. Do NOT write state per-angle — batch all status updates into one write so step 4 can spawn all agents in one turn.
+4. **Spawn ALL critic agents in a SINGLE message** — emit all Agent tool calls in one response so they run concurrently (120s timeout). NEVER spawn critics one-at-a-time across multiple turns; sequential spawning wastes turns and risks losing the workflow thread before synthesis.
 5. On timeout: mark `timed_out`, write `"generation": += 1`, do NOT re-queue, do NOT increment dedup counter
 6. Collect new angles from ALL completed agents BEFORE running dedup
 7. Apply dedup against stable pre-round snapshot. **Assign `depth = parent.depth + 1`** to each critic-reported angle. Reject angles where `depth > max_depth`. Enforce frontier cap with required-category protection (see STATE.md).
@@ -227,6 +275,8 @@ Continue? [y/N/redirect:<focus>]
 10. **Background severity judges (pass-1 blind):** Batch new defects into groups of up to 5. For each batch: write combined defect data to `deep-qa-{run_id}/judge-inputs/batch_{round}_{batch_num}.md` **with the critic-proposed severity STRIPPED from each defect entry** (blind-severity protocol; see [`_shared/adversarial-judging.md`](../_shared/adversarial-judging.md) §1). Then spawn a **single** Haiku severity judge agent with `run_in_background=true` (see SYNTHESIS.md for batched judge prompt). Record batch in `background_tasks.judges` in state.json with `pass: 1`. Each defect gets a `judge_pass_1_verdict` field once the batch completes.
 11. **Background coordinator summary:** Spawn Haiku subagent with `run_in_background=true` to write a **cumulative** coordinator summary (see SYNTHESIS.md). Record in `background_tasks.summaries` in state.json.
 12. Increment round → **immediately proceed to next round's step 1** (do not wait for background tasks)
+
+**MANDATORY CONTINUATION:** After collecting all critic results for any round, you MUST continue — either to the next round's step 1 (if rounds remain) or to Phase 5 termination check (if this was the last round). Producing an empty response or ending the turn after critic collection is a workflow violation. The skill is not complete until Phase 6 writes `qa-report.md`.
 
 **Pipelining rationale:** Severity judges and coordinator summaries are reporting artifacts consumed only in Phase 6. They do not affect angle selection, dedup, or coverage evaluation. Running them in the background while the next round's critics execute hides their latency entirely.
 
@@ -286,6 +336,29 @@ For `artifact_type == "research"`, run before final synthesis. Skip entirely for
 | `"Audit compromised — report re-assembled from verdicts only"` | Phase 5.6 rationalization auditor reports `REPORT_FIDELITY\|compromised` on two consecutive assemblies |
 
 Never use a label not in this table. Never write "no defects remain."
+
+---
+
+### Phase 5.4: Budget Gate (fast-finish check)
+
+Before entering the expensive post-processing pipeline (drain → coherence → pass-2 → audit → synthesis), check whether enough budget remains to complete it. A truncated session with no final report is strictly worse than a complete report with degraded severity calibration.
+
+**Budget pressure signals — if ANY are true, enter fast-finish mode:**
+1. **Round count ≥ 3** in `--auto` mode (should not happen with the cap, but defensive)
+2. **Total defects found > 15** AND current round ≥ 2 (many findings = large context from critic outputs)
+3. **Context compaction has occurred** (the coordinator observes a `context_management` event or notices prior conversation history is missing/summarized)
+
+**Fast-finish mode** — when triggered, set `state.json.fast_finish = true` and:
+- **DO** drain pass-1 blind judges (Phase 5.5.a) — they're already running, just collect results
+- **SKIP** Phase 5.5.a-coherence (cross-finding coherence integrator)
+- **SKIP** Phase 5.5.b (pass-2 informed judges) — use pass-1 verdicts as final
+- **SKIP** Phase 5.6 (rationalization audit)
+- **Proceed directly to Phase 6** with pass-1 judge verdicts and critic-proposed severities as fallback for any unjudged defects
+- **Add caveat** to final report: "Budget-constrained run: pass-2 severity calibration and rationalization audit were skipped. Severity ratings are pass-1 blind verdicts only."
+
+**Termination label addition:** `"Budget-constrained completion"` joins the label vocabulary when fast-finish fires. This label is appended to the normal termination label (e.g., `"Max Rounds Reached — budget-constrained completion"`).
+
+If none of the budget pressure signals fire, proceed normally to Phase 5.5.
 
 ---
 
@@ -691,7 +764,9 @@ When invoked automatically at the end of a parent run (not standalone):
 
 **Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable. See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) Contract 6.
 
-**Routing sequence (mandatory before any in-session work):**
+**`--auto` mode bypass:** When `--auto` is set, skip sagaflow routing entirely and run in-session. Rationale: `--auto` runs are typically invoked via `claude -p` where the session IS the execution context; sagaflow launches a separate worker that produces empty results, wasting 6-8 turns on a failed attempt + fallback detection.
+
+**Routing sequence (mandatory before any in-session work; skip if `--auto`):**
 1. Run `sagaflow doctor`
 2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
 3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
