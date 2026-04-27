@@ -32,6 +32,7 @@ with workflow.unsafe.imports_passed_through():
         WriteArtifactInput,
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
+    from sagaflow.slack_progress import ReportSlackProgressInput
     from .state import (
         CrossFixConflict,
         DeepDesignState,
@@ -39,6 +40,47 @@ with workflow.unsafe.imports_passed_through():
         InvariantViolation,
         RecoveryBehavior,
     )
+
+_PROGRESS_POLICY = HAIKU_POLICY
+_PROGRESS_TITLE = "deep-design"
+_PROGRESS_PHASES = [
+    "Draft spec",
+    "Critique rounds",
+    "Synthesize spec",
+    "Write report",
+]
+
+
+async def _report_progress(
+    run_dir: str,
+    phase_idx: int,
+    status: str = "in_progress",
+    detail: str = "",
+    final: bool = False,
+    *,
+    _steps: list[dict] | None = None,
+) -> list[dict]:
+    if _steps is None:
+        _steps = [{"name": n, "status": "pending", "detail": "", "elapsed_s": 0.0}
+                  for n in _PROGRESS_PHASES]
+    _steps[phase_idx]["status"] = status
+    if detail:
+        _steps[phase_idx]["detail"] = detail
+    try:
+        await workflow.execute_activity(
+            "report_slack_progress",
+            ReportSlackProgressInput(
+                run_dir=run_dir,
+                title=_PROGRESS_TITLE,
+                steps=tuple(_steps),
+                final=final,
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_PROGRESS_POLICY,
+        )
+    except Exception:
+        pass
+    return _steps
 
 
 @dataclass(frozen=True)
@@ -250,6 +292,8 @@ class DeepDesignWorkflow:
         )
         max_rounds = max(1, min(inp.max_rounds, 5))
 
+        steps = await _report_progress(inp.run_dir, 0, "in_progress")
+
         # ------------------------------------------------------------------ #
         # Phase a: initial draft                                               #
         # ------------------------------------------------------------------ #
@@ -278,6 +322,9 @@ class DeepDesignWorkflow:
             retry_policy=SONNET_POLICY,
         )
         state.spec_draft = draft_result.get("SPEC", _fallback_spec(inp.concept))
+
+        steps = await _report_progress(inp.run_dir, 0, "completed", _steps=steps)
+        steps = await _report_progress(inp.run_dir, 1, "in_progress", _steps=steps)
 
         # ------------------------------------------------------------------ #
         # Phase b: critique rounds                                             #
@@ -872,6 +919,9 @@ class DeepDesignWorkflow:
                 "INCOMPLETE — uncovered: " + ", ".join(still_uncovered)
             )
 
+        steps = await _report_progress(inp.run_dir, 1, "completed", _steps=steps)
+        steps = await _report_progress(inp.run_dir, 2, "in_progress", _steps=steps)
+
         # ------------------------------------------------------------------ #
         # Phase d: final synthesis                                             #
         # ------------------------------------------------------------------ #
@@ -904,6 +954,8 @@ class DeepDesignWorkflow:
             retry_policy=SONNET_POLICY,
         )
         final_spec = synth_result.get("REPORT", state.spec_draft)
+        steps = await _report_progress(inp.run_dir, 2, "completed", _steps=steps)
+        steps = await _report_progress(inp.run_dir, 3, "in_progress", _steps=steps)
 
         # ------------------------------------------------------------------ #
         # Phase e: write spec.md + emit finding                               #
@@ -936,6 +988,7 @@ class DeepDesignWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=HAIKU_POLICY,
         )
+        await _report_progress(inp.run_dir, 3, "completed", summary, final=True, _steps=steps)
         return summary
 
 

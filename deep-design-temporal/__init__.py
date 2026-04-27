@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from sagaflow.durable.activities import emit_finding, spawn_subagent, write_artifact
+from sagaflow.slack_progress import report_slack_progress
 from sagaflow.prompts import load_claude_skill_prompt
 from sagaflow.registry import SkillRegistry, SkillSpec
 
@@ -70,7 +71,7 @@ def register(registry: SkillRegistry) -> None:
         SkillSpec(
             name="deep-design",
             workflow_cls=DeepDesignWorkflow,
-            activities=[write_artifact, emit_finding, spawn_subagent],
+            activities=[write_artifact, emit_finding, spawn_subagent, report_slack_progress],
             build_input=_build_input,
         )
     )

@@ -41,6 +41,39 @@ with workflow.unsafe.imports_passed_through():
         WriteArtifactInput,
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
+    from sagaflow.slack_progress import ReportSlackProgressInput
+
+_PROGRESS_POLICY = HAIKU_POLICY
+_PROGRESS_TITLE = "deep-debug"
+_PROGRESS_PHASES = [
+    "Lock symptoms",
+    "Debug cycles",
+    "Write report",
+]
+
+
+async def _report_progress(
+    run_dir: str, phase_idx: int, status: str = "in_progress",
+    detail: str = "", final: bool = False, *, _steps: list[dict] | None = None,
+) -> list[dict]:
+    if _steps is None:
+        _steps = [{"name": n, "status": "pending", "detail": "", "elapsed_s": 0.0}
+                  for n in _PROGRESS_PHASES]
+    _steps[phase_idx]["status"] = status
+    if detail:
+        _steps[phase_idx]["detail"] = detail
+    try:
+        await workflow.execute_activity(
+            "report_slack_progress",
+            ReportSlackProgressInput(run_dir=run_dir, title=_PROGRESS_TITLE,
+                steps=tuple(_steps), final=final),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_PROGRESS_POLICY,
+        )
+    except Exception:
+        pass
+    return _steps
+
 
 # ── constants ────────────────────────────────────────────────────────────────
 _MAX_HYP_PER_CYCLE = 6          # spec-derived hypothesis agents
@@ -151,6 +184,8 @@ class DeepDebugWorkflow:
         run_dir = inp.run_dir
         report_path = f"{run_dir}/debug-report.md"
 
+        steps = await _report_progress(run_dir, 0, "in_progress")
+
         # ── Phase 0: symptom locking + SHA256 ──────────────────────────────
         symptom_sha256 = hashlib.sha256(inp.symptom.encode()).hexdigest()
 
@@ -180,6 +215,9 @@ class DeepDebugWorkflow:
         fix_attempt_count = 0
         terminal_label: str | None = None
         cycle = 0
+
+        steps = await _report_progress(run_dir, 0, "completed", _steps=steps)
+        steps = await _report_progress(run_dir, 1, "in_progress", _steps=steps)
 
         for cycle in range(1, inp.hard_stop + 1):
             if cycle > inp.max_cycles and fix_attempt_count == 0:
@@ -496,6 +534,9 @@ class DeepDebugWorkflow:
             else:
                 terminal_label = "Hypothesis space saturated — no plausible hypothesis survives judge"
 
+        steps = await _report_progress(run_dir, 1, "completed", _steps=steps)
+        steps = await _report_progress(run_dir, 2, "in_progress", _steps=steps)
+
         # ── Phase 8: final report ──────────────────────────────────────────
         leading_verdict = next(
             (v for v in (
@@ -533,6 +574,7 @@ class DeepDebugWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=HAIKU_POLICY,
         )
+        await _report_progress(run_dir, 2, "completed", summary, final=True, _steps=steps)
         return f"{summary}\nReport: {report_path}"
 
 

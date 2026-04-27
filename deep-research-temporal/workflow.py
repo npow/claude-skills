@@ -39,12 +39,46 @@ with workflow.unsafe.imports_passed_through():
         WriteArtifactInput,
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
+    from sagaflow.slack_progress import ReportSlackProgressInput
     from .state import (
         CROSS_CUT_DIMS,
         Direction,
         DeepResearchState,
         SourceVerification,
     )
+
+_PROGRESS_POLICY = HAIKU_POLICY
+_PROGRESS_TITLE = "deep-research"
+_PROGRESS_PHASES = [
+    "Classify topic",
+    "Discover directions",
+    "Research rounds",
+    "Verify facts",
+    "Synthesize report",
+]
+
+
+async def _report_progress(
+    run_dir: str, phase_idx: int, status: str = "in_progress",
+    detail: str = "", final: bool = False, *, _steps: list[dict] | None = None,
+) -> list[dict]:
+    if _steps is None:
+        _steps = [{"name": n, "status": "pending", "detail": "", "elapsed_s": 0.0}
+                  for n in _PROGRESS_PHASES]
+    _steps[phase_idx]["status"] = status
+    if detail:
+        _steps[phase_idx]["detail"] = detail
+    try:
+        await workflow.execute_activity(
+            "report_slack_progress",
+            ReportSlackProgressInput(run_dir=run_dir, title=_PROGRESS_TITLE,
+                steps=tuple(_steps), final=final),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_PROGRESS_POLICY,
+        )
+    except Exception:
+        pass
+    return _steps
 
 
 # ---------------------------------------------------------------------------
@@ -107,6 +141,8 @@ class DeepResearchWorkflow:
             progress.update(kwargs)
             progress["timestamp"] = workflow.now().isoformat(timespec="seconds")
             await _write(progress_path, json.dumps(progress, indent=2))
+
+        steps = await _report_progress(run_dir, 0, "in_progress")
 
         # ------------------------------------------------------------------ #
         # Phase 0f — Language locus detection                                  #
@@ -269,6 +305,9 @@ class DeepResearchWorkflow:
 
         await _update_progress(phase="vocab_done" if state.vocab_bootstrap_path else "vocab_skipped")
 
+        steps = await _report_progress(run_dir, 0, "completed", _steps=steps)
+        steps = await _report_progress(run_dir, 1, "in_progress", _steps=steps)
+
         # ------------------------------------------------------------------ #
         # Phase 1 — Direction discovery (including cross-cut dims)            #
         # ------------------------------------------------------------------ #
@@ -333,6 +372,9 @@ class DeepResearchWorkflow:
         all_findings: list[dict[str, str]] = []
         # Ensure findings dir exists.
         await _write(f"{findings_dir}/.keep", "")
+
+        steps = await _report_progress(run_dir, 1, "completed", _steps=steps)
+        steps = await _report_progress(run_dir, 2, "in_progress", _steps=steps)
 
         while round_num < inp.max_rounds and round_num < abs_cap and directions:
             current_batch = directions
@@ -618,6 +660,9 @@ class DeepResearchWorkflow:
         else:
             state.termination_label = "Coverage plateau — frontier saturated"
 
+        steps = await _report_progress(run_dir, 2, "completed", _steps=steps)
+        steps = await _report_progress(run_dir, 3, "in_progress", _steps=steps)
+
         # ------------------------------------------------------------------ #
         # Phase 4 — Fact verification                                          #
         # ------------------------------------------------------------------ #
@@ -681,6 +726,9 @@ class DeepResearchWorkflow:
                 state.unverifiable_claims = json.loads(verifier_output.get("UNVERIFIABLE", "[]"))
             except json.JSONDecodeError:
                 state.unverifiable_claims = []
+
+        steps = await _report_progress(run_dir, 3, "completed", _steps=steps)
+        steps = await _report_progress(run_dir, 4, "in_progress", _steps=steps)
 
         # ------------------------------------------------------------------ #
         # Phase 5 — Synthesis                                                 #
@@ -762,6 +810,7 @@ class DeepResearchWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=HAIKU_POLICY,
         )
+        await _report_progress(run_dir, 4, "completed", summary, final=True, _steps=steps)
         return f"{summary}\nReport: {report_path}"
 
 
