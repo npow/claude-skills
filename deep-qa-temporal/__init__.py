@@ -7,6 +7,7 @@ from typing import Any
 from sagaflow.durable.activities import emit_finding, spawn_subagent, write_artifact
 from sagaflow.prompts import load_claude_skill_prompt
 from sagaflow.registry import SkillRegistry, SkillSpec
+from sagaflow.slack_progress import report_slack_progress
 
 from .activities import read_text_file
 from .workflow import DeepQaInput, DeepQaWorkflow
@@ -53,7 +54,7 @@ def register(registry: SkillRegistry) -> None:
         SkillSpec(
             name="deep-qa",
             workflow_cls=DeepQaWorkflow,
-            activities=[write_artifact, emit_finding, spawn_subagent, read_text_file],
+            activities=[write_artifact, emit_finding, spawn_subagent, read_text_file, report_slack_progress],
             build_input=_build_input,
         )
     )

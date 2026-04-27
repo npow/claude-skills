@@ -40,12 +40,55 @@ with workflow.unsafe.imports_passed_through():
         WriteArtifactInput,
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
+    from sagaflow.slack_progress import ReportSlackProgressInput
     from .state import (
         REQUIRED_CATEGORIES,
         Angle,
         Defect,
         JudgeVerdict,
     )
+
+_PROGRESS_POLICY = HAIKU_POLICY
+_PROGRESS_TITLE = "deep-qa"
+_PROGRESS_PHASES = [
+    "Snapshot artifact",
+    "Discover dimensions",
+    "QA rounds",
+    "Rationalization audit",
+    "Synthesize report",
+]
+
+
+async def _report_progress(
+    run_dir: str,
+    phase_idx: int,
+    status: str = "in_progress",
+    detail: str = "",
+    final: bool = False,
+    *,
+    _steps: list[dict] | None = None,
+) -> list[dict]:
+    if _steps is None:
+        _steps = [{"name": n, "status": "pending", "detail": "", "elapsed_s": 0.0}
+                  for n in _PROGRESS_PHASES]
+    _steps[phase_idx]["status"] = status
+    if detail:
+        _steps[phase_idx]["detail"] = detail
+    try:
+        await workflow.execute_activity(
+            "report_slack_progress",
+            ReportSlackProgressInput(
+                run_dir=run_dir,
+                title=_PROGRESS_TITLE,
+                steps=tuple(_steps),
+                final=final,
+            ),
+            start_to_close_timeout=timedelta(seconds=15),
+            retry_policy=_PROGRESS_POLICY,
+        )
+    except Exception:
+        pass
+    return _steps
 
 
 # ── output schemas (Anthropic constrained decoding) ──────────────────────────
@@ -186,6 +229,7 @@ class DeepQaWorkflow:
         # ------------------------------------------------------------------
         # Phase 0: snapshot artifact + write the dim-discovery prompt.
         # ------------------------------------------------------------------
+        steps = await _report_progress(inp.run_dir, 0, "in_progress")
         artifact_text = await workflow.execute_activity(
             "read_text_file",
             inp.artifact_path,
@@ -215,6 +259,8 @@ class DeepQaWorkflow:
         # ------------------------------------------------------------------
         # Phase 1: dimension discovery → list of angles.
         # ------------------------------------------------------------------
+        steps = await _report_progress(inp.run_dir, 0, "completed", _steps=steps)
+        steps = await _report_progress(inp.run_dir, 1, "in_progress", _steps=steps)
         dim_result = await workflow.execute_activity(
             "spawn_subagent",
             SpawnSubagentInput(
@@ -231,6 +277,7 @@ class DeepQaWorkflow:
         )
         angles_raw = dim_result.get("ANGLES", "[]")
         frontier: list[Angle] = _parse_angles(angles_raw)
+        steps = await _report_progress(inp.run_dir, 1, "completed", _steps=steps)
 
         # ------------------------------------------------------------------
         # Phase 2: initialize state invariants.
@@ -269,6 +316,9 @@ class DeepQaWorkflow:
                 break
 
             rounds_run += 1
+            steps = await _report_progress(
+                inp.run_dir, 2, "in_progress", f"round {rounds_run}", _steps=steps,
+            )
             generation += 1
 
             # Pop up to _MAX_CRITICS_PER_ROUND highest-priority angles.
@@ -509,6 +559,8 @@ class DeepQaWorkflow:
                 termination_label = "Coverage plateau — frontier saturated"
                 break
 
+        steps = await _report_progress(inp.run_dir, 2, "completed", _steps=steps)
+
         # ------------------------------------------------------------------
         # Phase 4: fact verification (research artifacts only).
         # ------------------------------------------------------------------
@@ -570,6 +622,7 @@ class DeepQaWorkflow:
         # ------------------------------------------------------------------
         # Phase 5.5: rationalization auditor (Sonnet).
         # ------------------------------------------------------------------
+        steps = await _report_progress(inp.run_dir, 3, "in_progress", _steps=steps)
         # Build draft report text for the auditor to evaluate.
         draft_report_md = _build_draft_report(
             artifact_type=inp.artifact_type,
@@ -638,6 +691,8 @@ class DeepQaWorkflow:
         # ------------------------------------------------------------------
         # Phase 6: write report + emit finding.
         # ------------------------------------------------------------------
+        steps = await _report_progress(inp.run_dir, 3, "completed", _steps=steps)
+        steps = await _report_progress(inp.run_dir, 4, "in_progress", _steps=steps)
         # When the rationalization auditor found drift on both attempts, skip the
         # synthesizer entirely — the mechanically-assembled report is already in
         # final_report_md and must not be overwritten by coordinator prose.
@@ -729,6 +784,7 @@ class DeepQaWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=HAIKU_POLICY,
         )
+        await _report_progress(inp.run_dir, 4, "completed", summary, final=True, _steps=steps)
         return f"{summary}\nReport: {report_path}\nTermination: {termination_label}"
 
 
