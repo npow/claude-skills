@@ -265,8 +265,8 @@ Continue? [y/N/redirect:<focus>]
    - Known defects file: `deep-qa-{run_id}/known-defects.md`
    - Angle files: `deep-qa-{run_id}/angles/{angle.id}.md`
    - If any verification fails: halt with error, do not spawn
-3. **Batch state update:** Write `status: "in_progress"` and `spawn_time_iso` for ALL angles in a single state.json write. Re-read state.json and verify `generation == N+1`. If mismatch: log conflict, retry once with fresh read, then halt. Do NOT write state per-angle — batch all status updates into one write so step 4 can spawn all agents in one turn.
-4. **Spawn ALL critic agents in a SINGLE message** — emit all Agent tool calls in one response so they run concurrently (120s timeout). NEVER spawn critics one-at-a-time across multiple turns; sequential spawning wastes turns and risks losing the workflow thread before synthesis.
+3. **Batch state update:** Write `status: "in_progress"` and `spawn_time_iso` for ALL angles in a single state.json write. Re-read state.json and verify `generation == N+1`. If mismatch: log conflict, retry once with fresh read, then halt.
+4. **Spawn ALL critic agents in a SINGLE message** — emit all 6 Agent tool calls in one response so they run concurrently (120s timeout). Each agent reads its own angle file; you do NOT need to read angle files before spawning. Do NOT read files, check state, or do any work between Agent calls — the entire set must be in one turn. Sequential one-at-a-time spawning is a workflow violation.
 5. On timeout: mark `timed_out`, write `"generation": += 1`, do NOT re-queue, do NOT increment dedup counter
 6. Collect new angles from ALL completed agents BEFORE running dedup
 7. Apply dedup against stable pre-round snapshot. **Assign `depth = parent.depth + 1`** to each critic-reported angle. Reject angles where `depth > max_depth`. Enforce frontier cap with required-category protection (see STATE.md).
