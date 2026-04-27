@@ -764,9 +764,7 @@ When invoked automatically at the end of a parent run (not standalone):
 
 **Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable. See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) Contract 6.
 
-**`--auto` mode bypass:** When `--auto` is set, skip sagaflow routing entirely and run in-session. Rationale: `--auto` runs are typically invoked via `claude -p` where the session IS the execution context; sagaflow launches a separate worker that produces empty results, wasting 6-8 turns on a failed attempt + fallback detection.
-
-**Routing sequence (mandatory before any in-session work; skip if `--auto`):**
+**Routing sequence (mandatory before any in-session work):**
 1. Run `sagaflow doctor`
 2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
 3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
