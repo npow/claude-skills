@@ -880,7 +880,7 @@ async def _spawn(
     tools_needed: bool,
     timeout: int | None = None,
 ) -> dict[str, str]:
-    effective_timeout = timeout or (7200 if tools_needed else 3600)
+    effective_timeout = timeout or (900 if tools_needed else 600)
     result = await workflow.execute_activity(
         "spawn_subagent",
         SpawnSubagentInput(
