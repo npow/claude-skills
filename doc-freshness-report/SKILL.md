@@ -1,6 +1,15 @@
 ---
 name: doc-freshness-report
 description: "Use when checking documentation freshness, finding stale docs, auditing documentation health, or generating a documentation report. Trigger phrases: doc freshness, stale docs, documentation report, docs audit."
+
+category: qa
+capabilities: [static-analysis]
+input_types: [artifact-file, repo]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Documentation Freshness Report
@@ -79,7 +88,7 @@ Bundles checked: {N} | Repos checked: {N} | Total docs analyzed: {N}
 - Most stale: {doc name} ({N} days ago)
 ```
 
-7. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+7. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `doc-freshness`. TLDR includes total docs analyzed, stale count, and repos with code-doc drift.
 
 8. **Terminate.** Report is complete when all bundles and repo paths are checked and freshness classified.
 
@@ -126,3 +135,5 @@ Bundles checked: {N} | Repos checked: {N} | Total docs analyzed: {N}
 - [ ] Stale & Ancient docs section appears first after summary
 - [ ] Health scores computed as arithmetic percentages
 - [ ] Links included for every document listed
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

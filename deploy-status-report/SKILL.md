@@ -1,6 +1,15 @@
 ---
 name: deploy-status-report
 description: "Use when checking deployment status, Spinnaker deploys, canary results, what's deployed, pending rollouts, or generating a deployment report. Trigger phrases: deploy status, what's deployed, spinnaker status, canary results, deployment report, rollout status."
+
+category: report
+capabilities: [static-analysis]
+input_types: [repo]
+output_types: [design-spec, report]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Deployment Status Report
@@ -62,7 +71,7 @@ Period: last {lookback_days} days | Apps checked: {N}
 (For each: app, pending version, waiting on what constraint)
 ```
 
-6. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+6. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `deploy-status`. TLDR includes apps checked, blocked deploys count, and failed canaries count.
 
 7. **Terminate.** Report is complete when all sections are populated.
 
@@ -107,3 +116,5 @@ Period: last {lookback_days} days | Apps checked: {N}
 - [ ] Blocked deploys section appears first after summary
 - [ ] Chap URLs present for all blocked/failed items
 - [ ] Report has date header and app list noted
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

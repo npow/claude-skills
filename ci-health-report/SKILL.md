@@ -1,6 +1,15 @@
 ---
 name: ci-health-report
 description: "Use when checking CI/CD health, Jenkins build failures, flaky tests, build success rates, or generating a CI health report. Trigger phrases: CI health, build failures, jenkins report, flaky tests, build health, are builds passing, CI status."
+
+category: report
+capabilities: [static-analysis]
+input_types: [repo]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # CI/CD Health Report
@@ -84,7 +93,7 @@ Failed builds: <{jenkins_build_url}|Build #{number}>, ...
 {N} builds succeeded across {N} PRs in the period.
 ```
 
-8. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+8. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `ci-health`. TLDR includes job name, success rate, and top failure root cause.
 
 9. **Terminate.** Report is complete when all failure root causes are grouped with log evidence.
 
@@ -131,3 +140,5 @@ Failed builds: <{jenkins_build_url}|Build #{number}>, ...
 - [ ] Each failed build includes a clickable Jenkins build link
 - [ ] Failure rates computed from actual build counts
 - [ ] Report includes build performance stats (median, p95 duration)
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

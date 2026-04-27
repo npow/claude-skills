@@ -1,6 +1,15 @@
 ---
 name: pipeline-health-report
 description: "Use when checking data pipeline health, workflow status, Maestro failures, or generating a daily pipeline report. Trigger phrases: pipeline health, workflow status, data pipeline report, maestro health, pipeline check, are my workflows healthy."
+
+category: report
+capabilities: [static-analysis]
+input_types: [repo]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Pipeline Health Report
@@ -73,7 +82,7 @@ Cluster: {cluster} | Owner filter: {owner or "all"} | Workflows checked: {N}
 (Compact table: workflow_id, last success time)
 ```
 
-6. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+6. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `pipeline-health`. TLDR includes workflows checked, failure count, and long-running instances.
 
 7. **Terminate.** Report is complete when all sections are populated (even if a section says "None").
 
@@ -123,3 +132,5 @@ Before delivering the report, verify:
 - [ ] Failed section appears before Succeeded section
 - [ ] Instance links are present for all failed and in-progress workflows
 - [ ] Report has a date header and owner filter noted
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

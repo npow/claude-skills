@@ -2,6 +2,15 @@
 name: competitive-matrix
 description: Researches a market or technology space and renders an interactive color-coded comparison matrix in the browser. Use when the user asks for competitive analysis, competitive matrix, compare competitors, market landscape, who are the players, alternatives to X, compare these tools, feature comparison, how does X compare to Y, or competitive landscape.
 allowed-tools: WebSearch, Write, Edit, mcp__chrome-devtools__new_page, mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__wait_for, mcp__chrome-devtools__take_screenshot, mcp__chrome-devtools__list_pages
+
+category: research
+capabilities: [evidence-scoring, static-analysis]
+input_types: [question, code-path]
+output_types: [code, report]
+complexity: moderate
+cost_profile: medium
+maturity: beta
+metadata_source: inferred
 ---
 
 # Competitive Matrix
@@ -17,7 +26,8 @@ Researches a market or technology space and renders an interactive, color-coded 
 5. **Assign ratings** — score every cell using the four-point scale (checkcheck/check/tilde/x) with evidence from step 4. See [RESEARCH.md](RESEARCH.md).
 6. **Write the HTML file** — write a complete self-contained file to `/tmp/matrix.html` using the template with color-coded cells, sort, and filter. See [TEMPLATE.md](TEMPLATE.md).
 7. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/matrix.html`, then `wait_for` the first competitor name (timeout 8000ms), then `take_screenshot`.
-8. **Deliver summary** — after the screenshot, output 3-5 bullet points naming the key differentiators and the standout winner(s) per use case.
+8. **Deliver as HTML.** Upload the existing `/tmp/matrix.html` to S3 following the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md) (skip markdown-to-HTML conversion since HTML already exists). Report name: `competitive-matrix`. TLDR includes space name, player count, and standout winner(s).
+9. **Deliver summary** — after the screenshot, output 3-5 bullet points naming the key differentiators and the standout winner(s) per use case.
 
 ## Self-review checklist
 
@@ -33,6 +43,8 @@ Before delivering, verify ALL:
 - [ ] Filter input is present and filters by competitor name (case-insensitive)
 - [ ] Dark background (#1e1e2e) is applied — not white or gray
 - [ ] Screenshot was taken after `wait_for` — not immediately after `new_page`
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report
 
 ## Golden rules
 

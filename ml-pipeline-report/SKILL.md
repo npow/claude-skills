@@ -1,6 +1,15 @@
 ---
 name: ml-pipeline-report
 description: "Use when checking ML pipeline health, Metaflow flow status, failed runs, or generating an ML pipeline report. Trigger phrases: metaflow status, ML pipeline health, flow runs, metaflow report, are my flows running, ML pipeline check."
+
+category: report
+capabilities: [defect-detection, static-analysis, novelty-discovery]
+input_types: [repo]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # ML Pipeline Health Report
@@ -61,7 +70,7 @@ Period: last {lookback_days} days | Flows checked: {N} | Total runs: {N}
 (Compact table: flow name, run ID, duration, completion time)
 ```
 
-6. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+6. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `ml-pipeline`. TLDR includes flows checked, failure count, and longest running flow.
 
 7. **Terminate.** Report is complete when all sections are populated.
 
@@ -106,3 +115,5 @@ Period: last {lookback_days} days | Flows checked: {N} | Total runs: {N}
 - [ ] Long-running section compares against historical duration
 - [ ] Failed section appears before succeeded section
 - [ ] Report has date header and flow list noted
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

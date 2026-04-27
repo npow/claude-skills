@@ -1,6 +1,15 @@
 ---
 name: dependency-audit
 description: "Use when auditing dependencies, checking for outdated packages, reviewing security vulnerabilities, scanning for CVEs, or checking dependabot/renovate PR status. Trigger phrases: dependency audit, security audit, outdated dependencies, CVE check."
+
+category: qa
+capabilities: [static-analysis]
+input_types: [git-diff]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Dependency Audit Report
@@ -83,7 +92,7 @@ Repos audited: {N}
 (Concerning signals: old unmerged security PRs, CVEs in code, no dependency update mechanism)
 ```
 
-7. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+7. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `dependency-audit`. TLDR includes repos audited, security findings count, and oldest unmerged dependency PR age.
 
 8. **Terminate.** Report is complete when all repos are audited and findings compiled.
 
@@ -129,3 +138,5 @@ Repos audited: {N}
 - [ ] Security-critical PRs identified and surfaced first
 - [ ] Dependency ecosystem summary shows what files exist per repo
 - [ ] Flags section surfaces repos with no update mechanism
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

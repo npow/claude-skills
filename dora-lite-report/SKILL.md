@@ -1,6 +1,15 @@
 ---
 name: dora-lite-report
 description: "Use when generating a weekly DORA metrics report, checking deployment frequency, lead time, change failure rate, recovery time, or assessing software delivery performance. Trigger phrases: DORA report, DORA metrics, deployment frequency, lead time for changes, change failure rate, MTTR, recovery time, delivery performance, software delivery metrics."
+
+category: report
+capabilities: [trend-tracking]
+input_types: [repo]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Weekly DORA-Lite Report
@@ -134,7 +143,7 @@ Data source: {Scribe API | Spinnaker fallback (Scribe unavailable: {reason})}
 {This section is the ONLY place the LLM adds interpretive narrative. All numbers above are deterministic.}
 ```
 
-12. **Post to digest channel if configured.** Post to the configured `digest_channel`, never to a primary team channel.
+12. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `dora-lite`. TLDR includes deployment frequency, change failure rate, and trend direction.
 
 13. **Terminate.** Report is complete when all four metrics are computed with trends and reliability notes.
 
@@ -196,4 +205,5 @@ Data source: {Scribe API | Spinnaker fallback (Scribe unavailable: {reason})}
 - [ ] All configured apps were checked
 - [ ] Lead time approximation noted if using Spinnaker fallback
 - [ ] Report has date header and app list noted
-- [ ] Digest channel target is correct (not a primary team channel)
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

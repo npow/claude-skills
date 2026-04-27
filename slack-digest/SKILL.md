@@ -1,6 +1,14 @@
 ---
 name: slack-digest
 description: "Use when generating a weekly Slack digest, summarizing channel activity, finding key discussions, or checking what happened in Slack. Trigger phrases: slack digest, slack summary, channel digest, what happened in slack."
+
+category: report
+capabilities: [static-analysis]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Slack Digest
@@ -70,7 +78,7 @@ Channels: {channel names or IDs} | Period: last {lookback_days} days | Threads a
 (Compact list: summary, permalink)
 ```
 
-8. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+8. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `slack-digest`. TLDR includes thread count, unanswered questions count, and top discussion topic.
 
 9. **Terminate.** Report is complete when all channels are searched and threads are grouped with permalinks.
 
@@ -115,3 +123,5 @@ Channels: {channel names or IDs} | Period: last {lookback_days} days | Threads a
 - [ ] Unanswered questions section appears first after summary
 - [ ] Every thread entry includes a permalink
 - [ ] Threads are grouped by topic category, sorted by engagement within each group
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

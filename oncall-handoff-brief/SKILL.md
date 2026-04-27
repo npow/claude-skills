@@ -1,6 +1,15 @@
 ---
 name: oncall-handoff-brief
 description: "Use when preparing an on-call handoff, rotation brief, generating a handoff report, or summarizing what happened during an on-call shift. Trigger phrases: oncall handoff, on-call brief, handoff report, rotation handoff."
+
+category: report
+capabilities: [static-analysis]
+input_types: [git-diff, repo]
+output_types: [report, code]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # On-Call Handoff Brief
@@ -81,7 +90,7 @@ Rotation: {lookback_days}-day summary | Apps: {app list}
 (Free-form notes: known issues being worked on, upcoming risky changes, things to watch)
 ```
 
-7. **Post to `#team-digests` channel if configured, never to a primary team channel.**
+7. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `oncall-handoff`. TLDR includes open items count, incident count, and trending-up alerts.
 
 8. **Terminate.** Report is complete when all four signal sources are checked and open items are compiled.
 
@@ -128,3 +137,5 @@ Rotation: {lookback_days}-day summary | Apps: {app list}
 - [ ] Open Items section appears first and is prioritized
 - [ ] Every item has a clickable link (Atlas URL, Chap URL, instance link, permalink)
 - [ ] Report has date header and app list noted
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report

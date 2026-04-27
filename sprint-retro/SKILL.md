@@ -2,6 +2,15 @@
 name: sprint-retro
 description: Use when running a sprint retrospective, generating a retro, preparing retro data, or summarizing team activity for a retrospective. Takes team member names or a Slack alias as input. Gathers data from GitHub, Slack, Jira, Confluence, Google Docs, and CI/CD with strict privacy filtering.
 argument-hint: <@team-alias or comma-separated names> [--sprint-window 14d] [--repos repo1,repo2]
+
+category: report
+capabilities: [claim-extraction, evidence-scoring]
+input_types: [git-diff]
+output_types: [design-spec, report]
+complexity: moderate
+cost_profile: low
+maturity: beta
+metadata_source: inferred
 ---
 
 # Sprint Retro
@@ -53,6 +62,8 @@ Before delivering, verify ALL:
 - [ ] No generic filler text in any section — empty sections say "[No data available]"
 - [ ] Privacy footer present at end of document
 - [ ] No document titles containing sensitive keywords (1:1, performance, comp, PIP) appear anywhere
+- [ ] HTML version uploaded to S3 with commuter link (unless `--no-html` or upload failed with noted fallback)
+- [ ] Slack/chat delivery uses TLDR + link, not the full report
 
 ## Golden rules
 
