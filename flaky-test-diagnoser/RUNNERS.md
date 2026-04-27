@@ -130,6 +130,11 @@ go test -run "TEST_NAME" -v -timeout 30s ./PACKAGE/ 2>&1
 
 # Shuffle order
 go test -v -shuffle=on ./PACKAGE/ 2>&1
+
+# Stress tool (parallel repeated runs, compiles once)
+# go install golang.org/x/tools/cmd/stress@latest
+go test -run "TEST_NAME" -race -c ./PACKAGE/
+stress ./PACKAGE.test -test.run TEST_NAME
 ```
 
 ### cargo test (Rust)
