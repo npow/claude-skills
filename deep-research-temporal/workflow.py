@@ -678,11 +678,13 @@ class DeepResearchWorkflow:
         verifier_output: dict[str, str] = {}
         if all_claims:
             sample = _risk_stratified_sample(all_claims, budget=len(all_claims))
+            claims_data_path = f"{run_dir}/verifier-claims.json"
+            await _write(claims_data_path, json.dumps(sample, indent=2))
             verify_prompt_path = f"{run_dir}/verifier-prompt.txt"
             await _write(verify_prompt_path,
                 f"Research topic file: {seed_path}\n\n"
-                "Risk-stratified claim sample to verify:\n"
-                f"{json.dumps(sample, indent=2)}\n\n"
+                f"Risk-stratified claim sample to verify: {claims_data_path}\n"
+                "Read the claims file above for the full list.\n\n"
                 "For each claim:\n"
                 "1. WebFetch the source URL to check accessibility and exact wording.\n"
                 "2. For numerical claims: compare EXACT numbers.\n"
@@ -741,12 +743,18 @@ class DeepResearchWorkflow:
             verifier_output.get("SAMPLING_STRATEGY", "{}"),
         )
 
+        findings_index_path = f"{run_dir}/findings-index.json"
+        findings_index = [{"id": f["id"], "dimension": f["dimension"], "question": f["question"], "file": f"{findings_dir}/{f['id']}.md"} for f in all_findings]
+        await _write(findings_index_path, json.dumps(findings_index, indent=2))
+
         synth_prompt_path = f"{run_dir}/synth-prompt.txt"
         await _write(synth_prompt_path,
             f"Research topic file: {seed_path}\n\n"
             f"Termination: {state.termination_label}\n\n"
-            f"Findings ({len(all_findings)} directions):\n"
-            f"{json.dumps(all_findings, indent=2)}\n\n"
+            f"Findings index ({len(all_findings)} directions): {findings_index_path}\n"
+            f"Findings directory: {findings_dir}/\n"
+            f"Coordinator summary: {run_dir}/coordinator-summary.md\n"
+            "Read the coordinator summary and findings files for full content.\n\n"
             f"{cross_cut_section}\n\n"
             f"{verifier_section}\n\n"
             "Write research-report.md with:\n"
@@ -996,9 +1004,17 @@ def _format_verifier_section(
 
 
 def _fallback(seed: str, findings: list[dict]) -> str:
+    _MAX_FALLBACK_BYTES = 1_500_000
     lines = [f"# Research Report: {seed}", "", "## Findings"]
+    total = 0
     for f in findings:
-        lines.append(f"### {f.get('dimension', '?')}: {f.get('question', '?')}")
-        lines.append(f.get("findings", ""))
+        header = f"### {f.get('dimension', '?')}: {f.get('question', '?')}"
+        body = f.get("findings", "")[:2000]
+        total += len(header) + len(body) + 2
+        if total > _MAX_FALLBACK_BYTES:
+            lines.append(f"\n\n... truncated ({len(findings)} total findings, see findings directory)")
+            break
+        lines.append(header)
+        lines.append(body)
         lines.append("")
     return "\n".join(lines)
