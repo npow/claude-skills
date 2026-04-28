@@ -599,10 +599,12 @@ class DeepResearchWorkflow:
                 tools_needed=True,
             )
             coord_summary = coord_result.get("COORD_SUMMARY", "")
-            state.coordinator_summaries.append(coord_summary)
+            state.coordinator_summary_count += 1
+            separator = "" if state.coordinator_summary_count == 1 else "\n\n---\n\n"
             await _write(
                 f"{run_dir}/coordinator-summary.md",
-                "\n\n---\n\n".join(state.coordinator_summaries),
+                separator + coord_summary,
+                append=state.coordinator_summary_count > 1,
             )
             info_gain = int(coord_result.get("INFO_GAIN_RATE", "50") or "50")
             if "info_gain_rates" not in progress:
@@ -619,6 +621,12 @@ class DeepResearchWorkflow:
                 len(recent_gains) >= _CONVERGENCE_WINDOW
                 and all(g["rate"] < _CONVERGENCE_THRESHOLD for g in recent_gains)
             )
+            state.frontier = [d for d in state.frontier if d.status == "frontier"]
+            warn_count = len(progress.get("warnings", []))
+            if warn_count > 50:
+                progress["warnings"] = progress["warnings"][-10:]
+                progress["warnings_pruned"] = warn_count - 10
+
             await _update_progress(
                 phase=f"round_{round_num}_coord_done",
                 coord_summary_len=len(coord_summary),
@@ -906,10 +914,10 @@ class DeepResearchWorkflow:
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _write(path: str, content: str) -> None:
+async def _write(path: str, content: str, *, append: bool = False) -> None:
     await workflow.execute_activity(
         "write_artifact",
-        WriteArtifactInput(path=path, content=content),
+        WriteArtifactInput(path=path, content=content, append=append),
         start_to_close_timeout=timedelta(seconds=10),
         retry_policy=HAIKU_POLICY,
     )

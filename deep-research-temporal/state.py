@@ -63,8 +63,8 @@ class DeepResearchState(WorkflowState):
     mismatched_claims: list[dict] = field(default_factory=list)
     unverifiable_claims: list[dict] = field(default_factory=list)
 
-    # Per-round coordinator summaries
-    coordinator_summaries: list[str] = field(default_factory=list)
+    # Coordinator summary count (full text stored on disk, not in workflow state)
+    coordinator_summary_count: int = 0
 
     # Termination tracking
     termination_label: str = ""
