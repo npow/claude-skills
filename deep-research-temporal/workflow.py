@@ -388,6 +388,25 @@ class DeepResearchWorkflow:
         # Initialise cross-cut coverage tracking.
         state.cross_cut_coverage = {dim: [] for dim in CROSS_CUT_DIMS}
 
+        # MCP scoping — only load servers the researchers actually need.
+        mcp_config_path: str | None = None
+        if workflow.patched("scoped-mcp-v1"):
+            _NETFLIX_KEYWORDS = {"netflix", "nflx", "spinnaker", "maestro", "metaflow",
+                                 "titus", "mantis", "atlas", "zuul", "eureka", "edda"}
+            _DATA_KEYWORDS = {"iceberg", "hive", "spark", "sql", "warehouse", "kragle",
+                              "table", "dataset", "pipeline", "etl"}
+            seed_lower = inp.seed.lower()
+            mcp_needs: list[str] = []
+            if any(kw in seed_lower for kw in _NETFLIX_KEYWORDS):
+                mcp_needs.append("netflix-research")
+            if any(kw in seed_lower for kw in _DATA_KEYWORDS):
+                mcp_needs.append("data")
+            if not mcp_needs:
+                mcp_needs.append("web-only")
+            from sagaflow.transport.mcp_registry import resolve_and_generate
+            mcp_config_path = resolve_and_generate(mcp_needs, run_dir=run_dir)
+            await _update_progress(phase="mcp_scoped", mcp_categories=mcp_needs)
+
         # Research rounds.
         round_num = 0
         all_findings: list[dict[str, str]] = []
@@ -464,6 +483,7 @@ class DeepResearchWorkflow:
                         prompt_path=prompt_path,
                         max_tokens=128000,
                         tools_needed=True,
+                        mcp_config_path=mcp_config_path,
                     )
                 except BaseException as exc:
                     r_failed += 1
@@ -888,6 +908,7 @@ async def _spawn(
     prompt_path: str,
     max_tokens: int,
     tools_needed: bool,
+    mcp_config_path: str | None = None,
 ) -> dict[str, str]:
     timeout = 7200 if tools_needed else 3600
     result = await workflow.execute_activity(
@@ -899,6 +920,7 @@ async def _spawn(
             user_prompt_path=prompt_path,
             max_tokens=max_tokens,
             tools_needed=tools_needed,
+            mcp_config_path=mcp_config_path,
         ),
         start_to_close_timeout=timedelta(seconds=timeout),
         heartbeat_timeout=timedelta(seconds=120),
