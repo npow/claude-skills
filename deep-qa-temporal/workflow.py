@@ -982,7 +982,13 @@ def _parse_angles(raw: str | list) -> list["Angle"]:
         try:
             parsed = json.loads(raw)
         except (json.JSONDecodeError, TypeError):
-            return []
+            # Temporal dict[str,str] serialization may produce Python repr
+            # with single quotes. Fall back to ast.literal_eval.
+            import ast
+            try:
+                parsed = ast.literal_eval(raw)
+            except (ValueError, SyntaxError):
+                return []
     if isinstance(parsed, list):
         angles = []
         for i, a in enumerate(parsed):
@@ -1006,7 +1012,13 @@ def _parse_raw_defects(raw: str | list) -> list[dict]:
         if isinstance(parsed, list):
             return [d for d in parsed if isinstance(d, dict)]
     except (json.JSONDecodeError, TypeError):
-        pass
+        import ast
+        try:
+            parsed = ast.literal_eval(raw)
+            if isinstance(parsed, list):
+                return [d for d in parsed if isinstance(d, dict)]
+        except (ValueError, SyntaxError):
+            pass
     return []
 
 
@@ -1017,7 +1029,11 @@ def _parse_verdicts(raw: str | list) -> list["JudgeVerdict"]:
         try:
             parsed = json.loads(raw)
         except (json.JSONDecodeError, TypeError):
-            return []
+            import ast
+            try:
+                parsed = ast.literal_eval(raw)
+            except (ValueError, SyntaxError):
+                return []
     if isinstance(parsed, list):
         verdicts = []
         for v in parsed:
