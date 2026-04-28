@@ -207,6 +207,10 @@ class DeepQaInput:
     synth_user_prompt: str = ""
 
 
+# Tier-appropriate max_tokens (Haiku caps at 8192 output tokens).
+_HAIKU_MAX_TOKENS = 8192
+_SONNET_MAX_TOKENS = 128000
+
 # Bounded parallelism per round (spec: max 6 critics per round).
 _MAX_CRITICS_PER_ROUND = 6
 
@@ -268,7 +272,7 @@ class DeepQaWorkflow:
                 tier_name="SONNET",
                 system_prompt=inp.dim_discovery_system_prompt,
                 user_prompt_path=dim_prompt_path,
-                max_tokens=128000,
+                max_tokens=_SONNET_MAX_TOKENS,
                 tools_needed=False,
                 output_schema=_SCHEMA_ANGLES,
                 run_dir=inp.run_dir,
@@ -290,7 +294,7 @@ class DeepQaWorkflow:
                     + "\n\nIMPORTANT: Return ONLY a valid JSON object matching this schema, no other text:\n"
                     + json.dumps(_SCHEMA_ANGLES, indent=2),
                     user_prompt_path=dim_prompt_path,
-                    max_tokens=128000,
+                    max_tokens=_SONNET_MAX_TOKENS,
                     tools_needed=False,
                     output_schema=None,
                     run_dir=inp.run_dir,
@@ -386,7 +390,7 @@ class DeepQaWorkflow:
                         tier_name="HAIKU",
                         system_prompt=inp.critic_system_prompt,
                         user_prompt_path=ppath,
-                        max_tokens=128000,
+                        max_tokens=_HAIKU_MAX_TOKENS,
                         tools_needed=False,
                         output_schema=_SCHEMA_DEFECTS,
                     ),
@@ -481,7 +485,7 @@ class DeepQaWorkflow:
                                 tier_name="HAIKU",
                                 system_prompt=inp.judge_pass1_system_prompt,
                                 user_prompt_path=judge_input_path,
-                                max_tokens=128000,
+                                max_tokens=_HAIKU_MAX_TOKENS,
                                 tools_needed=False,
                                 output_schema=_SCHEMA_VERDICTS,
                             ),
@@ -546,7 +550,7 @@ class DeepQaWorkflow:
                                     tier_name="HAIKU",
                                     system_prompt=inp.judge_pass2_system_prompt,
                                     user_prompt_path=p2_path,
-                                    max_tokens=128000,
+                                    max_tokens=_HAIKU_MAX_TOKENS,
                                     tools_needed=False,
                                     output_schema=_SCHEMA_VERDICTS,
                                 ),
@@ -617,7 +621,7 @@ class DeepQaWorkflow:
                     tier_name="HAIKU",
                     system_prompt=inp.verifier_system_prompt,
                     user_prompt_path=verifier_prompt_path,
-                    max_tokens=128000,
+                    max_tokens=_HAIKU_MAX_TOKENS,
                     # tools_needed=True routes to claude_cli (WebFetch capable).
                     tools_needed=True,
                 ),
@@ -689,7 +693,7 @@ class DeepQaWorkflow:
                     tier_name="SONNET",
                     system_prompt=inp.auditor_system_prompt,
                     user_prompt_path=audit_input_path,
-                    max_tokens=128000,
+                    max_tokens=_SONNET_MAX_TOKENS,
                     tools_needed=False,
                     output_schema=_SCHEMA_AUDIT,
                 ),
@@ -772,7 +776,7 @@ class DeepQaWorkflow:
                     tier_name="SONNET",
                     system_prompt=inp.synth_system_prompt,
                     user_prompt_path=synth_prompt_path,
-                    max_tokens=128000,
+                    max_tokens=_SONNET_MAX_TOKENS,
                     tools_needed=False,
                     output_schema=_SCHEMA_REPORT,
                 ),
