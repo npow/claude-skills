@@ -94,8 +94,6 @@ class DeepResearchInput:
     max_rounds: int = 1000
     max_directions: int = 100
     notify: bool = True
-    researcher_timeout: int = 600
-    completion_threshold: float = 0.8
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +130,6 @@ class DeepResearchWorkflow:
             "researchers_spawned": 0,
             "researchers_completed": 0,
             "researchers_failed": 0,
-            "researchers_cancelled": 0,
             "researchers_empty": 0,
             "findings_total": 0,
             "directions_remaining": 0,
@@ -446,7 +443,6 @@ class DeepResearchWorkflow:
                         prompt_path=prompt_path,
                         max_tokens=128000,
                         tools_needed=True,
-                        timeout=inp.researcher_timeout,
                     )
                 except BaseException as exc:
                     r_failed += 1
@@ -484,38 +480,9 @@ class DeepResearchWorkflow:
                 )
                 return finding
 
-            # Dispatch all researchers as concurrent tasks.
-            researcher_tasks: dict[asyncio.Task, Direction] = {}
-            for d, p in research_prompts:
-                researcher_tasks[asyncio.ensure_future(_research_and_write(d, p))] = d
-
-            total_researchers = len(researcher_tasks)
-            threshold_count = max(1, int(total_researchers * inp.completion_threshold))
-
-            # Proceed once enough researchers have settled (success or failure).
-            await workflow.wait_condition(
-                lambda: len(_researchers_done) >= threshold_count
-            )
-
-            # Cancel stragglers still running past the threshold.
-            r_cancelled = 0
-            straggler_ids: list[str] = []
-            for t, d in researcher_tasks.items():
-                if not t.done():
-                    t.cancel()
-                    r_cancelled += 1
-                    straggler_ids.append(d.id)
-            if straggler_ids:
-                progress["warnings"].append(
-                    f"R{round_num}: cancelled {r_cancelled} straggler(s) at "
-                    f"{inp.completion_threshold:.0%} threshold "
-                    f"({len(_researchers_done)}/{total_researchers} settled): "
-                    f"{', '.join(straggler_ids)}"
-                )
-
-            # Settle all tasks (completed + cancelled).
             results = await asyncio.gather(
-                *researcher_tasks.keys(), return_exceptions=True,
+                *[_research_and_write(d, p) for d, p in research_prompts],
+                return_exceptions=True,
             )
             for r in results:
                 if isinstance(r, dict):
@@ -524,8 +491,7 @@ class DeepResearchWorkflow:
 
             progress["researchers_spawned"] += len(current_batch)
             progress["researchers_completed"] += len(current_batch) - r_failed
-            progress["researchers_failed"] += r_failed - r_cancelled
-            progress["researchers_cancelled"] += r_cancelled
+            progress["researchers_failed"] += r_failed
             progress["researchers_empty"] += r_empty
             progress["findings_total"] = len(all_findings)
             await _update_progress(
@@ -533,8 +499,7 @@ class DeepResearchWorkflow:
                 round=round_num,
                 round_batch_size=len(current_batch),
                 round_findings=len(round_findings),
-                round_failed=r_failed - r_cancelled,
-                round_cancelled=r_cancelled,
+                round_failed=r_failed,
                 round_empty=r_empty,
             )
 
@@ -878,9 +843,8 @@ async def _spawn(
     prompt_path: str,
     max_tokens: int,
     tools_needed: bool,
-    timeout: int | None = None,
 ) -> dict[str, str]:
-    effective_timeout = timeout or (7200 if tools_needed else 3600)
+    timeout = 7200 if tools_needed else 3600
     result = await workflow.execute_activity(
         "spawn_subagent",
         SpawnSubagentInput(
@@ -891,7 +855,7 @@ async def _spawn(
             max_tokens=max_tokens,
             tools_needed=tools_needed,
         ),
-        start_to_close_timeout=timedelta(seconds=effective_timeout),
+        start_to_close_timeout=timedelta(seconds=timeout),
         retry_policy=SONNET_POLICY,
     )
     return result if isinstance(result, dict) else {}
