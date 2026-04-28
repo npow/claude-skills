@@ -28,11 +28,12 @@ from temporalio import workflow
 with workflow.unsafe.imports_passed_through():
     from sagaflow.durable.activities import (
         EmitFindingInput,
+        FinalizeManifestInput,
         SpawnSubagentInput,
         WriteArtifactInput,
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
-    from sagaflow.slack_progress import ReportSlackProgressInput
+    from sagaflow.slack_progress import DeliverArtifactInput, ReportSlackProgressInput
     from .state import (
         CrossFixConflict,
         DeepDesignState,
@@ -989,6 +990,28 @@ class DeepDesignWorkflow:
             retry_policy=HAIKU_POLICY,
         )
         await _report_progress(inp.run_dir, 3, "completed", summary, final=True, _steps=steps)
+
+        # --- Lifecycle: deliver artifact to Slack + finalize manifest ---
+        try:
+            await workflow.execute_activity(
+                "deliver_artifact_to_slack",
+                DeliverArtifactInput(
+                    run_dir=inp.run_dir, artifact_path=spec_path, comment=summary,
+                ),
+                start_to_close_timeout=timedelta(seconds=120),
+                retry_policy=HAIKU_POLICY,
+            )
+        except Exception:
+            pass
+        await workflow.execute_activity(
+            "finalize_manifest",
+            FinalizeManifestInput(
+                run_dir=inp.run_dir, status="COMPLETED",
+                termination_label=state.termination_label or "",
+            ),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=HAIKU_POLICY,
+        )
         return summary
 
 

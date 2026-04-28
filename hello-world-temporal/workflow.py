@@ -10,6 +10,7 @@ from temporalio import workflow
 with workflow.unsafe.imports_passed_through():
     from sagaflow.durable.activities import (
         EmitFindingInput,
+        FinalizeManifestInput,
         SpawnSubagentInput,
         WriteArtifactInput,
     )
@@ -67,6 +68,12 @@ class HelloWorldWorkflow:
                 timestamp_iso=timestamp,
             ),
             start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=HAIKU_POLICY,
+        )
+        await workflow.execute_activity(
+            "finalize_manifest",
+            FinalizeManifestInput(run_dir=inp.run_dir, status="COMPLETED"),
+            start_to_close_timeout=timedelta(seconds=30),
             retry_policy=HAIKU_POLICY,
         )
         return greeting

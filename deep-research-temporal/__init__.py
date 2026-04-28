@@ -29,14 +29,6 @@ def _build_input(
         max_rounds = int(cli_args.get("max_rounds", 1000))
     except (TypeError, ValueError):
         max_rounds = 1000
-    try:
-        researcher_timeout = int(cli_args.get("researcher_timeout", 600))
-    except (TypeError, ValueError):
-        researcher_timeout = 600
-    try:
-        completion_threshold = float(cli_args.get("completion_threshold", 0.8))
-    except (TypeError, ValueError):
-        completion_threshold = 0.8
     return DeepResearchInput(
         run_id=run_id,
         seed=seed,
@@ -45,8 +37,6 @@ def _build_input(
         max_directions=max_dirs,
         max_rounds=max_rounds,
         notify=True,
-        researcher_timeout=researcher_timeout,
-        completion_threshold=completion_threshold,
     )
 
 

@@ -20,10 +20,12 @@ from temporalio import workflow
 with workflow.unsafe.imports_passed_through():
     from sagaflow.durable.activities import (
         EmitFindingInput,
+        FinalizeManifestInput,
         SpawnSubagentInput,
         WriteArtifactInput,
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
+    from sagaflow.slack_progress import DeliverArtifactInput
 
 # --- structured-output schemas ---
 
@@ -173,6 +175,21 @@ class LoopUntilDoneWorkflow:
             verdict = "budget_exhausted"
             summary_text = _build_summary(inp.task, stories, verdict)
             await _write_summary_and_emit(inp, summary_path, summary_text, verdict)
+            try:
+                await workflow.execute_activity(
+                    "deliver_artifact_to_slack",
+                    DeliverArtifactInput(run_dir=inp.run_dir, artifact_path=summary_path, comment=summary_text),
+                    start_to_close_timeout=timedelta(seconds=120),
+                    retry_policy=HAIKU_POLICY,
+                )
+            except Exception:
+                pass
+            await workflow.execute_activity(
+                "finalize_manifest",
+                FinalizeManifestInput(run_dir=inp.run_dir, status="COMPLETED", termination_label=verdict),
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=HAIKU_POLICY,
+            )
             return verdict
 
         # --- Phase 2: Falsifiability judge ---
@@ -308,6 +325,21 @@ class LoopUntilDoneWorkflow:
         # Write summary and emit finding.
         summary_text = _build_summary(inp.task, stories, verdict)
         await _write_summary_and_emit(inp, summary_path, summary_text, verdict)
+        try:
+            await workflow.execute_activity(
+                "deliver_artifact_to_slack",
+                DeliverArtifactInput(run_dir=inp.run_dir, artifact_path=summary_path, comment=summary_text),
+                start_to_close_timeout=timedelta(seconds=120),
+                retry_policy=HAIKU_POLICY,
+            )
+        except Exception:
+            pass
+        await workflow.execute_activity(
+            "finalize_manifest",
+            FinalizeManifestInput(run_dir=inp.run_dir, status="COMPLETED", termination_label=verdict),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=HAIKU_POLICY,
+        )
         return verdict
 
 

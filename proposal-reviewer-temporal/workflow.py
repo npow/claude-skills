@@ -30,10 +30,12 @@ from temporalio import workflow
 with workflow.unsafe.imports_passed_through():
     from sagaflow.durable.activities import (
         EmitFindingInput,
+        FinalizeManifestInput,
         SpawnSubagentInput,
         WriteArtifactInput,
     )
     from sagaflow.durable.retry_policies import HAIKU_POLICY, SONNET_POLICY
+    from sagaflow.slack_progress import DeliverArtifactInput
 
 # --------------------------------------------------------------------------- #
 # Structured output schemas (Anthropic structured output).                     #
@@ -763,6 +765,21 @@ class ProposalReviewWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=HAIKU_POLICY,
         )
+        try:
+            await workflow.execute_activity(
+                "deliver_artifact_to_slack",
+                DeliverArtifactInput(run_dir=inp.run_dir, artifact_path=report_path, comment=summary),
+                start_to_close_timeout=timedelta(seconds=120),
+                retry_policy=HAIKU_POLICY,
+            )
+        except Exception:
+            pass
+        await workflow.execute_activity(
+            "finalize_manifest",
+            FinalizeManifestInput(run_dir=inp.run_dir, status="COMPLETED"),
+            start_to_close_timeout=timedelta(seconds=30),
+            retry_policy=HAIKU_POLICY,
+        )
         return f"{summary}\nReport: {report_path}"
 
     async def _terminate(
@@ -807,6 +824,21 @@ class ProposalReviewWorkflow:
                 timestamp_iso=timestamp,
             ),
             start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=HAIKU_POLICY,
+        )
+        try:
+            await workflow.execute_activity(
+                "deliver_artifact_to_slack",
+                DeliverArtifactInput(run_dir=inp.run_dir, artifact_path=report_path, comment=summary),
+                start_to_close_timeout=timedelta(seconds=120),
+                retry_policy=HAIKU_POLICY,
+            )
+        except Exception:
+            pass
+        await workflow.execute_activity(
+            "finalize_manifest",
+            FinalizeManifestInput(run_dir=inp.run_dir, status="COMPLETED", termination_label=label),
+            start_to_close_timeout=timedelta(seconds=30),
             retry_policy=HAIKU_POLICY,
         )
         return f"{summary}\nReport: {report_path}"
