@@ -271,10 +271,42 @@ class DeepQaWorkflow:
                 max_tokens=128000,
                 tools_needed=False,
                 output_schema=_SCHEMA_ANGLES,
+                run_dir=inp.run_dir,
             ),
             start_to_close_timeout=timedelta(seconds=600),
             retry_policy=SONNET_POLICY,
         )
+        # Retry once if dim discovery returned malformed output.
+        if "_sagaflow_malformed" in dim_result and "ANGLES" not in dim_result:
+            workflow.logger.warning(
+                "Dim discovery returned malformed output, retrying without schema constraint"
+            )
+            dim_result = await workflow.execute_activity(
+                "spawn_subagent",
+                SpawnSubagentInput(
+                    role="dim-discover-retry",
+                    tier_name="SONNET",
+                    system_prompt=inp.dim_discovery_system_prompt
+                    + "\n\nIMPORTANT: Return ONLY a valid JSON object matching this schema, no other text:\n"
+                    + json.dumps(_SCHEMA_ANGLES, indent=2),
+                    user_prompt_path=dim_prompt_path,
+                    max_tokens=128000,
+                    tools_needed=False,
+                    output_schema=None,
+                    run_dir=inp.run_dir,
+                ),
+                start_to_close_timeout=timedelta(seconds=600),
+                retry_policy=SONNET_POLICY,
+            )
+            # Non-schema path returns KEY|VALUE pairs; try to extract ANGLES from it.
+            angles_kv = dim_result.get("ANGLES", "[]")
+            if isinstance(angles_kv, str):
+                try:
+                    angles_kv = json.loads(angles_kv)
+                except (json.JSONDecodeError, TypeError):
+                    angles_kv = []
+            if isinstance(angles_kv, list):
+                dim_result["ANGLES"] = angles_kv
         angles_raw = dim_result.get("ANGLES", "[]")
         frontier: list[Angle] = _parse_angles(angles_raw)
         steps = await _report_progress(inp.run_dir, 1, "completed", _steps=steps)
