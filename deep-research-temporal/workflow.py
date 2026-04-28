@@ -325,6 +325,13 @@ class DeepResearchWorkflow:
             "REQUIRED: also include at least one direction each for these cross-cutting "
             "dimensions: PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, STRATEGIC-TIMING, "
             "ACTUAL-USAGE.\n"
+            "BALANCE: distribute directions evenly across ALL dimensions. No single "
+            f"dimension should have more than {max(inp.max_directions // 8, 5)} directions. "
+            "If the topic is an organization or company, also include dimensions for: "
+            "COST/EFFICIENCY, ADOPTION/USAGE-METRICS, RISK/GOVERNANCE, INFRASTRUCTURE, "
+            "COMPETITIVE-LANDSCAPE.\n"
+            "DIVERSITY: each direction must explore a DISTINCT sub-topic. Two directions "
+            "that would lead a researcher to the same sources or findings should be merged.\n"
             "STRUCTURED_OUTPUT_START\n"
             'DIRECTIONS|[{"id":"d1","dimension":"HOW","question":"<specific>","priority":"high"}, ...]\n'
             "STRUCTURED_OUTPUT_END"
@@ -357,6 +364,19 @@ class DeepResearchWorkflow:
             )
             for i, d in enumerate(raw_directions)
         ]
+
+        if workflow.patched("balanced-dims-v1"):
+            _PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+            dims: dict[str, list[Direction]] = {}
+            for d in directions:
+                dims.setdefault(d.dimension, []).append(d)
+            num_dims = max(len(dims), 1)
+            max_per_dim = max(inp.max_directions // num_dims + 2, 5)
+            balanced: list[Direction] = []
+            for _, dim_dirs in dims.items():
+                dim_dirs.sort(key=lambda x: _PRIORITY_ORDER.get(x.priority, 1))
+                balanced.extend(dim_dirs[:max_per_dim])
+            directions = balanced
 
         await _update_progress(
             phase="directions_done",
