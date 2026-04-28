@@ -279,6 +279,7 @@ class DeepQaWorkflow:
                 run_dir=inp.run_dir,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         # Retry once if dim discovery returned malformed output.
@@ -301,6 +302,7 @@ class DeepQaWorkflow:
                     run_dir=inp.run_dir,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=SONNET_POLICY,
             )
             # Non-schema path returns KEY|VALUE pairs; try to extract ANGLES from it.
@@ -396,6 +398,7 @@ class DeepQaWorkflow:
                         output_schema=_SCHEMA_DEFECTS,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
+                    heartbeat_timeout=timedelta(seconds=120),
                     retry_policy=HAIKU_POLICY,
                 )
                 for ppath in critic_prompt_paths
@@ -491,6 +494,7 @@ class DeepQaWorkflow:
                                 output_schema=_SCHEMA_VERDICTS,
                             ),
                             start_to_close_timeout=timedelta(seconds=600),
+                            heartbeat_timeout=timedelta(seconds=120),
                             retry_policy=HAIKU_POLICY,
                         )
                     )
@@ -556,6 +560,7 @@ class DeepQaWorkflow:
                                     output_schema=_SCHEMA_VERDICTS,
                                 ),
                                 start_to_close_timeout=timedelta(seconds=600),
+                                heartbeat_timeout=timedelta(seconds=120),
                                 retry_policy=HAIKU_POLICY,
                             )
                         )
@@ -627,6 +632,7 @@ class DeepQaWorkflow:
                     tools_needed=True,
                 ),
                 start_to_close_timeout=timedelta(seconds=300),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=HAIKU_POLICY,
             )
             raw_verification = verifier_result.get("VERIFICATION", "{}")
@@ -699,6 +705,7 @@ class DeepQaWorkflow:
                     output_schema=_SCHEMA_AUDIT,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=SONNET_POLICY,
             )
             fidelity = audit_result.get("REPORT_FIDELITY", "compromised")
@@ -782,6 +789,7 @@ class DeepQaWorkflow:
                     output_schema=_SCHEMA_REPORT,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=SONNET_POLICY,
             )
             synth_report = synth_result.get("REPORT") or ""

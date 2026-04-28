@@ -251,6 +251,7 @@ class ProposalReviewWorkflow:
                 output_schema=_SCHEMA_CLAIMS,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         claims_raw = claim_result.get("CLAIMS", "[]")
@@ -286,6 +287,7 @@ class ProposalReviewWorkflow:
                     output_schema=_SCHEMA_WEAKNESSES,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=HAIKU_POLICY,
             )
             for dim, ppath in zip(_CRITIQUE_DIMENSIONS, critic_prompt_paths)
@@ -372,6 +374,7 @@ class ProposalReviewWorkflow:
                         output_schema=_SCHEMA_FACT_CHECK,
                     ),
                     start_to_close_timeout=timedelta(seconds=600),
+                    heartbeat_timeout=timedelta(seconds=120),
                     retry_policy=HAIKU_POLICY,
                 )
                 for ppath in fc_prompt_paths
@@ -435,6 +438,7 @@ class ProposalReviewWorkflow:
                     output_schema=_SCHEMA_CRED_PASS1,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=HAIKU_POLICY,
             )
             pass1_verdict = p1_result.get("VERDICT_PASS_1", "UNVERIFIABLE")
@@ -464,6 +468,7 @@ class ProposalReviewWorkflow:
                     output_schema=_SCHEMA_CRED_PASS2,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=HAIKU_POLICY,
             )
             final_verdict = p2_result.get("VERDICT_FINAL", pass1_verdict)
@@ -510,6 +515,7 @@ class ProposalReviewWorkflow:
                     output_schema=_SCHEMA_SEV_PASS1,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=HAIKU_POLICY,
             )
             falsifiable_p1 = s1_result.get("FALSIFIABLE", "no").lower() == "yes"
@@ -541,6 +547,7 @@ class ProposalReviewWorkflow:
                     output_schema=_SCHEMA_SEV_PASS2,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=HAIKU_POLICY,
             )
             falsifiable_final = s2_result.get("FALSIFIABLE", "no").lower() == "yes"
@@ -603,6 +610,7 @@ class ProposalReviewWorkflow:
                 output_schema=_SCHEMA_LANDSCAPE,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         landscape_verdict = {
@@ -656,6 +664,7 @@ class ProposalReviewWorkflow:
                 output_schema=_SCHEMA_AUDIT,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         audit_fidelity = audit_result_raw.get("REPORT_FIDELITY", "clean")
@@ -728,6 +737,7 @@ class ProposalReviewWorkflow:
                 output_schema=_SCHEMA_REPORT,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         report_md = synth_result.get(

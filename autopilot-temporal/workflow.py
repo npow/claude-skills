@@ -514,6 +514,7 @@ async def _spawn(
             tools_needed=tools_needed,
         ),
         start_to_close_timeout=timedelta(seconds=600),
+        heartbeat_timeout=timedelta(seconds=120),
         retry_policy=policy,
     )
     return result

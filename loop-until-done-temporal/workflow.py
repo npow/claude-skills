@@ -166,6 +166,7 @@ class LoopUntilDoneWorkflow:
                 output_schema=_SCHEMA_PRD,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         stories_raw = prd_result.get("STORIES", "[]")
@@ -227,6 +228,7 @@ class LoopUntilDoneWorkflow:
                 output_schema=_SCHEMA_FALSIFIABILITY,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=HAIKU_POLICY,
         )
         verdicts_raw = falsifiability_result.get("CRITERION_VERDICTS", "[]")
@@ -267,6 +269,7 @@ class LoopUntilDoneWorkflow:
                     output_schema=_SCHEMA_EXECUTOR,
                 ),
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=SONNET_POLICY,
             )
             work_descriptions[story_id] = executor_result.get("WORK_DESCRIPTION", "")
@@ -316,6 +319,7 @@ class LoopUntilDoneWorkflow:
                 output_schema=_SCHEMA_REVIEWER,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         verdict = reviewer_result.get(
@@ -370,6 +374,7 @@ async def _run_verifier(
             output_schema=_SCHEMA_VERIFIER,
         ),
         start_to_close_timeout=timedelta(seconds=600),
+        heartbeat_timeout=timedelta(seconds=120),
         retry_policy=HAIKU_POLICY,
     )
     verified_raw = result.get("VERIFIED", "false")

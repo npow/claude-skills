@@ -51,6 +51,7 @@ class HelloWorldWorkflow:
                 tools_needed=False,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=HAIKU_POLICY,
         )
 

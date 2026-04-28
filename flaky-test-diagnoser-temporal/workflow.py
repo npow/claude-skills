@@ -118,6 +118,7 @@ class FlakyTestWorkflow:
                 "run_test_subprocess",
                 args=[inp.run_command, 60],
                 start_to_close_timeout=timedelta(seconds=600),
+                heartbeat_timeout=timedelta(seconds=120),
                 retry_policy=HAIKU_POLICY,
             )
             for _ in range(inp.n_runs)
@@ -233,6 +234,7 @@ class FlakyTestWorkflow:
                 output_schema=_SCHEMA_HYPOTHESES,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         hypotheses = _parse_hypotheses(hyp_result.get("HYPOTHESES", "[]"))
@@ -259,6 +261,7 @@ class FlakyTestWorkflow:
                 output_schema=_SCHEMA_RANKINGS,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=HAIKU_POLICY,
         )
         rankings = _parse_rankings(judge_result.get("RANKINGS", "[]"))
@@ -287,6 +290,7 @@ class FlakyTestWorkflow:
                 output_schema=_SCHEMA_SYNTHESIS,
             ),
             start_to_close_timeout=timedelta(seconds=600),
+            heartbeat_timeout=timedelta(seconds=120),
             retry_policy=SONNET_POLICY,
         )
         report_md = synth_result.get(

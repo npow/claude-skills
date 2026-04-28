@@ -789,6 +789,7 @@ async def _spawn_write(
             output_schema=output_schema,
         ),
         start_to_close_timeout=timedelta(seconds=300),
+        heartbeat_timeout=timedelta(seconds=120),
         retry_policy=policy,
     )
 
