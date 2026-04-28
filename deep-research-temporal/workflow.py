@@ -94,6 +94,7 @@ class DeepResearchInput:
     run_dir: str
     max_rounds: int = 1000
     max_directions: int = 100
+    max_concurrent_researchers: int = 20
     notify: bool = True
 
 
@@ -521,10 +522,20 @@ class DeepResearchWorkflow:
                 )
                 return finding
 
-            results = await asyncio.gather(
-                *[_research_and_write(d, p) for d, p in research_prompts],
-                return_exceptions=True,
-            )
+            if workflow.patched("concurrency-limit-v1"):
+                _sem = asyncio.Semaphore(inp.max_concurrent_researchers)
+                async def _gated(d, p):
+                    async with _sem:
+                        return await _research_and_write(d, p)
+                results = await asyncio.gather(
+                    *[_gated(d, p) for d, p in research_prompts],
+                    return_exceptions=True,
+                )
+            else:
+                results = await asyncio.gather(
+                    *[_research_and_write(d, p) for d, p in research_prompts],
+                    return_exceptions=True,
+                )
             for r in results:
                 if isinstance(r, dict):
                     round_findings.append(r)
