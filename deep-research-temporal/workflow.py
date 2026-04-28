@@ -577,8 +577,12 @@ class DeepResearchWorkflow:
             if "info_gain_rates" not in progress:
                 progress["info_gain_rates"] = []
             progress["info_gain_rates"].append({"round": round_num, "rate": info_gain})
-            _CONVERGENCE_WINDOW = 3
-            _CONVERGENCE_THRESHOLD = 5
+            if workflow.patched("relaxed-convergence-v1"):
+                _CONVERGENCE_WINDOW = 2
+                _CONVERGENCE_THRESHOLD = 10
+            else:
+                _CONVERGENCE_WINDOW = 3
+                _CONVERGENCE_THRESHOLD = 5
             recent_gains = progress["info_gain_rates"][-_CONVERGENCE_WINDOW:]
             info_gain_converged = (
                 len(recent_gains) >= _CONVERGENCE_WINDOW
