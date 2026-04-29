@@ -84,6 +84,14 @@ Rules for synthesis:
 - Use tables where 3+ parallel items share the same structure
 - Preserve all source citations through the merge
 
+Editorial standards (apply during synthesis and verify before shipping):
+- **People**: Full name on first mention with role/context. No orphaned surnames.
+- **Proper nouns**: Disambiguate product names that could be confused with people or common words.
+- **Counts**: If you write "three documents" or "five teams," the enumeration must match exactly.
+- **Transitions**: Every sentence follows logically from the previous. No topic shifts without paragraph breaks.
+- **Links**: Every URL is a well-formed clickable markdown link. No bare citation tags.
+- **Evidence**: Every factual claim has a source (URL, doc reference, or tool output). Flag single-source claims.
+
 ### REVIEW phase — different model catches different blind spots
 
 ```
@@ -94,6 +102,9 @@ Review these research findings for:
 - Missing perspectives or dimensions
 - Unsupported conclusions
 - Source diversity (are findings over-reliant on one source type?)
+- Editorial quality: orphaned names (surname without first-name intro), ambiguous
+  proper nouns, count mismatches (e.g. "three X" but four enumerated), jarring
+  transitions, broken or non-clickable links, bare citation tags without URLs
 
 Findings:
 {synthesized_findings}
