@@ -106,3 +106,21 @@ in parallel for maximum blind-spot diversity.
 /monitor --code --baseline=30
 /monitor --oncall
 ```
+
+## Execution routing (sagaflow-first)
+
+**Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable.
+
+**Routing sequence (mandatory before any in-session work):**
+0. If one-shot health check (not `--recurring`) → produce report directly in-session. Do NOT route to sagaflow.
+1. Run `sagaflow doctor`
+2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
+
+**Launch command:**
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch monitor --arg target='<TARGET>' --arg preset=auto --arg recurring=false --await"
+)
+```
