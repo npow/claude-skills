@@ -10,6 +10,6 @@ argument: |
 
 # loop-until-done-temporal (deprecation shim)
 
-This skill has been unified with [`loop-until-done`](../loop-until-done/SKILL.md) — see its `## Execution routing` section for the sagaflow launch recipe.
+This skill has been absorbed into [`autopilot`](../autopilot/SKILL.md) (Phase 3 verify loop). See autopilot's `## Execution routing` section for the sagaflow launch recipe.
 
 The `-temporal` directory is preserved because sagaflow's worker discovers skill packages by directory name (see `_DIR_TO_LEGACY` in `sagaflow/worker.py`). Do not rename or move `__init__.py`, `workflow.py`, `state.py`, or `prompts/` in this directory without a coordinated worker-restart + code update.
