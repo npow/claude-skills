@@ -10,27 +10,50 @@ Usage:
   python bin/validate-skills.py          # from repo root
   ln -s ../../bin/validate-skills.py .git/hooks/pre-commit  # as hook
 """
-import yaml, glob, re, sys, os
+import glob, re, sys, os
 
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 errors = []
 
+
+def parse_frontmatter(content):
+    """Extract name and description from YAML frontmatter without PyYAML."""
+    if not content.startswith("---"):
+        return None, "missing YAML frontmatter"
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return None, "malformed frontmatter (no closing ---)"
+    fm = parts[1]
+    name = None
+    desc = None
+    for line in fm.splitlines():
+        line = line.strip()
+        if line.startswith("name:"):
+            val = line[5:].strip().strip('"').strip("'")
+            if val:
+                name = val
+        elif line.startswith("description:"):
+            val = line[12:].strip().strip('"').strip("'")
+            if val:
+                desc = val
+            elif not val:
+                desc = "(multiline)"
+    return {"name": name, "description": desc}, None
+
+
 # Check 1: Frontmatter
 for path in sorted(glob.glob("*/SKILL.md")):
     with open(path) as f:
         content = f.read()
-    if not content.startswith("---"):
-        errors.append(f"{path}: missing YAML frontmatter"); continue
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        errors.append(f"{path}: malformed frontmatter (no closing ---)"); continue
-    try:
-        meta = yaml.safe_load(parts[1])
-        if not meta.get("name"): errors.append(f"{path}: missing 'name'")
-        if not meta.get("description"): errors.append(f"{path}: missing 'description'")
-    except yaml.YAMLError as e:
-        errors.append(f"{path}: YAML parse error: {e}")
+    meta, err = parse_frontmatter(content)
+    if err:
+        errors.append(f"{path}: {err}")
+        continue
+    if not meta.get("name"):
+        errors.append(f"{path}: missing 'name'")
+    if not meta.get("description"):
+        errors.append(f"{path}: missing 'description'")
 
 # Check 2: Netflix refs in OSS
 EXEMPT = {'mako-gpu-status', 'debug-pr', 'debug-run', 'data-auditor-create',
@@ -45,21 +68,25 @@ EXEMPT = {'mako-gpu-status', 'debug-pr', 'debug-run', 'data-auditor-create',
           'js-client-context', 'python-context', 'dbt-data-test-gen',
           'dbt-unit-test-gen', 'flaky-test-diagnoser', 'flaky-test-diagnoser-temporal',
           'ccr-models', 'ccr-run'}
-NETFLIX = [r'netflix_search_api', r'netflix_search_data', r'rag-slack-prod',
-           r'rag-manuals-prod', r'github\.netflix\.net', r'manuals-v2\.prod\.netflix']
+NETFLIX_PATTERNS = [
+    r'netflix_search_api', r'netflix_search_data', r'rag-slack-prod',  # oss-ok
+    r'rag-manuals-prod', r'github\.netflix\.net', r'manuals-v2\.prod\.netflix',  # oss-ok
+]
 for path in sorted(glob.glob("*/SKILL.md")):
     skill = path.split('/')[0]
-    if skill in EXEMPT: continue
+    if skill in EXEMPT:
+        continue
     with open(path) as f:
         content = f.read()
-    for pattern in NETFLIX:
+    for pattern in NETFLIX_PATTERNS:
         if re.search(pattern, content, re.IGNORECASE):
             errors.append(f"{path}: Netflix-internal ref '{pattern}' in OSS skill")
             break
 
 if errors:
     print("Skill validation FAILED:")
-    for e in errors: print(f"  ✘ {e}")
+    for e in errors:
+        print(f"  ✘ {e}")
     sys.exit(1)
 else:
     print(f"✓ All {len(glob.glob('*/SKILL.md'))} skills valid")
