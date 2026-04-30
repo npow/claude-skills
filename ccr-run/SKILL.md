@@ -1,6 +1,6 @@
 ---
 name: ccr-run
-description: Run a task on any model via claude-code-router. Usage: /ccr-run [model] <task>
+description: "Run a task on any model via claude-code-router. Usage: /ccr-run [model] <task>"
 
 category: tool
 input_types: [task, question, code-path]
