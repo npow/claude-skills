@@ -12,9 +12,10 @@ allowed-tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Agent, Write, Edit, 
 
 ## Strategy
 
-1. Assess input: is it vague, a spec, or a plan?
+1. Assess input: is it vague, a spec, a plan, or a planning-only request?
    - Vague → CLARIFY (Socratic Q&A in main context)
-   - Spec/description → PLAN
+   - Asks for spec/plan/file-list only (no "build it" or "implement") → PLAN then output directly. Do NOT spawn agents or enter EXECUTE/REVIEW phases.
+   - Spec/description with build intent → PLAN then EXECUTE
    - Plan with file paths → EXECUTE
 2. During PLAN, if context is missing → scoped RESEARCH (quick lookup, not full investigation)
 3. PLAN: decompose into ordered tasks, identify parallel groups, set acceptance criteria
