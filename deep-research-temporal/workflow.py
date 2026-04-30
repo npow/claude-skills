@@ -542,7 +542,7 @@ class DeepResearchWorkflow:
 
             if workflow.patched("concurrency-limit-v1"):
                 _sem = asyncio.Semaphore(inp.max_concurrent_researchers)
-                async def _gated(d: object, p: str) -> dict:  # type: ignore[return-type]
+                async def _gated(d: Direction, p: str) -> dict | None:
                     async with _sem:
                         return await _research_and_write(d, p)
                 results = await asyncio.gather(
