@@ -22,6 +22,13 @@ allowed-tools: Bash, Read, Grep, WebSearch, WebFetch, Agent
 
 Exit: report delivered. For recurring: runs until cancelled.
 
+## Report requirements (every report MUST include)
+
+- **Specific metric values**: exact numbers, not just "high" or "degraded"
+- **Trend direction**: is each metric improving, stable, or worsening vs baseline?
+- **Actionable items**: concrete next steps ranked by urgency, not just observations
+- **Anomaly callouts**: flag anything outside expected range with the specific threshold breached
+
 
 > **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
 > from the current task context. They are not template variables — read the user input,

@@ -21,6 +21,13 @@ allowed-tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Agent, Write, Edit
 
 Exit: reviewer found no evidence gaps or contradictions.
 
+## Output structure (all reports MUST include)
+
+- **Sources**: every claim backed by a URL, paper, or tool output
+- **Limitations**: explicit section on caveats, unknowns, and confidence levels
+- **Quantitative data**: specific numbers, percentages, metrics — not just qualitative claims
+- **Comparative analysis**: contrast alternatives, approaches, or positions against each other
+
 > **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
 > from the current task context. They are not template variables — read the user input,
 > gather the relevant context, and substitute before spawning the agent.

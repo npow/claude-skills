@@ -21,6 +21,13 @@ allowed-tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Agent
 
 Exit: all critics pass or fix loop exhausted.
 
+## Finding format (every finding MUST include)
+
+- **Line reference**: exact file:line or line range, not just "in the function"
+- **Severity**: critical / major / minor with justification
+- **Concrete fix**: specific code change or approach, not just "consider fixing"
+- **Category**: correctness / security / performance / style
+
 
 > **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
 > from the current task context. They are not template variables — read the user input,
