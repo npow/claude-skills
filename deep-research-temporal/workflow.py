@@ -542,7 +542,7 @@ class DeepResearchWorkflow:
 
             if workflow.patched("concurrency-limit-v1"):
                 _sem = asyncio.Semaphore(inp.max_concurrent_researchers)
-                async def _gated(d, p):
+                async def _gated(d: object, p: str) -> dict:  # type: ignore[return-type]
                     async with _sem:
                         return await _research_and_write(d, p)
                 results = await asyncio.gather(
@@ -869,13 +869,19 @@ class DeepResearchWorkflow:
                 "section and a 'Fact Verification Results' section. Do NOT summarize "
                 "or truncate — include full detail for each direction. Use all available "
                 "tools to verify and enrich the synthesis. "
-                "Editorial standards: every person gets full name on first mention with "
-                "role/context (no orphaned surnames). Disambiguate proper nouns that "
-                "could be confused with people or common words. If you write 'three X' "
-                "or 'five Y', the enumeration must match exactly. Every sentence follows "
-                "logically from the previous — no topic shifts without paragraph breaks. "
-                "Every URL is a well-formed clickable markdown link. Every factual claim "
-                "has a source. "
+                "EDITORIAL STANDARDS (mandatory): "
+                "1) Every person gets full name on first mention with role/context. "
+                "2) Every named system, tool, project, or platform MUST have a clickable "
+                "hyperlink on first mention — look up the URL (manual page, GitHub repo, "
+                "or reference doc) and add it. This means ADDING links, not just checking "
+                "existing ones. "
+                "3) If you write 'three X' or 'five Y', the enumeration must match exactly. "
+                "4) Every sentence follows logically from the previous — no topic shifts "
+                "without paragraph breaks. "
+                "5) Every factual claim has a source. "
+                "6) Keep source terminology exactly — do not rename proper nouns. "
+                "AFTER writing the report, do a VERIFY pass: scan for capitalized proper "
+                "nouns not inside markdown links and add links for any you missed. "
                 "STRUCTURED_OUTPUT_START\n"
                 "REPORT|<full markdown>\n"
                 "STRUCTURED_OUTPUT_END"
