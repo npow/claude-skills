@@ -21,13 +21,6 @@ allowed-tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Agent, Write, Edit
 
 Exit: reviewer found no evidence gaps or contradictions.
 
-## Output structure (all reports MUST include)
-
-- **Sources**: every claim backed by a URL, paper, or tool output
-- **Limitations**: explicit section on caveats, unknowns, and confidence levels
-- **Quantitative data**: specific numbers, percentages, metrics — not just qualitative claims
-- **Comparative analysis**: contrast alternatives, approaches, or positions against each other
-
 > **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
 > from the current task context. They are not template variables — read the user input,
 > gather the relevant context, and substitute before spawning the agent.
@@ -90,14 +83,14 @@ Rules for synthesis:
 - Surface contradictions explicitly rather than hiding them
 - Use tables where 3+ parallel items share the same structure
 - Preserve all source citations through the merge
+- When integrating into an EXISTING document, weave new content into the existing narrative — connect each new fact to established context rather than inserting standalone blocks
+- **Link every named entity**: every system, tool, project, or platform mentioned must have a clickable hyperlink (manual page, GitHub repo, or reference doc) on first mention. This means ADDING links — look up URLs during synthesis, do not defer to a later step. Keep source terminology exactly as the source uses it — do not rename proper nouns.
 
-Editorial standards (apply during synthesis and verify before shipping):
+Editorial standards (apply during synthesis):
 - **People**: Full name on first mention with role/context. No orphaned surnames.
-- **Proper nouns**: Disambiguate product names that could be confused with people or common words.
 - **Counts**: If you write "three documents" or "five teams," the enumeration must match exactly.
 - **Transitions**: Every sentence follows logically from the previous. No topic shifts without paragraph breaks.
-- **Links**: Every URL is a well-formed clickable markdown link. No bare citation tags.
-- **Evidence**: Every factual claim has a source (URL, doc reference, or tool output). Flag single-source claims.
+- **Evidence**: Every factual claim has a source. Flag single-source claims.
 
 ### REVIEW phase — different model catches different blind spots
 
@@ -109,9 +102,11 @@ Review these research findings for:
 - Missing perspectives or dimensions
 - Unsupported conclusions
 - Source diversity (are findings over-reliant on one source type?)
-- Editorial quality: orphaned names (surname without first-name intro), ambiguous
-  proper nouns, count mismatches (e.g. "three X" but four enumerated), jarring
-  transitions, broken or non-clickable links, bare citation tags without URLs
+- Unlinked entities: scan for named systems, tools, projects, or platforms
+  that lack a hyperlink on first mention. Every named entity needs a clickable
+  link — flag any that are missing.
+- Editorial: orphaned names (surname without first-name intro), count mismatches
+  (e.g. "three X" but four enumerated), jarring transitions
 
 Findings:
 {synthesized_findings}
@@ -119,6 +114,16 @@ Findings:
 Output: list of specific gaps to fill, or "APPROVED" if complete.
 """)
 ```
+
+### VERIFY phase — mechanical checks before shipping
+
+After the review loop exits, run these checks on the final report:
+1. **Unlinked proper nouns**: grep for capitalized multi-word names not inside `[...]()`. Every named system needs a link.
+2. **Broken links**: verify all `[text](url)` have non-empty URLs and valid markdown syntax.
+3. **Count consistency**: for every "N things" claim, count the enumerated items.
+4. **Orphaned names**: every surname that appears should have a full-name introduction earlier in the document.
+
+Fix any issues found before shipping. This is a mechanical gate, not a judgment call.
 
 ### SHIP phase
 

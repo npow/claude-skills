@@ -429,6 +429,32 @@ A dedicated verification pass runs before the final synthesis. See SYNTHESIS.md 
 
 **Pass 3 — Final report:** Write `deep-research-report.md` (see FORMAT.md)
 
+**Pass 3.5 — HTML ship (default on, skip with `--no-html`):**
+Produce a styled HTML report alongside the markdown:
+- Dark theme (#0d1117 background), clickable table of contents, all URLs as links
+- Claims Register table (claim, source, corroboration, recency)
+- Evidence Gaps / "What this report does NOT cover" section
+- Single-Source Claims callout section
+- Upload to S3 via the upload-presentation skill pattern
+Skip with `--no-html` for markdown-only output.
+
+**Editorial synthesis standards (always apply during Pass 2-3):**
+- **People**: Full name on first mention with role/context. No orphaned surnames.
+- **Proper nouns**: Disambiguate product names that could be confused with people or common words.
+- **Counts**: If you write "three documents" or "five teams," the enumeration must match exactly.
+- **Transitions**: Every sentence follows logically from the previous. No topic shifts without paragraph breaks.
+- **Links**: Every named system, tool, project, or platform MUST have a clickable hyperlink on first mention — look up the URL (manual page, GitHub repo, or reference doc) and add it. This means ADDING links, not just checking existing ones are well-formed.
+- **Source terminology**: Keep proper nouns exactly as the source uses them. Do not rename or "improve" terminology.
+- **Integration**: When adding findings to an existing document, weave into the existing narrative — connect each new fact to established context rather than inserting standalone blocks.
+
+**Pass 3.9 — VERIFY (mechanical, before Pass 4):**
+After writing the report, scan for:
+1. Capitalized proper nouns not inside `[...]()` — every named entity needs a link.
+2. Broken links — all `[text](url)` have non-empty URLs and valid markdown syntax.
+3. Count consistency — for every "N things" claim, count the enumerated items.
+4. Orphaned names — every surname should have a full-name introduction earlier.
+Fix any issues found. This is a mechanical gate, not a judgment call.
+
 **Pass 4 — QA pass (automatic offer):**
 After writing `deep-research-report.md`:
 
@@ -538,6 +564,26 @@ Coordinator reads ONLY the structured block; unparseable → fail-safe "citation
 - If `--auto` is set → injection fires automatically once per run; second injection suppressed.
 
 The breadth auditor's verdict is appended verbatim to the final report as a new section: **Breadth Audit**. Gate actions and outcomes are recorded in `state.json → breadth_gate_log`.
+
+---
+
+## Depth Presets
+
+The `--depth` flag controls research budget (usable directly or via the investigate shim):
+
+| Depth | Dimensions | Tool calls/direction | Max rounds | Cross-cutting dims required |
+|-------|-----------|---------------------|------------|---------------------------|
+| `quick` | 2-3 | 3 | 1 | BASELINE + ACTUAL-USAGE |
+| `standard` | 3-5 | 5-10 | 3 | 3 of 5 |
+| `deep` | 5-7 | 10+ | unlimited | all 5 |
+
+For `quick` mode: skip novelty detection, vocabulary bootstrap, breadth auditing, and contrarian pass. Run one round of parallel research, synthesize, ship. This is the "80% quality in 20% of the time" option.
+
+For `standard` mode (default): run all phases but cap rounds at 3 and skip the contrarian pass.
+
+For `deep` mode: full deep-research spec with no shortcuts.
+
+When `--depth` is not specified, `max_rounds` and `max_directions` control the budget directly (backward compatible).
 
 ---
 
