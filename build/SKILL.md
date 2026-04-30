@@ -161,3 +161,21 @@ Merge findings from both before passing to judge.
 /build --report sprint-data.md
 /build --plan-only "migrate from PostgreSQL to DynamoDB"
 ```
+
+## Execution routing (sagaflow-first)
+
+**Sagaflow is the default execution path.** The in-session workflow above is the FALLBACK, used only when the sagaflow worker is confirmed unavailable.
+
+**Routing sequence (mandatory before any in-session work):**
+0. If planning-only request (asks for spec/plan/file-list, no "build" or "implement" intent) → produce output directly in-session. Do NOT route to sagaflow.
+1. Run `sagaflow doctor`
+2. If healthy → launch via sagaflow below. Stop. Do not run in-session.
+3. If unhealthy → log `SAGAFLOW_UNAVAILABLE`, proceed with in-session fallback.
+
+**Launch command:**
+```
+Bash(
+  run_in_background=true,
+  command="sagaflow launch build --arg spec='<SPEC>' --arg max_iterations=3 --await"
+)
+```
