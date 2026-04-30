@@ -8,46 +8,62 @@ user-invocable: true
 allowed-tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Agent, Write, Edit, Monitor
 ---
 
-# Build
-
 ## Strategy
 
-1. Assess input: is it vague, a spec, a plan, or a planning-only request?
-   - Vague → CLARIFY (Socratic Q&A in main context)
-   - Asks for spec/plan/file-list only (no "build it" or "implement") → PLAN then output directly. Do NOT spawn agents or enter EXECUTE/REVIEW phases.
-   - Spec/description with build intent → PLAN then EXECUTE
-   - Plan with file paths → EXECUTE
-2. During PLAN, if context is missing → scoped RESEARCH (quick lookup, not full investigation)
-3. PLAN: decompose into ordered tasks, identify parallel groups, set acceptance criteria
-   - Every plan MUST include:
-     - **Parsing/input approach**: specific libraries, APIs, or formats for reading input (e.g., `ast` for Python, `information_schema` for SQL, `python-hcl2` for Terraform)
-     - **Edge cases**: at least 3 concrete failure modes or boundary conditions
-     - **Output format**: exact structure of what the tool produces (JSON schema, report sections, SQL statements)
-     - **Verification commands**: runnable commands that prove the artifact works on a real or fixture input
-   - `--plan-only` stops here and outputs the plan
-4. EXECUTE: spawn builder agents for each task (parallel where independent)
-5. SELF-VERIFY: run test suite, lint, type check
-6. REVIEW: spawn critic agent (different model) to check quality
-7. If review finds issues → fix and re-review (loop)
-8. SHIP: PR, deploy, publish based on mode
+### Phase 0: Intent Detection (always first)
+Read the request and assign exactly one label:
+- `CLARIFY`: missing key constraints, ambiguous scope, no actionable signal
+- `PLAN_ONLY`: explicit request for spec, design doc, file list, or plan — no implementation asked
+- `BUILD`: has description/spec + implicit or explicit build intent
+- `EXECUTE`: has concrete plan with file paths already
 
-Exit: review passes with no critical/major issues. Tests pass.
+Never skip this step. The label determines all subsequent behavior.
 
-## Plan quality checklist
+### Phase 1: Research (conditional)
+Only if `BUILD` or `EXECUTE` and context is insufficient. Time-box to quick lookups:
+- Exact import paths, library versions, schema column names, API endpoints
+- Do NOT do exploratory research; gather only what the plan requires
 
-Before leaving the PLAN phase, verify the plan includes ALL:
+### Phase 2: Plan
+*Required for `BUILD`. Optional enrichment for `EXECUTE`.*
 
-- [ ] Named the specific parsing/introspection approach (library, API, or technique)
-- [ ] Listed at least 3 edge cases or failure modes with handling strategy
-- [ ] Specified output format with concrete example (schema, sample output, or template)
-- [ ] Included verification commands that run against fixture/sample input
-- [ ] Ordered tasks by dependency (core types → implementation → tests → integration)
-- [ ] Each task has clear acceptance criteria (not just "implement X")
+The plan must contain:
+1. **Task breakdown**: ordered steps, each with a single clear output
+2. **Dependency graph**: which tasks can run in parallel
+3. **Input handling**: exact parsing strategy — library name, function, format (never generic "read the file")
+4. **Failure modes**: ≥3 specific edge cases with expected handling (not "handle errors gracefully")
+5. **Output specification**: schema, file structure, or report format with concrete examples
+6. **Smoke test commands**: runnable validation commands, not descriptions of tests
 
+If `--plan-only` or `PLAN_ONLY` intent: emit plan and stop. No agents.
 
-> **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
-> from the current task context. They are not template variables — read the user input,
-> gather the relevant context, and substitute before spawning the agent.
+### Phase 3: Execute
+Spawn builder agents. Rules:
+- One agent per independent task group
+- Parallel spawning for non-dependent groups
+- Pass each agent only the context it needs (task spec + relevant plan section)
+- Agents must not re-plan; they implement
+
+### Phase 4: Self-Verify
+Run automatically after builders finish:
+```
+<test runner> && <linter> && <type checker>
+```
+Fix trivial failures (import errors, formatting) without escalating.
+
+### Phase 5: Review
+Critic agent (distinct model) evaluates against:
+- [ ] Spec compliance
+- [ ] Edge case coverage from plan
+- [ ] Output format matches specification
+- [ ] No security regressions
+- [ ] Performance acceptability
+
+### Phase 6: Iterate or Ship
+- Issues found → fix → re-review (cap at 3 cycles)
+- Clean review → SHIP (PR / deploy / publish per mode)
+
+**Done when**: tests green + no critical/major review findings.
 
 ## Agents
 
@@ -73,7 +89,6 @@ REQUIRED sections (do not skip):
 - **Verification commands**: runnable commands to prove the artifact works
 """)
 ```
-
 ### EXECUTE phase — parallel builder agents
 
 Spawn one builder per independent task group. Run concurrently:
@@ -94,7 +109,6 @@ Steps:
 5. Commit atomically
 """)
 ```
-
 ### REVIEW phase — critic on different model
 
 ```
@@ -112,7 +126,6 @@ Changes:
 Output: list of issues with severity (critical/major/minor), or "APPROVED".
 """)
 ```
-
 ### SHIP phase
 
 ```
@@ -122,6 +135,35 @@ Ship this work:
 - Or upload presentation if --present flag
 """)
 ```
+
+# Build
+
+
+## Plan quality checklist
+
+Before leaving the PLAN phase, verify the plan includes ALL:
+
+- [ ] Named the specific parsing/introspection approach (library, API, or technique)
+- [ ] Listed at least 3 edge cases or failure modes with handling strategy
+- [ ] Specified output format with concrete example (schema, sample output, or template)
+- [ ] Included verification commands that run against fixture/sample input
+- [ ] Ordered tasks by dependency (core types → implementation → tests → integration)
+- [ ] Each task has clear acceptance criteria (not just "implement X")
+
+
+> **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
+> from the current task context. They are not template variables — read the user input,
+> gather the relevant context, and substitute before spawning the agent.
+
+## Agents
+
+
+
+
+
+
+
+
 
 ## Modes
 
