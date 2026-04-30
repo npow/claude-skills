@@ -14,7 +14,7 @@ best_for:
 not_for:
   - "Consistently failing tests (use deep-debug)"
   - "Reviewing code for defects (use deep-qa)"
-  - "Fixing the flaky test after diagnosis (use loop-until-done)"
+  - "Fixing the flaky test after diagnosis (use autopilot)"
 input_types:
   - code-path
 output_types:
@@ -35,7 +35,7 @@ related_skills:
   - name: deep-debug
     relation: alternative
     note: "For consistently failing bugs rather than intermittent ones"
-  - name: loop-until-done
+  - name: autopilot
     relation: follow-up
     note: "Fix the flaky test after diagnosis"
 maturity: stable

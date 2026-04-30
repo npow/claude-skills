@@ -14,7 +14,7 @@ best_for:
   - "Producing ADR-backed plans with acceptance criteria"
 not_for:
   - "Designing a system spec (use deep-design)"
-  - "Executing code (use loop-until-done or team)"
+  - "Executing code (use autopilot)"
   - "Reviewing existing work (use deep-qa)"
 input_types:
   - task
@@ -36,7 +36,7 @@ related_skills:
   - name: deep-design
     relation: prerequisite
     note: "Design spec should exist before planning implementation"
-  - name: loop-until-done
+  - name: autopilot
     relation: follow-up
     note: "Execute the plan"
   - name: team
@@ -247,7 +247,7 @@ Only if `--interactive` AND termination label is `consensus_reached_at_iter_N` O
 
 Coordinator presents the final plan + ADR + termination label, then stops. User continues with one of:
 - "approve / implement via team" → call INTEGRATION handoff to `/team`
-- "approve / execute via loop" → handoff to `/loop-until-done`
+- "approve / execute via loop" → handoff to `/autopilot`
 - "request changes" → go back to Step 1 with user feedback at iter-{N+1} (if under max_iter)
 - "reject" → write termination label `user_rejected`, keep artifacts for audit
 
@@ -284,7 +284,7 @@ Any invocation with an existing `deep-plan-{run_id}/` directory reads `state.jso
 - [ ] Deliberate mode: pre-mortem (3 scenarios) + expanded test plan (unit/integration/e2e/observability) present, and Critic explicitly checked them.
 - [ ] Architect/Critic degraded-mode tags surfaced in final summary header if external CLI fell back.
 - [ ] Coordinator never rewrote a plan or verdict — all mutations done by agent spawns.
-- [ ] Handoff to `/team`, `/loop-until-done`, or stop — never direct execution from this skill.
+- [ ] Handoff to `/autopilot`, or stop — never direct execution from this skill.
 
 ## Planner Prompt Template
 

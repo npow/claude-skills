@@ -22,7 +22,7 @@ best_for:
   - "Auditing specs, code diffs, PRs, research reports"
   - "Finding problems you haven't thought of"
 not_for:
-  - "Fixing defects (use loop-until-done)"
+  - "Fixing defects (use autopilot)"
   - "Designing from scratch (use deep-design)"
   - "Exploring a topic (use deep-research)"
 input_types:
@@ -43,13 +43,13 @@ execution:
   temporal_skill: deep-qa-temporal
   estimated_duration: "10-30min"
 related_skills:
-  - name: loop-until-done
+  - name: autopilot
     relation: follow-up
     note: "Fix defects that deep-qa finds"
   - name: deep-design
     relation: alternative
     note: "When you need to design, not just review"
-  - name: proposal-reviewer
+  - name: deep-qa --mode proposal
     relation: alternative
     note: "When reviewing a proposal rather than a technical artifact"
 maturity: stable

@@ -41,7 +41,7 @@ related_skills:
   - name: deep-qa
     relation: follow-up
     note: "Audit the produced design spec for defects"
-  - name: loop-until-done
+  - name: autopilot
     relation: follow-up
     note: "Implement the design"
 maturity: stable

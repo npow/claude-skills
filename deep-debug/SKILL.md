@@ -17,7 +17,7 @@ best_for:
 not_for:
   - "Flaky tests (use flaky-test-diagnoser)"
   - "Reviewing code for defects (use deep-qa)"
-  - "Simple known bugs that just need fixing (use loop-until-done)"
+  - "Simple known bugs that just need fixing (use autopilot)"
 input_types:
   - code-path
   - artifact-file
@@ -43,7 +43,7 @@ related_skills:
   - name: deep-qa
     relation: alternative
     note: "When you want to find defects rather than diagnose a symptom"
-  - name: loop-until-done
+  - name: autopilot
     relation: follow-up
     note: "Drive a fix to completion after diagnosis"
 maturity: stable

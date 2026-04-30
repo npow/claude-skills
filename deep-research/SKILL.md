@@ -41,7 +41,7 @@ related_skills:
   - name: deep-qa
     relation: follow-up
     note: "Audit research report for defects"
-  - name: proposal-reviewer
+  - name: deep-qa --mode proposal
     relation: alternative
     note: "When evaluating a specific proposal rather than open exploration"
 maturity: stable
