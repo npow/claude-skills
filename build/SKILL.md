@@ -136,26 +136,9 @@ Ship this work:
 """)
 ```
 
-# Build
-
-
-## Plan quality checklist
-
-Before leaving the PLAN phase, verify the plan includes ALL:
-
-- [ ] Named the specific parsing/introspection approach (library, API, or technique)
-- [ ] Listed at least 3 edge cases or failure modes with handling strategy
-- [ ] Specified output format with concrete example (schema, sample output, or template)
-- [ ] Included verification commands that run against fixture/sample input
-- [ ] Ordered tasks by dependency (core types → implementation → tests → integration)
-- [ ] Each task has clear acceptance criteria (not just "implement X")
-
-
 > **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
 > from the current task context. They are not template variables — read the user input,
 > gather the relevant context, and substitute before spawning the agent.
-
-## Agents
 
 
 
