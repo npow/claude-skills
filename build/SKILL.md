@@ -18,6 +18,11 @@ allowed-tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Agent, Write, Edit, 
    - Plan with file paths → EXECUTE
 2. During PLAN, if context is missing → scoped RESEARCH (quick lookup, not full investigation)
 3. PLAN: decompose into ordered tasks, identify parallel groups, set acceptance criteria
+   - Every plan MUST include:
+     - **Parsing/input approach**: specific libraries, APIs, or formats for reading input (e.g., `ast` for Python, `information_schema` for SQL, `python-hcl2` for Terraform)
+     - **Edge cases**: at least 3 concrete failure modes or boundary conditions
+     - **Output format**: exact structure of what the tool produces (JSON schema, report sections, SQL statements)
+     - **Verification commands**: runnable commands that prove the artifact works on a real or fixture input
    - `--plan-only` stops here and outputs the plan
 4. EXECUTE: spawn builder agents for each task (parallel where independent)
 5. SELF-VERIFY: run test suite, lint, type check
@@ -26,6 +31,17 @@ allowed-tools: Bash, Read, Grep, Glob, WebSearch, WebFetch, Agent, Write, Edit, 
 8. SHIP: PR, deploy, publish based on mode
 
 Exit: review passes with no critical/major issues. Tests pass.
+
+## Plan quality checklist
+
+Before leaving the PLAN phase, verify the plan includes ALL:
+
+- [ ] Named the specific parsing/introspection approach (library, API, or technique)
+- [ ] Listed at least 3 edge cases or failure modes with handling strategy
+- [ ] Specified output format with concrete example (schema, sample output, or template)
+- [ ] Included verification commands that run against fixture/sample input
+- [ ] Ordered tasks by dependency (core types → implementation → tests → integration)
+- [ ] Each task has clear acceptance criteria (not just "implement X")
 
 
 > **Note:** Placeholders like `{user_question}` in Agent prompts are filled by you (Claude)
@@ -44,10 +60,16 @@ Create an implementation plan for:
 Codebase context:
 {relevant_files_and_patterns}
 
-Output an ordered task list:
+Output an ordered task list with:
 - Task name, file paths, what to change, acceptance criteria
 - Mark independent tasks that can run in parallel
 - Include test requirements per task
+
+REQUIRED sections (do not skip):
+- **Parsing/input approach**: name the specific library, API, or technique for reading input data
+- **Edge cases**: list at least 3 concrete failure modes with handling strategy
+- **Output format**: describe exact structure with a sample snippet
+- **Verification commands**: runnable commands to prove the artifact works
 """)
 ```
 
