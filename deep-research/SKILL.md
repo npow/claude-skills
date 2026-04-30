@@ -445,6 +445,9 @@ Skip with `--no-html` for markdown-only output.
 - **Transitions**: Every sentence follows logically from the previous. No topic shifts without paragraph breaks.
 - **Links**: Every named system, tool, project, or platform MUST have a clickable hyperlink on first mention — look up the URL (manual page, GitHub repo, or reference doc) and add it. This means ADDING links, not just checking existing ones are well-formed.
 - **Source terminology**: Keep proper nouns exactly as the source uses them. Do not rename or "improve" terminology.
+- **Implications, not facts**: Each finding must state what the evidence *means* for the research question, not merely restate what the source says. "X is true" is incomplete; "X is true, which means Y for this question" earns its place.
+- **Mandatory counterevidence**: At least one research query per dimension must explicitly target problems, failures, or criticism of the topic. A direction with no risks surfaced is incomplete, not thorough.
+- **No hallucinated citations**: Only cite URLs whose content was actually retrieved by a tool call in this run. Never cite from training data or memory. If a claim needs a source and you don't have one, flag it as unsourced rather than fabricating a plausible URL.
 - **Integration**: When adding findings to an existing document, weave into the existing narrative — connect each new fact to established context rather than inserting standalone blocks.
 
 **Pass 3.9 — VERIFY (mechanical, before Pass 4):**

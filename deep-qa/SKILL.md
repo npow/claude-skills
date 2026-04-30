@@ -533,11 +533,27 @@ When invoked with a `--mode` flag, deep-qa selects mode-specific focus dimension
 |------|-----------|----------|
 | `--mode code` (default) | correctness, security, performance, edge_cases | Code review |
 | `--mode security` | owasp_top10, secrets_exposure, injection, auth_bypass, supply_chain | Security audit |
-| `--mode proposal` | feasibility, completeness, risk, alternatives, market_fit | Proposal critique |
+| `--mode proposal` | feasibility, completeness, risk, alternatives, market_fit | Proposal critique (see below) |
 | `--mode claims` | accuracy, evidence_quality, counter_evidence, recency, methodology | Claim validation |
 | `--mode design` | architecture, scalability, failure_modes, operability | Design review |
 
 These map to the existing `--type` parameter. When `--mode` is specified, it overrides the dimension discovery phase with the preset dimensions.
+
+### Proposal mode enhancements (`--mode proposal`)
+
+When `--mode proposal` is active, three additional phases run before standard critic dispatch:
+
+1. **Claim extraction** — an independent agent reads the proposal and extracts every verifiable factual claim (statistics, funding amounts, market sizes, citations, competitive claims, negative-existence claims like "no one has built X"). Each claim is written to a structured registry. The coordinator does NOT filter or reclassify claims.
+
+2. **Per-claim fact-checking** — one fact-check agent per claim (or per 3-5 claim cluster) runs web searches to verify. For named vulnerabilities: CVE databases. For research citations: arXiv/Scholar. For competitor claims: Crunchbase/GitHub/product pages. For "no one has built X": 5+ distinct searches before VERIFIED. Each agent proposes a verdict (VERIFIED / PARTIALLY_TRUE / UNVERIFIABLE / FALSE) with evidence URLs. The credibility judge (standard blind-severity protocol) issues the authoritative verdict.
+
+3. **Landscape research** — the `alternatives` dimension critic runs competitive research via web search, producing per-competitor findings. A landscape judge issues: `MARKET_WINDOW|open|closing|closed`, `PLATFORM_RISK|low|medium|high`, `MOST_LIKELY_PLATFORM_THREAT|{vendor}|{timeline}`.
+
+**Proposal termination labels** (replace standard labels when `--mode proposal`):
+- `high_conviction_review` — ≥80% claims VERIFIED/PARTIALLY_TRUE, zero FALSE, zero unresolved fatal weaknesses, rationalization audit clean.
+- `mixed_evidence` — 50-80% verified, OR any FALSE claim, OR any fatal+inherent_risk weakness.
+- `insufficient_evidence_to_review` — critic quorum failed OR >40% claims UNVERIFIABLE OR rationalization audit compromised twice.
+- `declined_unfalsifiable` — every weakness rejected by judges as unfalsifiable.
 
 ## Finding Format Requirements
 
