@@ -462,6 +462,36 @@ Every hypothesis that reaches the judge passes these 5 checks. Failing one = `di
 
 ---
 
+## Incident Mode (`--incident`)
+
+When `--incident` is passed, deep-debug enters priority mode:
+- Skip PR creation — deploy hotfix directly
+- Escalate immediately if 3 fix attempts fail (don't loop silently)
+- Emit structured incident timeline for post-mortem
+
+## Extended Scope (ported from fix skill)
+
+Deep-debug covers not just code bugs but also:
+- **Model drift** — accuracy degradation after data refresh, feature distribution shift
+- **Data issues** — pipeline dropping records, schema mismatches, partition gaps
+- **Infrastructure** — resource exhaustion, auth failures, config drift
+
+## Ship Phase (after fix verified)
+
+After verification passes:
+1. Commit fix + regression test atomically
+2. Create PR with: symptom description, root cause analysis, fix description, test evidence
+3. If `--incident`: skip PR, deploy hotfix directly
+4. If cross-provider model available (`mcp__pal__codereview`): run parallel verification on non-Claude model for blind-spot diversity
+
+## Flags
+
+- `--incident` — priority/hotfix mode: deploy directly, skip PR
+- `--no-ship` — stop after verified fix, don't commit/PR
+- `--max-iterations=N` — cap hypothesis-fix-verify loop (default: 5)
+
+---
+
 ## Golden Rules
 
 1. **No fixes without a hypothesis that survives independent judge + discriminating probe.** The Iron Law. Violating the letter of this process is violating the spirit of debugging.

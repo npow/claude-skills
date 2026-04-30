@@ -525,6 +525,51 @@ Model tier: prefer Opus for orchestration (pagination logic, error recovery) but
 
 ---
 
+## Review Mode Presets (ported from review skill)
+
+When invoked with a `--mode` flag, deep-qa selects mode-specific focus dimensions:
+
+| Mode | Dimensions | Use case |
+|------|-----------|----------|
+| `--mode code` (default) | correctness, security, performance, edge_cases | Code review |
+| `--mode security` | owasp_top10, secrets_exposure, injection, auth_bypass, supply_chain | Security audit |
+| `--mode proposal` | feasibility, completeness, risk, alternatives, market_fit | Proposal critique |
+| `--mode claims` | accuracy, evidence_quality, counter_evidence, recency, methodology | Claim validation |
+| `--mode design` | architecture, scalability, failure_modes, operability | Design review |
+
+These map to the existing `--type` parameter. When `--mode` is specified, it overrides the dimension discovery phase with the preset dimensions.
+
+## Finding Format Requirements
+
+Every finding MUST include:
+- **Line reference**: exact `file:line` or line range, not "in the function"
+- **Severity**: critical / major / minor with justification
+- **Concrete fix**: specific code change or approach, not "consider fixing"
+- **Category**: correctness / security / performance / style / other
+
+## Auto-Fix Mode (`--fix`)
+
+When `--fix` is passed, deep-qa adds a fix-review loop after the QA rounds:
+1. Collect all critical + major findings
+2. Spawn a builder agent to fix them (one at a time, test after each)
+3. Re-run QA on the fixed artifact
+4. Loop until no critical/major findings or `--max-rounds` exhausted
+
+This changes deep-qa from "surface defects" to "surface and resolve defects."
+
+## Cross-Provider Mode (`--cross-provider`)
+
+When `--cross-provider` is passed, spawn additional critics on non-Claude models (GPT, Gemini) for maximum blind-spot diversity. Requires `mcp__pal__codereview` or equivalent. Each non-Claude critic runs the same dimension focus but from a different model's perspective.
+
+## Additional Flags (ported from review skill)
+
+- `--fix` — auto-fix critical/major issues and re-review (loop)
+- `--cross-provider` — add non-Claude critics for blind-spot diversity
+- `--mode` — select preset dimension focus (code/security/proposal/claims/design)
+- `--max-rounds=N` — cap critique-fix loop (default: 3)
+
+---
+
 ## Golden Rules
 
 1. **QA is adversarial but grounded.** A critic that says "looks good" has failed. But a critic that reports 15 defects and 12 are theoretical non-issues has also failed — it wastes the owner's time and erodes trust in the report. Find REAL problems that would actually cause failures in production.
