@@ -1,9 +1,9 @@
 ---
 name: monitor
 description: |
-  Health checking for services, pipelines, code, teams, or deployments.
-  Parameterized by data source. Runs one-shot or recurring.
-  Replaces 13 specialized monitoring skills with one parameterized skill.
+  Use when the user asks to monitor, health-check, watch, or check status of services,
+  pipelines, code, teams, builds, deployments, or CI. Also triggers for "is X healthy",
+  "check on Y", "watch Z". Runs one-shot or recurring, parameterized by data source.
 user-invocable: true
 allowed-tools: Bash, Read, Grep, WebSearch, WebFetch, Agent
 ---

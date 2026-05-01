@@ -1,6 +1,6 @@
 ---
 name: ccr-models
-description: List available models from claude-code-router
+description: Use when the user asks "what models are available", "list models", "show models", or wants to see which LLM models are accessible via claude-code-router.
 
 category: tool
 capabilities: [backoff-retry]

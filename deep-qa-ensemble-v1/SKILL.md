@@ -1,6 +1,6 @@
 ---
 name: deep-qa-ensemble-v1
-description: Benchmark variant of deep-qa that ensembles the severity-judge phase across three heterogeneous providers (Anthropic Sonnet 4.6 + OpenAI GPT-5.4 + Google Gemini 2.5 Pro) instead of using a single Haiku judge. Purpose is skill-bench A/B comparison against baseline deep-qa to measure whether heterogeneous judges calibrate severity better than a single homogeneous judge. Trigger phrases, argument semantics, and critic phase are identical to deep-qa. ONLY the pass-1 blind and pass-2 informed severity judges differ. Rationalization auditor (Phase 5.6) stays single-Haiku to preserve its independence role.
+description: Use when the user asks to review with ensemble judges, or explicitly requests the ensemble variant of deep-qa. Benchmark variant that uses three heterogeneous providers for severity judging instead of a single judge. Same triggers as deep-qa but with multi-provider ensemble scoring.
 user_invocable: true
 argument: |
   Path to artifact file (or inline content), with optional flags:
