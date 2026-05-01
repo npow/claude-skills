@@ -210,7 +210,7 @@ If `--auto`: use recommended max_rounds automatically, do not show this prompt.
 **max_rounds recommendation formula:**
 ```
 initial_angles = count of angles in Phase 1
-min_rounds = ceil(initial_angles / 6)     # 6 agents/round
+min_rounds = ceil(initial_angles / 8)     # 8 agents/round
 recommended = ceil(min_rounds * 1.3)      # 30% expansion from agent-discovered sub-angles
 recommended = max(recommended, 3)         # never suggest < 3 rounds
 recommended = min(recommended, 6)         # cap at 6 for typical artifacts
@@ -218,7 +218,7 @@ if auto_mode:
     recommended = min(recommended, 2)     # --auto caps at 2 to reserve budget for synthesis
 ```
 
-**Why cap `--auto` at 2 rounds:** Round 3+ rarely discovers critical new defects but adds ~33% more context, often causing truncation on complex artifacts before the skill reaches Phase 6 synthesis. Two rounds with 6 critics each (12 total critic passes) is sufficient for most artifacts. Interactive mode retains the higher cap since the user can manage the budget.
+**Why cap `--auto` at 2 rounds:** Round 3+ rarely discovers critical new defects but adds ~33% more context, often causing truncation on complex artifacts before the skill reaches Phase 6 synthesis. Two rounds with 8 critics each (16 total critic passes) is sufficient for most artifacts. Interactive mode retains the higher cap since the user can manage the budget.
 
 ---
 
@@ -251,7 +251,7 @@ This check cannot be bypassed. Extensions update `max_rounds` but never `hard_st
 **Prospective gate (fires after hard stop check; skipped if `--auto`):**
 ```
 About to run QA Round {N}: {frontier_size} angles queued
-Critics this round: up to 6 | Potential judge agents: up to {frontier_pop × 5}
+Critics this round: up to 8 | Potential judge agents: up to {frontier_pop × 5}
 Estimated cost: ~${critics_cost + judges_cost + summary_cost} ({running_total} spent so far)
 Continue? [y/N/redirect:<focus>]
 ```
@@ -260,13 +260,13 @@ Continue? [y/N/redirect:<focus>]
 - Skip if `--auto`
 
 **Per round:**
-1. Pop up to `max_agents_per_round` (6) highest-priority angles from frontier; enforce frontier cap (see STATE.md)
+1. Pop up to `max_agents_per_round` (8) highest-priority angles from frontier; enforce frontier cap (see STATE.md)
 2. Write all required data to files BEFORE spawning, then **verify each write** (file exists + non-empty):
    - Known defects file: `deep-qa-{run_id}/known-defects.md`
    - Angle files: `deep-qa-{run_id}/angles/{angle.id}.md`
    - If any verification fails: halt with error, do not spawn
 3. **Batch state update:** Write `status: "in_progress"` and `spawn_time_iso` for ALL angles in a single state.json write. Re-read state.json and verify `generation == N+1`. If mismatch: log conflict, retry once with fresh read, then halt.
-4. **Spawn ALL critic agents in a SINGLE message** — emit all 6 Agent tool calls in one response so they run concurrently (120s timeout). Each agent reads its own angle file; you do NOT need to read angle files before spawning. Do NOT read files, check state, or do any work between Agent calls — the entire set must be in one turn. Sequential one-at-a-time spawning is a workflow violation.
+4. **Spawn ALL critic agents in a SINGLE message** — emit all 8 Agent tool calls in one response so they run concurrently (120s timeout). Each agent reads its own angle file; you do NOT need to read angle files before spawning. Do NOT read files, check state, or do any work between Agent calls — the entire set must be in one turn. Sequential one-at-a-time spawning is a workflow violation.
 5. On timeout: mark `timed_out`, write `"generation": += 1`, do NOT re-queue, do NOT increment dedup counter
 6. Collect new angles from ALL completed agents BEFORE running dedup
 7. Apply dedup against stable pre-round snapshot. **Assign `depth = parent.depth + 1`** to each critic-reported angle. Reject angles where `depth > max_depth`. Enforce frontier cap with required-category protection (see STATE.md).

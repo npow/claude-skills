@@ -4,7 +4,7 @@ Phases:
   0. Snapshot artifact into the run directory.
   1. Dimension/angle discovery (Sonnet, one call).
   2. Initialize state: hard_stop = 2 * max_rounds (immutable), required_categories_covered.
-  3. QA rounds (up to max_rounds × up to 6 parallel critics, Haiku).
+  3. QA rounds (up to max_rounds × up to 8 parallel critics, Haiku).
      Per-round: spawn critics → collect defects → coverage enforcement →
      background severity judges (pass-1 blind, batches of ≤5).
   4. Fact verification (research artifacts only, Haiku + WebFetch via claude -p).
@@ -212,7 +212,7 @@ class DeepQaInput:
 _HAIKU_MAX_TOKENS = 8192
 _SONNET_MAX_TOKENS = 128000
 
-# Bounded parallelism per round (spec: max 6 critics per round).
+# Bounded parallelism per round (spec: max 8 critics per round).
 _MAX_CRITICS_PER_ROUND = 8
 
 # Maximum defects per judge batch (spec: ≤5 per batch).
