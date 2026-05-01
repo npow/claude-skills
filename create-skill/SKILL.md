@@ -52,6 +52,40 @@ Contracts scale by skill type:
 **Shim skills (minimal):**
 - Frontmatter + one-paragraph redirect to the canonical skill. No other requirements.
 
+## Edit Manifest Protocol (for modifying existing skills)
+
+When editing an existing workflow skill (not creating new), every change must ship with an **edit manifest** — a falsifiable contract declaring what the edit will fix and what it might break:
+
+1. **Before editing**, write `edit-manifest.md` in the skill directory:
+   ```
+   ## Edit Manifest — {skill name} — {date}
+   
+   ### Change summary
+   What is being changed and why (1-2 sentences).
+   
+   ### Evidence
+   What signals triggered this edit (link to cross-run evidence, defect reports, user feedback, or routing verification failures).
+   
+   ### Predicted fixes
+   - [task/scenario description]: expected to improve because [reason]
+   
+   ### Predicted regressions
+   - [task/scenario description]: at risk because [reason]
+   - "None predicted" is acceptable but must be explicit.
+   
+   ### Verification plan
+   How to confirm fixes materialized and regressions didn't. Must reference concrete eval tasks or pressure-test scenarios.
+   ```
+
+2. **After editing**, run the verification plan. Write results to `edit-manifest.md` under a `### Verification results` section:
+   - For each predicted fix: confirmed / not confirmed / inconclusive
+   - For each predicted regression: not observed / observed / inconclusive
+   - If any predicted regression observed: revert or document accepted tradeoff
+
+3. **Retain manifests.** Keep `edit-manifest.md` files in a `manifests/` subdirectory (rename with date: `manifests/{date}-{summary}.md`). These form the edit history that cross-run evidence aggregation consumes.
+
+This protocol applies to workflow skill edits only. Reference skill edits need only re-run accuracy verification. Shim skill edits are exempt.
+
 ## Workflow
 
 ### Step 0: Classify skill type

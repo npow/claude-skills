@@ -1,11 +1,9 @@
 ---
 name: autopilot
 description: |
-  The universal "make it" command. Give it anything — a vague idea, a spec, a task list,
-  a single bug fix — and it figures out the right decomposition, the right number of agents,
-  the right coordination topology, and the right verification strategy. Absorbs build,
-  ship-it, team, parallel-exec, and loop-until-done into one skill with automatic scaling.
-  Trigger phrases: "autopilot", "build this", "make it", "ship it", "just do it",
+  Use when the user says "autopilot", "build this", "make it", "ship it", "just do it",
+  "do it", "implement this", or gives a vague idea, spec, task list, or bug fix and expects
+  autonomous execution. Handles decomposition, agent coordination, and verification automatically.
   "build me end to end", "go from idea to code", "do everything", "run this autonomously".
 user_invocable: true
 argument: The task, idea, spec, or goal (may be vague — Phase 0 handles ambiguity)
@@ -84,6 +82,26 @@ Based on TaskProfile + plan output, select one:
 Log the selection: "Selected fanout (5 independent subtasks)" or "Selected pipeline (3 phases, 2 parallel in phase 2)." The user never chooses.
 
 **Agent cap:** max 8 concurrent agents for fanout. If more subtasks exist, batch into waves.
+
+#### Routing Decision Manifest (required at Phase 0 and Phase 2)
+
+Every routing decision writes a manifest to `autopilot-{run_id}/routing-manifest.json` BEFORE the routed phase begins:
+
+```
+routing_decisions[]:
+  phase: "expand" | "topology"
+  chosen: the skill/topology selected
+  rejected: list of alternatives considered and why each was ruled out
+  trigger: the signal that drove the choice (ambiguity score, subtask count, dependency graph shape)
+  predicted_outcome: what the coordinator expects this choice to produce (e.g., "3 independent artifacts, no merge conflicts")
+  confidence: low | medium | high
+```
+
+At Phase 5 (termination), verify each routing prediction against actual outcome. Write `autopilot-{run_id}/routing-verification.md` with:
+- For each routing decision: predicted vs actual outcome, verdict (confirmed / partially_confirmed / refuted)
+- If refuted: what would have been a better choice in hindsight
+
+This is a falsifiable contract — the prediction is recorded before execution and verified after. No post-hoc rationalization.
 
 ### Phase 3: Execute
 

@@ -171,6 +171,41 @@
     "hard_cap_usd": 25.0,
     "exhausted": false
   },
+  "routing_decisions": [
+    {
+      "phase": "expand",
+      "chosen": "deep-design",
+      "rejected": [
+        {"option": "spec", "reason": "ambiguity too high for direct spec"},
+        {"option": "deep-interview", "reason": "concrete anchors present, no need for interview"}
+      ],
+      "trigger": {"ambiguity_score": 0.72, "concrete_anchors_count": 0},
+      "predicted_outcome": "stress-tested design spec covering 3 components",
+      "confidence": "medium",
+      "verification": {
+        "actual_outcome": null,
+        "verdict": null,
+        "better_choice_in_hindsight": null
+      }
+    },
+    {
+      "phase": "topology",
+      "chosen": "staged_fanout",
+      "rejected": [
+        {"option": "solo", "reason": "4 subtasks identified"},
+        {"option": "fanout", "reason": "2 subtasks depend on subtask 1"},
+        {"option": "pipeline", "reason": "subtasks 3 and 4 are independent"}
+      ],
+      "trigger": {"subtask_count": 4, "dependency_shape": "mixed"},
+      "predicted_outcome": "phase 1: subtask 1, phase 2: subtasks 2+3+4 in parallel, no merge conflicts",
+      "confidence": "high",
+      "verification": {
+        "actual_outcome": null,
+        "verdict": null,
+        "better_choice_in_hindsight": null
+      }
+    }
+  ],
   "integrations": {
     "deep_interview_available": null,
     "deep_design_available": null,
