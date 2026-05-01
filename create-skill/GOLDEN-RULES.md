@@ -2,15 +2,17 @@
 
 Fourteen hard rules. Each is stated with a concrete `create-skill` example so there is no ambiguity at the gate.
 
-## 1. SKILL.md is a map, not a manual
+Rules are scoped by skill type. Rules marked **(workflow only)** don't apply to reference skills. Rules marked **(all types)** apply to every skill.
 
-**Rule:** SKILL.md names steps and points to files. It never contains the step details.
+## 1. SKILL.md is a map (workflow) or guide (reference) — (all types)
+
+**Rule:** For workflow skills, SKILL.md names steps and points to files — no code blocks, no step details. For reference skills, SKILL.md is the primary guide with inline code examples and quick-reference tables.
 
 **Concrete example:**
 - Allowed in SKILL.md: `1. **Design the file structure** — decide flat vs companion-split. See [FORMAT.md](FORMAT.md).`
-- Forbidden in SKILL.md: any ````language` code block, any multi-paragraph explanation of a single step, any schema definition.
+- Forbidden in workflow SKILL.md: any ````language` code block, any multi-paragraph explanation of a single step, any schema definition. Allowed in reference SKILL.md: code examples are the primary value.
 
-**Detection at review:** grep SKILL.md for ````` markers. Any match is a violation unless it's a schema illustration (< 10 lines) in the companion-file example section.
+**Detection at review:** For workflow skills: grep SKILL.md for ````` markers. Any match is a violation unless it's a schema illustration (< 10 lines) in the companion-file example section. For reference skills: code blocks are expected and welcome.
 
 ## 2. Description is discovery, not summary
 
@@ -22,13 +24,14 @@ Fourteen hard rules. Each is stated with a concrete `create-skill` example so th
 
 **Detection at review:** scan description for verbs that describe the skill's process (`runs`, `spawns`, `executes`, `produces`). If the description describes how the skill works (not when to invoke it), rewrite.
 
-## 3. RED before GREEN — no skill ships without a baseline
+## 3. RED before GREEN (workflow only)
 
 **Rule:** `pressure-tests/baseline.md` MUST exist on disk before SKILL.md is written. The baseline file contains verbatim subagent output from the scenarios ran WITHOUT the skill loaded.
 
 **Concrete example:**
 - Before writing `SKILL.md`: run a subagent with the user request "build me a TDD discipline skill" + artificial time pressure, without loading the new skill. Record every word the subagent says to `pressure-tests/baseline.md`.
 - After: examine the rationalizations. Those become counter-table rows.
+- Reference skills use accuracy verification instead — run 3-5 commands and save results to `verification/commands-tested.md`.
 
 **Detection at review:** `ls pressure-tests/` must show `scenarios.md`, `baseline.md`, `with-skill.md`. Any missing file with SKILL.md already written is a violation. Delete SKILL.md. Start over.
 
@@ -42,9 +45,9 @@ Fourteen hard rules. Each is stated with a concrete `create-skill` example so th
 
 **Detection at review:** scan golden rules for soft words (`consider`, `try to`, `prefer`, `should`). Any match is a violation. Rewrite as `Never` / `Always` / `Must`.
 
-## 5. Anti-rationalization counter-table is not optional
+## 5. Anti-rationalization counter-table is mandatory (workflow only)
 
-**Rule:** Every skill ships with a counter-table with minimum 5 rows (discipline skills) or 3 rows (one-shot generators). Every row quotes an excuse observed in the baseline verbatim (no imagination).
+**Rule:** Every skill ships with a counter-table with minimum 5 rows (discipline skills) or 3 rows (one-shot generators). Every row quotes an excuse observed in the baseline verbatim (no imagination). Reference skills don't need counter-tables — they don't orchestrate agents or face rationalization pressure.
 
 **Concrete example:**
 - Baseline logs the agent saying "the validation step is busywork when the code is obviously right."
@@ -52,9 +55,9 @@ Fourteen hard rules. Each is stated with a concrete `create-skill` example so th
 
 **Detection at review:** cross-reference every counter-table row against `pressure-tests/baseline.md`. Rows with no trace in baseline are fabricated; remove them and observe real baselines.
 
-## 6. Termination labels are a finite enum
+## 6. Termination labels are a finite enum (workflow only)
 
-**Rule:** Every workflow skill defines an exhaustive finite set of 3-6 terminal labels. Labels are observable — each has a concrete condition that must be met on disk. `done` / `complete as shorthand` / `no issues` are forbidden as labels.
+**Rule:** Every workflow skill defines an exhaustive finite set of 3-6 terminal labels. Labels are observable — each has a concrete condition that must be met on disk. `done` / `complete as shorthand` / `no issues` are forbidden as labels. Reference skills don't make completion claims and don't need termination labels.
 
 **Concrete example:**
 - `/team` uses: `complete | partial_with_accepted_unfixed | blocked_unresolved | budget_exhausted | cancelled`.
@@ -62,7 +65,7 @@ Fourteen hard rules. Each is stated with a concrete `create-skill` example so th
 
 **Detection at review:** SKILL.md contains a termination label table with explicit conditions. Scan for missing `cancelled` label. Scan for vague labels like `done` / `success`. Replace.
 
-## 7. Iron-law gates beat gentle reminders
+## 7. Iron-law gates beat gentle reminders (workflow only)
 
 **Rule:** A rule that says "verify tests pass" is weaker than a gate that refuses advancement unless a named file exists on disk and matches a pattern. Every completion claim is file-gated.
 
@@ -142,6 +145,16 @@ Fourteen hard rules. Each is stated with a concrete `create-skill` example so th
 
 **Detection at review:** scan the skill for references to external context ("team convention", "as we discussed", "standard practice"). Replace each with an inline spec or a file pointer.
 
+## 15. Security review for external-facing skills — (all types)
+
+**Rule:** Any skill that accesses external tools (MCP servers, APIs, web fetches), writes to persistent memory (SOUL.md, topics, runbooks, journals), installs packages, or executes shell commands MUST include a security constraints section listing: (a) what data the skill reads/writes, (b) trust boundaries (which inputs are untrusted), (c) what secrets or credentials it touches, (d) blast radius of failure (what breaks if the skill misbehaves).
+
+**Concrete example:**
+- Required: `## Security constraints\n- Reads: Slack messages (untrusted user input)\n- Writes: topic files (persistent, git-committed)\n- Secrets: Slack bot token (handled by script, never exposed)\n- Blast radius: corrupted topic file recoverable via git revert`
+- Forbidden: skill that calls authenticated endpoints with user-supplied URLs and no validation. Forbidden: skill that writes to SOUL.md based on unvalidated tool output.
+
+**Detection at review:** grep SKILL.md and companion files for MCP tool calls, `curl`, `pip install`, `npm install`, `Write`, `Edit` on memory paths. If any are present and no security constraints section exists, add one before shipping.
+
 ## Anti-rationalization counter-table (full set for skill authoring)
 
 The SKILL.md carries a tight 7-row version of this table. The full set lives here.
@@ -163,6 +176,8 @@ The SKILL.md carries a tight 7-row version of this table. The full set lives her
 | "This skill is an exception because it's so simple." | Simple skills break too. 15 min of baseline beats hours of debugging an un-pressure-tested skill. |
 | "`deep-qa` isn't installed so I'll skip the skill review." | INTEGRATION.md documents the degraded-mode fallback. Use it. Tag output with `SKILL_REVIEW: degraded`. |
 | "I'll re-use OMC's skill structure because it's fine." | OMC and npow have different philosophies. Audit which parts apply to a npow-style skill before copy-paste. |
+| "This is a reference skill so I don't need any rules at all." | Reference skills skip counter-tables, termination labels, pressure-tests, and iron-law gates. They still need: trigger-based descriptions, golden rules (tool-specific constraints), progressive disclosure, and accuracy verification. |
+| "This skill doesn't need a security section — it's internal." | Internal tools still read untrusted input and write persistent state. If it touches MCP tools, memory, or shell commands, it needs security constraints documented. |
 
 ## Red flags — STOP and start over
 
@@ -176,5 +191,6 @@ If any of these are true, stop the current skill and restart from Step 2 of the 
 - Any completion claim in the skill body uses "verify" / "ensure" / "check" as the actual gate (not backed by a concrete file/exit-code check).
 - Description summarizes the workflow instead of naming trigger conditions.
 - Reference files reference each other (forbidden — one level deep only).
+- Workflow discipline (counter-tables, pressure-tests, iron-law gates) applied to a reference skill, or reference patterns (`references/` directory, inline code) applied to a workflow skill.
 
 Red flag present → delete the offending files → return to the workflow step that produces them.

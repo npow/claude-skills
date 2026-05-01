@@ -4,10 +4,12 @@ The canonical template for every skill produced by `create-skill`. This document
 
 ## Decision: flat skill or companion-split skill
 
-| Total skill content | Shape |
+| Skill type + size | Shape |
 |---|---|
-| Under 300 lines (all files combined) | Flat: SKILL.md + 1-3 topic files (e.g. DESIGN.md, WORKFLOW.md) |
-| 300+ lines total | Companion-split: SKILL.md + FORMAT.md + STATE.md + GOLDEN-RULES.md + INTEGRATION.md |
+| **Workflow** under 300 lines | Flat: SKILL.md + 1-3 topic files (e.g. DESIGN.md, WORKFLOW.md) |
+| **Workflow** 300+ lines | Companion-split: SKILL.md + FORMAT.md + STATE.md + GOLDEN-RULES.md + INTEGRATION.md |
+| **Reference** any size | Guide: SKILL.md (with inline code) + `references/` subdirectory |
+| **Shim** | Minimal: SKILL.md only (~15 lines) |
 
 The companion split is the npow orchestration pattern. Use it whenever a skill does multi-stage work, state persistence, or external-skill composition.
 
@@ -39,9 +41,48 @@ The companion split is the npow orchestration pattern. Use it whenever a skill d
     └── with-skill.md
 ```
 
-## SKILL.md sections (mandatory in every skill)
+## Reference skill template
 
-Every produced SKILL.md has these sections in this order. No section may be omitted.
+```
+<skill-name>/
+├── SKILL.md                 # guide with inline code examples, quick-reference tables, golden rules
+└── references/              # overflow content, each file ≤500 lines
+    ├── quick-start.md       # getting started guide (optional)
+    ├── api-reference.md     # endpoint/CLI details (optional)
+    ├── troubleshooting.md   # common errors and fixes (optional)
+    └── examples/            # worked examples (optional)
+```
+
+Reference skills do NOT use FORMAT.md/STATE.md/GOLDEN-RULES.md/INTEGRATION.md. Those are the workflow companion pattern. Reference skills use topic-named files in `references/`.
+
+SKILL.md for reference skills contains:
+- YAML frontmatter (name, description with trigger keywords)
+- Title + one-line purpose
+- Quick-reference tables for common operations
+- Inline code examples (code blocks welcome — they ARE the value)
+- Golden rules (hard constraints for the tool, 3-8 rules)
+- `references/` file index
+- `verification/` directory with tested command results
+
+## Shim skill template
+
+```
+<skill-name>/
+└── SKILL.md                 # ~15 lines: frontmatter + redirect paragraph
+```
+
+Shim skills are routing wrappers or deprecation redirects. They contain:
+- YAML frontmatter (name, description, user_invocable)
+- One-paragraph redirect to the canonical skill
+- Warning about not moving/renaming files (if sagaflow discovery depends on the directory name)
+
+Shim skills are exempt from all discipline requirements — no counter-tables, no termination labels, no pressure-tests, no golden rules.
+
+## SKILL.md sections (mandatory for workflow skills)
+
+Every produced workflow SKILL.md has these sections in this order. No section may be omitted.
+
+Reference skills follow a different structure — see the Reference skill template above. The sections below apply to workflow skills.
 
 ### 1. YAML frontmatter
 
@@ -226,3 +267,11 @@ Every produced skill has a `pressure-tests/` directory with three files:
 - `with-skill.md` — GREEN/REFACTOR verbatim output of a subagent running the same scenarios WITH the skill
 
 See PRESSURE-TESTING.md for the protocol.
+
+## Accuracy verification directory (mandatory for reference skills)
+
+Every reference skill has a `verification/` directory:
+
+- `commands-tested.md` — 3-5 representative commands from the skill, each with: the exact command run, the output (or summary), and pass/fail status
+
+This replaces the pressure-tests directory for reference skills. The goal is accuracy (do the commands work?) not behavioral discipline.

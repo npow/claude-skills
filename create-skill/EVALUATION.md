@@ -6,6 +6,8 @@ How to test skills, verify they work, and iterate based on real usage.
 
 ## Test prompt categories
 
+**Note:** The test categories below apply to all skill types. The verification protocol (Phase 1) has type-specific checks — see below.
+
 Every skill should be tested with 4 types of prompts. Write 3-5 prompts per category.
 
 ### 1. Explicit invocation
@@ -65,7 +67,7 @@ Without running the skill, manually inspect the files:
 
 ```
 1. Count SKILL.md content lines (target: 50-100 for flat skills; ≤150 for companion-split maps)
-2. Verify zero code blocks in SKILL.md
+2. Verify zero code blocks in SKILL.md **(workflow skills only — reference skills may have code blocks)**
 3. Verify all reference files are linked from SKILL.md
 4. Verify reference files are under 500 lines each
 5. Verify description contains trigger keywords and does NOT summarize workflow
@@ -78,6 +80,8 @@ Without running the skill, manually inspect the files:
 12. Verify companion split applied if total content > 300 lines
 13. Verify `pressure-tests/scenarios.md`, `baseline.md`, `with-skill.md` all exist on disk
 14. Verify `pressure-tests/with-skill.md` shows zero unaddressed rationalizations
+15. **(Reference skills only)** Verify `verification/commands-tested.md` exists with 3-5 tested commands, all PASS
+16. **(Reference skills only)** Verify `references/` subdirectory exists if skill content exceeds SKILL.md alone
 ```
 
 If `deep-qa` is installed, running it against the skill at `--type skill` runs a parallel-critic audit across these dimensions. See [INTEGRATION.md](INTEGRATION.md).
@@ -139,6 +143,7 @@ Grade the skill on these dimensions:
 | **Termination honesty** | Finite enum of 3-6 labels with observable conditions; includes `cancelled`; no `done`/`all good`/`no issues` | Labels exist but some are vague | No labels, or labels include "done"/"all good" |
 | **Iron-law gates** | Every completion claim backed by concrete file-existence check on disk | Gates exist but some use "verify/check" as the actual gate | Gates are reminders ("verify tests pass"), not gates |
 | **Pressure-test coverage** | `baseline.md` + `with-skill.md` both on disk; with-skill shows zero violations | Baseline exists but with-skill is missing some scenarios | No pressure tests |
+| **Type-appropriate verification** | Workflow: full pressure-test suite. Reference: `verification/commands-tested.md` with 3-5 commands all PASS. Shim: exempt. | Verification exists but incomplete (missing commands or scenarios) | Wrong verification type for skill type (e.g., pressure-testing a reference skill, or no accuracy verification) |
 | **Consistency** | Two runs on the same input produce structurally identical output | Minor cosmetic differences between runs | Significant structural differences between runs |
 
 Target: A on all dimensions before delivering. Any B or C dimension must be tagged in the final report (e.g. `shipped_degraded` with reason).

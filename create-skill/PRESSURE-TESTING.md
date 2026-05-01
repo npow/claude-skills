@@ -2,6 +2,8 @@
 
 The RED-GREEN-REFACTOR protocol adapted for skill authoring. This is the non-negotiable verification layer — every skill ships through this or gets tagged `shipped_degraded` with an explicit reason.
 
+**Scope:** This document covers the full RED-GREEN-REFACTOR protocol for **workflow skills**. Reference skills use a lighter **accuracy verification** protocol described at the end of this document.
+
 ## The adapted TDD cycle
 
 | TDD step | Skill equivalent | What happens |
@@ -22,6 +24,8 @@ Skip pressure testing only in these cases, and only with explicit `shipped_degra
 
 - User explicitly opts out ("ship it without pressure tests") — record the reason verbatim in the report
 - The skill is a trivial template (< 20 lines of content total) — rare
+- The skill is a **reference skill** (tool guide, API reference, CLI wrapper) — use accuracy verification instead (see end of document)
+- The skill is a **shim skill** (routing wrapper, deprecation redirect) — exempt entirely
 
 In every other case, skipping pressure testing is the violation — not a shortcut.
 
@@ -169,3 +173,49 @@ The user running the scenarios is the final verification. Pressure tests in base
 - REFACTOR `with-skill.md` wasn't run before declaring the skill done → not done, run it
 - "I'll test after deploying" → no, run REFACTOR before deploying
 - Scenarios are vague or untestable → rewrite scenarios before running baseline
+
+## Accuracy verification (for reference skills)
+
+Reference skills don't orchestrate agents under pressure — they teach how to use tools. Pressure-testing (RED-GREEN-REFACTOR) tests behavioral discipline; accuracy verification tests factual correctness. Use this protocol instead of the full RED-GREEN-REFACTOR cycle for reference skills.
+
+### Protocol
+
+1. **Pick 3-5 representative commands** from the skill — cover the most common operations, not edge cases.
+2. **Run each command** in a real environment (not a mock).
+3. **Record results** to `verification/commands-tested.md`:
+
+```markdown
+## Command <N>: <short label>
+
+**Command:** `<exact command run>`
+
+**Output (summary):**
+<output or summary of output>
+
+**Status:** PASS / FAIL / PARTIAL
+
+**Notes:** <any caveats, version dependencies, or environment requirements>
+```
+
+4. **All commands must pass** before the skill ships. Any FAIL → fix the skill content → re-run.
+
+### When to re-verify
+
+- The underlying tool releases a new major version
+- A user reports a command doesn't work
+- The skill is edited (any command that touches edited content must be re-run)
+
+### Scope limits
+
+Accuracy verification does NOT replace:
+- Golden rules (reference skills still need 3-8 hard rules specific to the tool)
+- Description keyword coverage (reference skills still need trigger-based descriptions)
+- Progressive disclosure (reference skills still need `references/` subdirectory for overflow content)
+
+It DOES replace:
+- Pressure-test scenarios (`pressure-tests/scenarios.md`)
+- RED baseline (`pressure-tests/baseline.md`)
+- GREEN/REFACTOR pass (`pressure-tests/with-skill.md`)
+- Anti-rationalization counter-tables
+- Termination labels
+- Iron-law gate language

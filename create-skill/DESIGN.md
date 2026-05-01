@@ -2,6 +2,24 @@
 
 How to analyze a domain, design the file structure, and apply progressive disclosure.
 
+## Step 0: Classify the skill type
+
+Before designing anything, determine which type of skill you're building. This decision drives every downstream choice — file structure, discipline level, verification method.
+
+| Signal | Type | What it means |
+|---|---|---|
+| Orchestrates agents, makes completion claims, has multi-stage state | **Workflow** | Full discipline: pressure-tests, counter-tables, termination labels, iron-law gates, companion split at 300 lines |
+| Teaches how to use a tool, API, CLI, or library | **Reference** | Guide with code examples, `references/` subdirectory, accuracy verification instead of pressure-tests |
+| Routes to another skill or deprecates an old name | **Shim** | ~15 lines, SKILL.md only, exempt from all discipline |
+
+**Decision test:** Ask "does this skill orchestrate agent behavior under pressure, or does it teach a human/agent how to use a tool?" If it orchestrates → workflow. If it teaches → reference. If it just redirects → shim.
+
+Common reference skill domains: MCP server guides, CLI wrappers, API references, infrastructure tool guides, platform integration docs.
+
+Common workflow skill domains: code review orchestrators, test runners, design critics, research coordinators, deployment pipelines.
+
+Misclassifying a reference skill as workflow adds bureaucratic overhead (counter-tables, pressure-tests) that doesn't prevent real failure modes. Misclassifying a workflow skill as reference removes the discipline that prevents agent rationalization under pressure. Get this right.
+
 ## Step 1: Understand the domain
 
 Before designing anything, answer these questions. If you can't answer them, ask the user.
@@ -219,7 +237,58 @@ Do NOT fork when:
 - It needs to interact with the user mid-task
 - Its guidance applies across multiple tool calls
 
-## Checklist before moving to writing
+## Reference skill design
+
+Reference skills follow a different design path than workflow skills. They don't orchestrate agents — they teach how to use a tool. Design accordingly.
+
+### Purpose sentence
+
+Same format as workflow: "This skill teaches how to use [tool] for [task]."
+
+Examples:
+- "This skill teaches how to use the Maestro MCP server to inspect and debug Metaflow workflow runs."
+- "This skill teaches how to use the Slack API scripts for reading messages, sending replies, and searching."
+
+### Core operations
+
+List the 5-10 most common things a user does with this tool. These become the quick-reference table in SKILL.md and the sections in `references/`.
+
+### File structure
+
+```
+my-reference-skill/
+├── SKILL.md                 # Guide: purpose, quick-reference table, code examples, golden rules
+├── references/              # Overflow content, each file ≤500 lines
+│   ├── quick-start.md       # Getting started (optional)
+│   ├── api-reference.md     # Endpoint/CLI details (optional)
+│   ├── troubleshooting.md   # Common errors and fixes (optional)
+│   └── examples/            # Worked examples (optional)
+└── verification/
+    └── commands-tested.md   # 3-5 tested commands with output and PASS/FAIL
+```
+
+Reference skills do NOT use FORMAT.md, STATE.md, GOLDEN-RULES.md, or INTEGRATION.md. Those are the workflow companion pattern.
+
+### Golden rules for reference skills
+
+Reference skills still need 3-8 golden rules, but they're about the tool, not about agent discipline:
+
+- "Never run `X` without `--dry-run` first" (destructive operation guard)
+- "Always use the authenticated API wrapper for Jenkins calls, not plain `curl`" (auth requirement)
+- "Never suppress stderr — the script writes errors there" (silent failure prevention)
+
+### Reference skill checklist
+
+- [ ] Purpose sentence written
+- [ ] Core operations listed (5-10)
+- [ ] Quick-reference table in SKILL.md
+- [ ] Code examples tested and working
+- [ ] Golden rules are tool-specific (3-8)
+- [ ] `references/` directory for overflow content
+- [ ] `verification/commands-tested.md` with 3-5 commands, all PASS
+- [ ] Description has trigger keywords ("Use when...")
+
+## Checklist before moving to writing (workflow skills)
 
 - [ ] Single-sentence purpose statement written
 - [ ] Trigger phrases listed (positive and negative)

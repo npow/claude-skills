@@ -63,6 +63,22 @@ Cover these keyword classes:
 
 **Length**: Under 1024 characters total (frontmatter limit). Aim for 1-3 sentences of pure triggers — a workflow summary inflates length without helping routing.
 
+### Description pattern catalog (from real skills)
+
+These before/after pairs are drawn from an audit of 136 existing skills. Use them as models.
+
+**Good trigger-based descriptions:**
+- `ci-health-report`: "Use when assessing CI pipeline health, build failure trends, or flaky test patterns for a Jenkins job."
+- `deploy-status-report`: "Use when checking deployment status, rollout progress, or release health across Spinnaker pipelines."
+- `flaky-test-diagnoser`: "Use when a test fails intermittently and you need to determine if it's genuinely flaky or consistently broken."
+- `slack-digest`: "Use when summarizing Slack channel activity, catching up on threads, or generating channel digests."
+
+**Bad workflow-summary descriptions (avoid):**
+- `build`: "Create any artifact: code, experiments, reports, presentations, pipelines. Auto-plans if needed..." → Describes what it does, not when to use it. Better: "Use when building, scaffolding, or implementing code, experiments, reports, or pipelines from a spec or idea."
+- `fix`: "Something is broken. Hypothesis-driven root cause analysis, fix, verify, loop until resolved." → Summarizes the process. Better: "Use when something is broken — a bug, test failure, build error, or unexpected behavior that needs diagnosis and fix."
+- `review`: "Adversarial multi-perspective critique of any artifact. Parallel critics with different focus dimensions..." → Describes the mechanism. Better: "Use when reviewing, critiquing, or auditing any artifact — code, spec, design doc, PR, or research report."
+- `monitor`: "Health checking for services, pipelines, code, teams, or deployments. Parameterized by data source." → Summarizes architecture. Better: "Use when monitoring health of services, pipelines, code quality, team metrics, or deployments."
+
 ## Token efficiency (critical for hot skills)
 
 Every skill's `name` and `description` load into the system prompt for every conversation. A bloated description burns context across every turn, not just when the skill triggers.
@@ -374,9 +390,10 @@ These are concrete authoring mistakes that produce broken skills. Each has a fix
 **Why bad:** each implementation is mediocre, maintenance is 3x, no single example is authoritative.
 **Fix:** one excellent example in the most relevant language. Claude ports accurately to other languages.
 
-### ❌ Code blocks in SKILL.md
-A skill whose SKILL.md contains inline code forces every triggered invocation to pay the token cost of that code, even for agents that won't execute it.
+### ❌ Code blocks in workflow SKILL.md
+A workflow skill whose SKILL.md contains inline code forces every triggered invocation to pay the token cost of that code, even for agents that won't execute it.
 **Fix:** move code to a companion file. SKILL.md points to the file; the file is read only when needed.
+**Exception:** Reference skills. Code blocks are the primary value in reference skills — inline examples show users/agents how to use the tool. For reference skills, keep code blocks in SKILL.md.
 
 ### ❌ Code in flowcharts
 ```dot
