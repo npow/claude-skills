@@ -69,6 +69,7 @@ class AutopilotInput:
     initial_idea: str
     inbox_path: str
     run_dir: str
+    spec_path: str | None = None
     notify: bool = True
     hard_cap_usd: float = 25.0
     max_delegations_per_phase: int = 3
@@ -124,9 +125,38 @@ class AutopilotWorkflow:
         )
 
         # ------------------------------------------------------------------
-        # Phase 1: expand — ambiguity + spec draft
+        # Phase 1: expand — ambiguity + spec draft (skipped if spec_path provided)
         # ------------------------------------------------------------------
-        if _charge("expand"):
+        spec_markdown = ""
+        if inp.spec_path:
+            # Pre-existing spec (e.g. from deep-design): adopt it directly.
+            spec_read = await _spawn(
+                run_dir, "spec-reader", "HAIKU",
+                "Read the file at the given path and emit its full contents.\n"
+                "STRUCTURED_OUTPUT_START\n"
+                "SPEC|<contents>\n"
+                "STRUCTURED_OUTPUT_END",
+                f"Read this file and emit its contents: {inp.spec_path}",
+                max_tokens=128000,
+                tools_needed=True,
+            )
+            spec_markdown = spec_read.get("SPEC", "")
+            if spec_markdown:
+                phases_passed.append("expand")
+                phase_evidence["expand"] = {
+                    "ambiguity_class": "pre_specified",
+                    "routed_to": "spec_path",
+                    "spec_len": len(spec_markdown),
+                    "spec_path": inp.spec_path,
+                }
+                await workflow.execute_activity(
+                    "write_artifact",
+                    WriteArtifactInput(path=f"{run_dir}/spec.md", content=spec_markdown),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=HAIKU_POLICY,
+                )
+
+        if not spec_markdown and _charge("expand"):
             ambiguity = await _spawn(
                 run_dir, "ambiguity-classifier", "HAIKU",
                 "You classify a user idea's ambiguity. Emit:\n"
@@ -175,6 +205,32 @@ class AutopilotWorkflow:
                     retry_policy=HAIKU_POLICY,
                 )
 
+        # Build the full task description for downstream phases.
+        # Write to a durable file so downstream agents can always read the
+        # full context even if the Temporal payload serialization loses content.
+        spec_file = f"{run_dir}/spec.md"
+        full_task = inp.initial_idea
+        if spec_markdown:
+            full_task = (
+                f"{inp.initial_idea}\n\n"
+                f"Full spec also available at: {spec_file}\n\n"
+                f"## Spec\n\n{spec_markdown}"
+            )
+        elif "expand" in phases_passed:
+            full_task = (
+                f"{inp.initial_idea}\n\n"
+                f"## Spec\n\n"
+                f"Full spec at: {spec_file}\n"
+                f"Read the file for the complete specification."
+            )
+        full_task_path = f"{run_dir}/full-task.md"
+        await workflow.execute_activity(
+            "write_artifact",
+            WriteArtifactInput(path=full_task_path, content=full_task),
+            start_to_close_timeout=timedelta(seconds=10),
+            retry_policy=HAIKU_POLICY,
+        )
+
         # ------------------------------------------------------------------
         # Phase 2: plan — delegate to DeepPlanWorkflow as a child workflow
         # ------------------------------------------------------------------
@@ -182,7 +238,7 @@ class AutopilotWorkflow:
         if termination is None and _charge("plan"):
             plan_input = DeepPlanInput(
                 run_id=f"{inp.run_id}-plan",
-                task=inp.initial_idea,
+                task=full_task,
                 inbox_path=inp.inbox_path,
                 run_dir=f"{run_dir}/plan",
                 max_iter=3,
@@ -213,7 +269,7 @@ class AutopilotWorkflow:
         if termination is None and _charge("exec"):
             team_input = TeamInput(
                 run_id=f"{inp.run_id}-team",
-                task=inp.initial_idea,
+                task=full_task,
                 inbox_path=inp.inbox_path,
                 run_dir=f"{run_dir}/exec",
                 n_workers=2,

@@ -20,9 +20,11 @@ def _build_input(
             idea = " ".join(str(x) for x in extra)
     if not idea:
         raise ValueError("autopilot requires --arg idea='...' or positional idea text")
+    spec_path = str(cli_args.get("path", "")).strip() or None
     return AutopilotInput(
         run_id=run_id,
         initial_idea=idea,
+        spec_path=spec_path,
         inbox_path=inbox_path,
         run_dir=run_dir,
         notify=True,
