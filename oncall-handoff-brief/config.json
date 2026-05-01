@@ -1,0 +1,7 @@
+{
+  "atlas_app_names": [],
+  "spinnaker_apps": [],
+  "maestro_workflow_owners": [],
+  "slack_channel_ids": [],
+  "lookback_days": 7
+}

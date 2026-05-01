@@ -39,12 +39,18 @@ google-workspace-setup/client_secrets.json
 # Netflix-internal skills hosted separately at github.netflix.net/npow/claude-skills # oss-ok
 mako-gpu-status
 upload-presentation
+model-gateway
+team-blind-spots
 
 # Netflix-internal skills (Kragle MCP / Netflix Data Auditor dpcli — not portable)
 data-auditor-create/
 data-auditor-validate-run/
 dbt-data-test-gen/
 dbt-unit-test-gen/
+dbt-context/
+
+# Test run results — large JSONL, not for source control
+run_results/
 
 # Local OMC runtime state (sessions, project memory, agent replay logs) — per-machine, auto-generated
 .omc/
