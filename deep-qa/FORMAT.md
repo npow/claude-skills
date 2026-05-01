@@ -76,14 +76,14 @@ Do NOT prescribe a specific solution. Identify the category of fix needed.]
 ## Severity Guide by Artifact Type
 
 ### `doc` (document/spec)
-- **critical**: A referenced component is entirely unspecified; the spec cannot be implemented; a fundamental requirement is missing; two sections directly contradict on a load-bearing claim
-- **major**: Significant ambiguity — two reasonable implementations would differ materially; a required error path is unspecified; an assumption is unstated but load-bearing
+- **critical**: A referenced component is entirely unspecified; the spec cannot be implemented; a fundamental requirement is missing; two sections directly contradict on a load-bearing claim; an entire required topic category is absent (e.g., no observability, no rollback plan for a migration spec)
+- **major**: Significant ambiguity — two reasonable implementations would differ materially; a required error path is unspecified; an assumption is unstated but load-bearing; a migration or schema change has no reversibility plan; the spec prescribes mechanism so precisely that it forecloses valid implementation approaches (over-specification)
 - **minor**: Wording could be clearer; example doesn't perfectly match the rule; minor inconsistency unlikely to cause misimplementation
 
 ### `code`
-- **critical**: Data loss, security vulnerability, incorrect output for valid inputs on the happy path, panic/crash on valid inputs
-- **major**: Error path entirely unhandled; significant performance regression; untestable code structure; missing auth check
-- **minor**: Style/readability issue; minor inefficiency; naming inconsistency
+- **critical**: Data loss, security vulnerability, incorrect output for valid inputs on the happy path, panic/crash on valid inputs, single-dependency failure cascading to total service unavailability (blast radius)
+- **major**: Error path entirely unhandled; significant performance regression; untestable code structure; missing auth check; error messages that provide no diagnostic context for production operators (observability); implicit ordering assumption that will break under realistic conditions (temporal coupling); no degraded-mode behavior when a dependency is unavailable
+- **minor**: Style/readability issue; minor inefficiency; naming inconsistency; ordering assumption that is currently safe but not structurally enforced
 
 ### `research`
 - **critical**: Key claim in the conclusion not supported by any cited evidence; citation is fabricated or points to a source that says the opposite; fundamental logical error in the argument
@@ -169,6 +169,24 @@ Include: highest-severity defects, systemic patterns (if any), and the most impo
 ["The {dimension} dimension produced {N} defects — suggesting a systemic issue with {pattern}"]
 ["Dimensions with zero defects: {list} — note: absence of defects may reflect shallow coverage, not quality"]
 
+## Compound Defect Interactions
+
+[Pairs of independently-filed defects whose co-occurrence creates a more severe failure than either alone.]
+[If none: "No compound interactions detected."]
+
+| Defect A | Defect B | Individual Severities | Compound Severity | Interaction |
+|----------|----------|----------------------|-------------------|-------------|
+| {id_a}: {title} | {id_b}: {title} | {sev_a} + {sev_b} | {compound_sev} | {how A enables or amplifies B} |
+
+## Aggregate Severity Escalations
+
+[Dimensions where defect density triggered severity escalation.]
+[If none: "No density-triggered escalations."]
+
+| Dimension | Minor Count | Escalated To | Rationale |
+|-----------|-------------|--------------|-----------|
+| {dim} | {count} | major | {count} independent judgment calls for the consumer; high probability of at least one error |
+
 ---
 
 ## Disputed Defects
@@ -227,6 +245,12 @@ Results:
 | defect_001 | {title} | critical | {dim} | {1 line} |
 
 [If no open defects: "All defects have been triaged (accepted, disputed, or won't-fix)."]
+
+## Cross-Dimensional Patterns
+
+[Emergent patterns from coherence integrator — findings from different dimensions sharing a root cause.]
+[If coherence integrator ran: list each pattern with member findings, shared root cause, and aggregate severity implication.]
+[If coherence was degraded or skipped: "Cross-finding coherence analysis unavailable — findings were judged independently."]
 
 ---
 

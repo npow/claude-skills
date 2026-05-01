@@ -28,6 +28,8 @@ Applies to: technical specs, design docs, RFCs, API docs, architecture documents
 | SECURITY/MISUSE | How could this spec lead to insecure implementations? What misuse vectors exist? | — |
 | TESTABILITY | Can compliance with this spec be verified? Are acceptance criteria present for each requirement? | — |
 | STAKEHOLDER ALIGNMENT | Does this serve its stated audience? Are requirements from all stakeholders captured? | — |
+| MISSING NECESSARY GOOD | What topics MUST an artifact of this type address that this artifact does not mention at all? For microservice specs: observability, runbooks, capacity planning, disaster recovery, data retention. For API specs: rate limiting, versioning, deprecation policy. Absence of entire categories is the highest-impact omission. | — |
+| ROLLBACK SAFETY | If this change is deployed and then rolled back, is the system in a valid state? For specs involving schema changes, data migrations, or deployment-ordering: can the previous version of the system coexist with the new state? | — |
 
 **Required categories for `doc`:** `completeness`, `internal_consistency`, `feasibility`, `edge_cases`
 
@@ -40,10 +42,16 @@ Applies to: technical specs, design docs, RFCs, API docs, architecture documents
 - SECURITY/MISUSE: "How could a malicious implementer produce a spec-compliant but insecure system?", "Are trust boundaries and authentication requirements specified at every interface?"
 - TESTABILITY: "Which requirements could not be verified by any automated test?", "Are success/failure criteria defined for each requirement?"
 
+**Typical angles (new dimensions):**
+- MISSING NECESSARY GOOD: "Does this spec address observability (metrics, alerts, dashboards, SLOs)?", "Does this spec address operational concerns (runbooks, capacity planning, disaster recovery)?", "Does this spec address lifecycle concerns (versioning, deprecation policy, data retention)?", "What would an SRE ask about this system that the spec does not answer?"
+- ROLLBACK SAFETY: "If this deployment fails halfway, can the previous version of all consumers still function correctly with the new state?", "For schema changes: can old code read/write the new schema without errors?", "Is the migration forward-only (destructive), or reversible?"
+
 **Cross-dimensional angles for `doc`:**
 - "completeness × feasibility" — "Are the complete requirements actually buildable, or do completeness demands create infeasible obligations?"
 - "internal_consistency × edge_cases" — "Does the behavior at boundary conditions contradict the general rules stated elsewhere?"
 - "ambiguity × testability" — "Which ambiguous requirements could lead to test suites that technically pass but violate intent?"
+- "missing_necessary_good × completeness" — "Completeness checks whether referenced components are specified. Missing-necessary-good checks whether entire required topics are absent. A spec can be 'complete' (every reference resolves) and still missing observability, rollback, or capacity sections entirely."
+- "rollback_safety × feasibility" — "Is the spec buildable AND reversible? A one-way-door migration is feasible but operationally dangerous."
 
 ---
 
@@ -61,6 +69,9 @@ Applies to: source code files, system architecture descriptions, API implementat
 | MAINTAINABILITY | Readability, naming clarity, cyclomatic complexity, coupling, future change hazards | — |
 | API DESIGN | Interface clarity, backwards compatibility, breaking change risk, error contracts | — |
 | CONCURRENCY | Race conditions, deadlocks, thread safety, shared mutable state | — |
+| OBSERVABILITY | When this code fails in production, can an operator who has never seen it diagnose the root cause from logs, metrics, and traces alone? Are error messages actionable? | — |
+| DEGRADED MODE | What happens when one dependency is persistently unavailable while others function? Pairwise dependency-down scenarios, partial-failure states, graceful degradation paths | — |
+| TEMPORAL COUPLING | Does correctness depend on execution ordering that is assumed but not structurally enforced? Implicit sequencing, initialization order, deploy ordering | — |
 
 **Required categories for `code`:** `correctness`, `error_handling`, `security`, `testability`
 
@@ -72,10 +83,18 @@ Applies to: source code files, system architecture descriptions, API implementat
 - TESTABILITY: "Which functions have side effects that make them hard to test in isolation?", "Are there time.Now() / random calls that make tests non-deterministic?", "Can the tests actually fail, or do they always pass regardless of the code?"
 - CONCURRENCY: "Is [shared data structure] accessed from multiple goroutines/threads without synchronization?", "Can two requests interleave in a way that produces inconsistent state?"
 
+**Typical angles (new dimensions):**
+- OBSERVABILITY: "For each error path, does the error message + log context provide enough information for an operator who has never seen this code to distinguish between the 3 most likely root causes?", "Are structured logging fields present for request tracing, or are errors logged as opaque strings?", "When this operation times out, what diagnostic information is available to determine WHERE in the call chain it stalled?"
+- DEGRADED MODE: "For each external dependency (DB, cache, queue, upstream service), what is the specified behavior when it is persistently unavailable while all other dependencies function normally?", "Do partial-failure states produce correct results, stale-but-safe results, or silently wrong results?", "Are circuit breakers or fallback paths defined, or does a single dependency failure cascade to total service unavailability?"
+- TEMPORAL COUPLING: "For every sequential phase dependency, is the ordering enforced by structure (locks, barriers, await) or by accident (happens to run in order today)?", "If a background task completes after the consumer has already read the state it was writing, what happens?", "Does initialization order matter, and if so, is it enforced or just documented?"
+
 **Cross-dimensional angles for `code`:**
 - "correctness × error_handling" — "Do the error paths maintain the correctness guarantees of the happy path?"
 - "security × api_design" — "Does the API surface expose more capability than callers should have?"
 - "testability × correctness" — "Are the most critical correctness properties the ones actually tested?"
+- "observability × error_handling" — "Errors are caught, but do the log entries contain enough context for an oncall engineer to diagnose the root cause without deploying a debug build?"
+- "degraded_mode × performance" — "When a dependency is down, does the fallback path have acceptable latency, or does it introduce unbounded retries/timeouts that cascade into caller timeouts?"
+- "temporal_coupling × concurrency" — "Are there ordering assumptions between phases that would break if background tasks were pipelined or parallelized?"
 
 ---
 
@@ -196,4 +215,5 @@ Track in `state.json`:
 2. For each dimension, generate 2-4 specific angles based on the artifact's actual content
 3. Generate 2-3 cross-dimensional angles (listed under each type above)
 4. Assess which required categories are covered by initial angles; add CRITICAL-priority angles for any uncovered required category
-5. Cap total initial angles at 20 (leave budget for depth expansion)
+5. **Forcing-function blind-spot discovery (Phase 2.5):** After state initialization, run one Haiku agent with 3 structural forcing functions (inversion, cross-domain transplant, assumption negation) to generate 4-6 domain-specific angles the dimension table does not cover. See SKILL.md Phase 2.5 for the full prompt template and integration. These angles enter the frontier with `priority=critical` and `source="forcing_function"`.
+6. Cap total initial angles at 24 (20 from dimension discovery + up to 4 from forcing functions; leave budget for depth expansion)

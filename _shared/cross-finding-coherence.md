@@ -18,6 +18,8 @@ Parallel critics are intentionally isolated — they share no lateral communicat
 
 3. **Coverage gap between critics.** Each critic covers its assigned dimension. But the *intersection* of two dimensions — where Critic A's dimension meets Critic B's — is in neither critic's explicit scope. The quorum check verifies each dimension has a critic; it does not verify the seams between dimensions.
 
+4. **Compound defect interaction.** Two findings with independent root causes that, when both present, produce a failure more severe than either alone. Example: Finding A (minor) "error message leaks internal file path" + Finding B (minor) "file upload allows directory traversal in filename" = together, A tells an attacker what path to traverse and B lets them get there — compound is critical. This is distinct from PATTERN_MEMBER (shared root cause); COMPOUNDS_WITH has independent causes whose *co-occurrence* creates emergent danger.
+
 The integrator is the Google-bipartite-model's middle layer: it sees all output simultaneously and synthesizes across findings before any per-finding judgment occurs.
 
 ---
@@ -103,15 +105,26 @@ FINDING|{finding_id}|{annotation}
     CONTRADICTS|{other_finding_id}|{brief_reason}
     PATTERN_MEMBER|{pattern_id}|{root_cause_summary}
     SUPERSEDED_BY|{other_finding_id}|{brief_reason}
+    COMPOUNDS_WITH|{other_finding_id}|{emergent_severity}|{interaction_mechanism}
 GAP|{dimension_a}|{dimension_b}|{gap_description}|{suggested_angle}
 PATTERN|{pattern_id}|{finding_id_list}|{root_cause}|{aggregate_severity_suggestion}
 STRUCTURED_OUTPUT_END
 
+## Compound Defect Interactions
+For each pair of findings from DIFFERENT dimensions where the co-occurrence creates a failure more severe than either alone:
+- Finding A: {id} — {severity} — {brief description}
+- Finding B: {id} — {severity} — {brief description}
+- Interaction mechanism: {how A enables or amplifies B}
+- Compound severity: {the severity of the combined failure, which may exceed both individual severities}
+
+If no compound interactions: "No dangerous compound interactions detected."
+
 IMPORTANT:
 - You succeed by finding real relationships. You fail by rubber-stamping "STANDALONE" on everything.
 - You also fail by manufacturing false contradictions. Two findings about the same component from different angles are NOT contradictions unless they make incompatible claims.
-- An integrator that reports zero contradictions, zero patterns, and zero gaps across 6+ findings from orthogonal dimensions is almost certainly not looking hard enough. At minimum, dimensional intersections should surface gaps.
-- A finding can have multiple annotations (e.g., both CONTRADICTS and PATTERN_MEMBER). Emit one line per relationship.
+- An integrator that reports zero contradictions, zero patterns, zero compounds, and zero gaps across 6+ findings from orthogonal dimensions is almost certainly not looking hard enough. At minimum, dimensional intersections should surface gaps.
+- A finding can have multiple annotations (e.g., both CONTRADICTS and PATTERN_MEMBER, or both PATTERN_MEMBER and COMPOUNDS_WITH). Emit one line per relationship.
+- COMPOUNDS_WITH is for causally independent findings whose co-occurrence is dangerous. Do NOT use it for findings that share a root cause (use PATTERN_MEMBER) or that contradict each other (use CONTRADICTS).
 ```
 
 ### Outputs
@@ -125,6 +138,7 @@ IMPORTANT:
 - `CONTRADICTS` → judge must evaluate whether the contradiction weakens the finding's evidence base
 - `PATTERN_MEMBER` → judge sees the aggregate pattern and can upgrade severity if the root-cause warrants it
 - `SUPERSEDED_BY` → judge can downgrade/reject if the superseding finding is stronger
+- `COMPOUNDS_WITH` → judge sees the compound interaction and should consider upgrading severity if the combined failure exceeds the individual finding's impact
 - `STANDALONE` → no change to normal judge flow
 
 **Coverage gaps** feed directly into the frontier as CRITICAL-priority angles for the next round. They do NOT create findings — they create angles that critics will investigate.

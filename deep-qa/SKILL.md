@@ -231,9 +231,78 @@ if auto_mode:
   - `deep-qa-{run_id}/angles/` — per-angle input files for critics
   - `deep-qa-{run_id}/judge-inputs/` — per-defect input files for severity judges
   - `deep-qa-{run_id}/artifact.md` — copy of artifact content
+  - `deep-qa-{run_id}/forcing-function-angles.md` — from Phase 1.5
   - `deep-qa-{run_id}/qa-report.md` — written at Phase 6
 - Write lock file: `deep-qa-{run_id}.lock` — verify write succeeded before proceeding
 - Store `hard_stop = max_rounds * 2` in state.json — immutable after initialization
+
+---
+
+### Phase 2.5: Forcing-Function Blind-Spot Discovery
+
+Runs AFTER state initialization (Phase 2) and BEFORE round 1 (Phase 3). Extends the pre-mortem blind-spot seeding pattern ([`_shared/premortem-blind-spot-seeding.md`](../_shared/premortem-blind-spot-seeding.md)) with three structural forcing functions adapted from deep-idea's generation mechanisms.
+
+**Purpose:** The dimension table is static — it knows about correctness, security, etc. But each artifact has domain-specific defect categories that the table doesn't cover. A billing service needs "business rule conformance"; a distributed system needs "partition tolerance"; a migration needs "rollback safety." The forcing functions structurally generate these domain-specific angles rather than relying on the dimension discovery agent to invent them from free association.
+
+**Agent:** 1 Haiku agent, `run_in_background=false` (blocks; output feeds into round-1 frontier). **Timeout: 60s.** On timeout: log `FORCING_FUNCTION_TIMEOUT`, proceed to Phase 3 without forcing-function angles. The skill runs fine without them — they are supplementary coverage, not load-bearing.
+
+**Cost:** ~$0.05. Runs once per QA run. Skipped on resume if `{run_id}/forcing-function-angles.md` already exists.
+
+**Prompt template:**
+
+```
+You are a blind-spot detector for a QA review. The artifact being reviewed is:
+"{artifact_name}" [type: {artifact_type}]
+
+The QA dimensions already selected for this artifact are:
+{list of dimensions from Phase 1}
+
+Your job is to find defect categories that those dimensions CANNOT catch, using three structural forcing functions. For each, generate 1-2 concrete QA angles.
+
+**FORCING FUNCTION 1 — INVERSION**
+For each selected dimension, ask: "What is the OPPOSITE failure mode that this dimension would never catch?"
+- correctness checks for wrong outputs → what about correct outputs that violate business/domain rules?
+- security checks for insufficient protection → what about excessive protection that locks out legitimate users?
+- error_handling checks whether errors are caught → what about errors that are caught but provide no diagnostic context?
+- performance checks for slowness → what about premature optimization that makes code unmaintainable?
+Generate 1-2 inverted angles not covered by any existing dimension.
+
+**FORCING FUNCTION 2 — CROSS-DOMAIN TRANSPLANT**
+Ask: "What would a reviewer from a DIFFERENT discipline check that these dimensions miss?"
+- What would an SRE check? (degraded-mode behavior, blast radius, observability)
+- What would a DBA check? (rollback safety, lock duration, migration ordering)
+- What would a UX researcher check? (API misuse likelihood, cognitive hazard in naming)
+- What would a compliance auditor check? (license contamination, data retention, PII handling)
+Generate 1-2 cross-domain angles specific to THIS artifact's domain.
+
+**FORCING FUNCTION 3 — ASSUMPTION NEGATION**
+List 3 assumptions this artifact makes, then negate each:
+- "The artifact is self-contained" → what bugs exist in its interaction with adjacent systems?
+- "The consumer is a competent senior engineer" → what would a junior developer get wrong?
+- "The artifact's stated purpose is its actual use" → how is it actually consumed, and does it work for that?
+Generate 1-2 assumption-negation angles specific to THIS artifact.
+
+Output format — one angle per line, numbered:
+1. [INVERSION] {concrete QA question} — Dimension: {new_dim_name or existing_dim} — Why: {1 sentence}
+2. [CROSS-DOMAIN] {concrete QA question} — Dimension: {dim} — Why: {1 sentence}
+...
+
+Requirements:
+- Each angle must be specific to THIS artifact, not generic. "Check for security issues" is useless. "Does the billing rounding logic match the business rule in the accounting spec?" is useful.
+- Do NOT repeat angles already covered by the selected dimensions.
+- 4-6 total angles. Quality over quantity.
+- Write to: {forcing_function_path}
+```
+
+**Coordinator action after agent completes:**
+1. Read `deep-qa-{run_id}/forcing-function-angles.md`
+2. Convert each listed angle to a round-1 direction with `priority=critical` and `source="forcing_function"`
+3. These compete with dimension-derived angles in the frontier but get priority scheduling (same treatment as premortem angles)
+4. Tag each in state.json: `"source": "forcing_function"`, `"forcing_type": "inversion|cross_domain|assumption_negation"`
+
+**Combining with premortem:** If the skill also runs the premortem pattern (Phase 0e), both sets of angles merge into the round-1 frontier. Premortem angles target "how this run could go wrong" (meta-level); forcing-function angles target "what defect categories the dimension table misses" (content-level). They are complementary.
+
+**`--auto` behavior:** Forcing-function discovery runs in `--auto` mode (it's cheap and improves coverage). Skip only if `--fast` or explicit `--skip-forcing-functions` flag.
 
 ---
 
@@ -407,6 +476,25 @@ For each defect where `judge_pass_1_verdict` exists:
    - Write `"generation": += 1`
 9. **Calibration check:** compute rate of `CALIBRATION == "confirm"` across all pass-2 verdicts. If rate == 100% OR rate == 0%, log `CALIBRATION_SUSPICIOUS: rate={rate}` — the judge may be anchoring despite the blind protocol. Surface this in Phase 6 final-report caveats.
 
+**5.5.b2 — Aggregate severity assessment (after pass-2 completes):**
+
+After all pass-2 verdicts are applied, check for defect-density escalation:
+
+1. Group all defects by dimension.
+2. For any dimension with **5 or more minor defects**, auto-generate an aggregate finding:
+   - Title: "Systemic quality issue in {dimension}: {count} minor defects indicate a pattern"
+   - Severity: major (density-escalated)
+   - Scenario: "While no individual defect in {dimension} is major, the accumulation of {count} minor issues means a consumer faces {count} independent judgment calls. The probability of getting all correct is low."
+   - Root cause: "Systemic underspecification / inconsistency in {dimension}"
+   - Mark as `source: "aggregate_escalation"` in state.json (not a critic-filed defect)
+3. For compound defect interactions (from coherence integrator `COMPOUNDS_WITH` annotations):
+   - If two findings are annotated `COMPOUNDS_WITH` and their compound severity exceeds both individual severities, create a compound finding:
+   - Title: "Compound: {finding_a_title} + {finding_b_title}"
+   - Severity: the `emergent_severity` from the annotation
+   - Scenario: the `interaction_mechanism` from the annotation
+   - Mark as `source: "compound_escalation"` in state.json
+   - The original findings remain — the compound finding is additional, not a replacement
+
 **5.5.c — Final state checks:**
 
 10. **Verify coordinator summary:** Check that the final `coordinator-summary.md` exists and is non-empty. If missing or empty: log `SUMMARY_WRITE_FAILED: final`, use the most recent non-empty summary.
@@ -536,8 +624,52 @@ When invoked with a `--mode` flag, deep-qa selects mode-specific focus dimension
 | `--mode proposal` | feasibility, completeness, risk, alternatives, market_fit | Proposal critique (see below) |
 | `--mode claims` | accuracy, evidence_quality, counter_evidence, recency, methodology | Claim validation |
 | `--mode design` | architecture, scalability, failure_modes, operability | Design review |
+| `--mode migration` | rollback_safety, lock_duration, deploy_window_compatibility, data_integrity | Database migration review |
+| `--mode iac` | state_lifecycle_safety, blast_radius, state_backend_security, drift_risk | Infrastructure-as-code (Terraform, Helm, CloudFormation) |
+| `--mode pipeline` | secret_scope, step_ordering, artifact_integrity, cache_poisoning | CI/CD pipeline definitions |
+| `--mode data-pipeline` | schema_contract, idempotency, freshness_sla, data_quality | Data pipeline / ETL (dbt, Spark, Airflow) |
+| `--mode test` | assertion_validity, test_isolation, environment_parity, coverage_intent | Test code review |
+| `--mode api-contract` | backward_compatibility, wire_format_safety, codegen_safety, versioning | API contracts (OpenAPI, protobuf, GraphQL) |
 
 These map to the existing `--type` parameter. When `--mode` is specified, it overrides the dimension discovery phase with the preset dimensions.
+
+### Domain-specific mode details
+
+**`--mode migration`** — for Alembic, Flyway, raw SQL DDL, or any schema-change artifact:
+- **rollback_safety**: "If this migration runs and then the deploy is rolled back, does the old code still work with the new schema? Is there a `down()` migration?"
+- **lock_duration**: "Does this DDL acquire a table lock that blocks reads/writes? For large tables: is `CONCURRENTLY` or online-schema-change tooling used?"
+- **deploy_window_compatibility**: "During the deploy window when old code and new schema coexist, do all queries succeed? Are new NOT NULL columns populated with defaults before old-code queries run?"
+- **data_integrity**: "Does this migration preserve existing data? Could a partial migration (crash mid-execution) leave data in an inconsistent state?"
+
+**`--mode iac`** — for Terraform, CloudFormation, Helm, Pulumi:
+- **state_lifecycle_safety**: "What does `terraform plan` do with this change? Does any resource get destroyed-and-recreated? Is `prevent_destroy` set on stateful resources?"
+- **blast_radius**: "If this resource is modified, what other resources are implicitly affected via dependency graph? Could a rename trigger a cascading destroy?"
+- **state_backend_security**: "Does this resource definition cause secrets (passwords, API keys) to appear in the state file? Is the state backend encrypted and access-controlled?"
+- **drift_risk**: "Could manual changes to the infrastructure cause drift from this declared state? Are there resources managed outside of IaC that this configuration depends on?"
+
+**`--mode pipeline`** — for GitHub Actions, Jenkinsfiles, CircleCI, GitLab CI:
+- **secret_scope**: "Does each step have access only to the secrets it needs? Can a PR from a fork exfiltrate secrets via `pull_request_target` or similar triggers?"
+- **step_ordering**: "Are step dependencies (`needs:`, `dependsOn`) correct? Could a deploy step run before tests complete?"
+- **artifact_integrity**: "Are build artifacts verified (checksums, signatures) before use in later steps? Could a cache be poisoned by a prior run?"
+- **cache_poisoning**: "Is the cache key specific enough? Could a malicious PR modify cached dependencies (node_modules, pip cache) to inject code into subsequent default-branch builds?"
+
+**`--mode data-pipeline`** — for dbt models, Spark jobs, Airflow DAGs:
+- **schema_contract**: "Does this pipeline change any output schema (column names, types, partitioning)? Are downstream consumers updated? For dbt: do all `ref()` models still resolve?"
+- **idempotency**: "Is this pipeline safe to re-run? Does it use `INSERT OVERWRITE`/`MERGE` instead of `INSERT INTO`? Will a retry duplicate data?"
+- **freshness_sla**: "Does this pipeline's schedule align with its source tables' update times? Does it read stale data if a source table hasn't been populated yet?"
+- **data_quality**: "Are there data quality checks (not-null, unique, accepted_values) on the output? Could a silent upstream schema change propagate bad data?"
+
+**`--mode test`** — when the artifact being reviewed IS test code:
+- **assertion_validity**: "Do assertions actually test meaningful behavior, or are they tautological? Does `assert response.status_code != None` actually verify correctness? Is the function-under-test mocked away?"
+- **test_isolation**: "Do tests share mutable state, depend on execution order, or modify global fixtures? Can each test run independently and in parallel?"
+- **environment_parity**: "Does the test environment match production closely enough? SQLite-in-tests vs PostgreSQL-in-prod? Mocked S3 vs real S3? Do the differences hide real bugs?"
+- **coverage_intent**: "Do the tests cover the behavior the code is supposed to have, or just the behavior it happens to have? Would a buggy implementation still pass these tests?"
+
+**`--mode api-contract`** — for OpenAPI, protobuf, GraphQL schemas:
+- **backward_compatibility**: "Does this change break existing clients? Removed fields, type changes, renamed endpoints, changed response shapes?"
+- **wire_format_safety**: "For protobuf: are deleted field numbers never reused? For JSON: are new required fields backward-compatible (have defaults)?"
+- **codegen_safety**: "Will code generators produce valid code from this schema? Are field names reserved keywords in target languages (class, type, import)?"
+- **versioning**: "Is this a breaking change that requires a version bump? Is the deprecation path documented for removed fields?"
 
 ### Proposal mode enhancements (`--mode proposal`)
 
