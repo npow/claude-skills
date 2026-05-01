@@ -41,7 +41,7 @@ TERMINATION_LABELS = frozenset(
 # Required categories per artifact type (from DIMENSIONS.md).
 REQUIRED_CATEGORIES: dict[str, list[str]] = {
     "doc": ["completeness", "internal_consistency", "feasibility", "edge_cases"],
-    "code": ["correctness", "error_handling", "security", "testability", "data_flow"],
+    "code": ["correctness", "error_handling", "security", "testability", "data_flow", "concurrency", "resource_lifecycle", "observability"],
     "research": [
         "accuracy",
         "citation_validity",
