@@ -25,7 +25,7 @@ Researches a market or technology space and renders an interactive, color-coded 
 4. **Research each player** — run at least one web search per player to verify current status and ratings; never rely solely on training data. See [RESEARCH.md](RESEARCH.md).
 5. **Assign ratings** — score every cell using the four-point scale (checkcheck/check/tilde/x) with evidence from step 4. See [RESEARCH.md](RESEARCH.md).
 6. **Write the HTML file** — write a complete self-contained file to `/tmp/matrix.html` using the template with color-coded cells, sort, and filter. See [TEMPLATE.md](TEMPLATE.md).
-7. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/matrix.html`, then `wait_for` the first competitor name (timeout 8000ms), then `take_screenshot`.
+7. **Render in browser** — follow [`_shared/chrome-devtools-render.md`](../_shared/chrome-devtools-render.md) to open `/tmp/matrix.html`, wait for render, and screenshot. `wait_for` the first competitor name.
 8. **Deliver as HTML.** Upload the existing `/tmp/matrix.html` to S3 following the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md) (skip markdown-to-HTML conversion since HTML already exists). Report name: `competitive-matrix`. TLDR includes space name, player count, and standout winner(s).
 9. **Deliver summary** — after the screenshot, output 3-5 bullet points naming the key differentiators and the standout winner(s) per use case.
 

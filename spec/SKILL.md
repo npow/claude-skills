@@ -16,6 +16,13 @@ metadata_source: inferred
 
 # Spec
 
+## When to use spec vs deep-design
+
+- **spec**: Single-session, lightweight — turns a conversation into a structured document. No adversarial stress-testing.
+- **deep-design**: Multi-agent, adversarial, sagaflow-backed — battle-tests a design with critic agents before implementation.
+
+Use `spec` for quick writeups. Use `deep-design` when the design needs stress-testing.
+
 Turns a conversation, idea, or discussion into a complete, structured technical specification saved as a markdown file.
 
 ## Workflow

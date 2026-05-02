@@ -18,19 +18,14 @@ Produce an actionable report on Metaflow ML pipeline runs using Metaflow MCP too
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/ml-pipeline-report/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "flows": ["MyTrainingFlow", "MyFeatureFlow"],
-  "namespaces": ["production", "user:npow"],
-  "lookback_days": 7
-}
-```
+**Config schema** (`~/.claude/skills/ml-pipeline-report/config.json`):
+- `flows`: list of Metaflow flow name strings
+- `namespaces`: list of Metaflow namespace strings (default: `["production"]`)
+- `lookback_days`: number (default: 7)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one scope must be set:** `flows` or `namespaces`. If none set, ask once and save to config.json.
+**Required scope:** at least one of `flows` or `namespaces`.
 
 ## Arguments
 
@@ -44,7 +39,7 @@ Reads defaults from `~/.claude/skills/ml-pipeline-report/config.json` if it exis
 
 2. **Classify run status.** For each run: succeeded, failed, running, or timed out. Record run ID, start time, end time (if complete), and duration.
 
-3. **Diagnose failures.** For every failed run, get the failing step, error message, and stack trace summary. Use `debug-run` skill approach — inspect the run's step-level status and logs.
+3. **Diagnose failures.** For every failed run, get the failing step, error message, and stack trace summary. Use `Skill(skill="debug-run", args="<FlowName>/<run_id>")` to inspect the run's step-level status and logs.
 
 4. **Check resource usage.** For running flows, note duration so far. Flag any run exceeding 2x its typical duration as "long-running" (compare against recent successful run durations if available).
 

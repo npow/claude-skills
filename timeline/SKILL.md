@@ -22,10 +22,7 @@ Renders interactive Gantt-style timelines and roadmaps in the browser using vis-
 2. **Convert all dates to ISO strings** — translate every vague time reference ("month 1-3", "Q2", "next sprint") to "YYYY-MM-DD" format. Default base date is today. See [TEMPLATE.md](TEMPLATE.md) for conversion patterns.
 3. **Assign group colors** — give each group a className and matching CSS color class. See [TEMPLATE.md](TEMPLATE.md) for the color class system.
 4. **Write the HTML file** — write a complete self-contained file to /tmp/timeline.html using the vis-timeline template. See [TEMPLATE.md](TEMPLATE.md) for the full template.
-5. **Open in browser** — call mcp__chrome-devtools__new_page with url: file:///tmp/timeline.html.
-6. **Wait for render** — call mcp__chrome-devtools__wait_for on a group label string that appears after vis-timeline renders. Timeout 10000ms.
-7. **Take screenshot** — call mcp__chrome-devtools__take_screenshot and verify all items and group labels are visible.
-8. **Fix and reload if broken** — if screenshot shows problems, edit /tmp/timeline.html, then call mcp__chrome-devtools__navigate_page with type: reload. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+5. **Render in browser** — follow [`_shared/chrome-devtools-render.md`](../_shared/chrome-devtools-render.md) to open `/tmp/timeline.html`, wait for render, screenshot, and fix-and-reload if needed. `wait_for` a group label string that appears after vis-timeline renders. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for timeline-specific fixes.
 
 ## Self-review checklist
 
@@ -59,3 +56,7 @@ Hard rules. Never violate these.
 |------|----------|
 | [TEMPLATE.md](TEMPLATE.md) | Complete vis-timeline HTML template, date conversion patterns, color class system, group/item data format |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, causes, fixes |
+
+## Sharing
+
+To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.

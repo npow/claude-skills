@@ -18,21 +18,13 @@ Produce a monthly trends report tracking code quality signals across repositorie
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/code-quality-trends/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "repos": [
-    "github.com/myorg/repo1",
-    "github.com/myorg/repo2"
-  ],
-  "lookback_days": 30
-}
-```
+**Config schema** (`~/.claude/skills/code-quality-trends/config.json`):
+- `repos`: list of repository name strings (Sourcegraph-compatible format)
+- `lookback_days`: number (default: 30)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one repo must be set.** If none is set and the user didn't specify, ask once and save to config.json.
+**Required scope:** at least one `repos` entry.
 
 ## Arguments
 

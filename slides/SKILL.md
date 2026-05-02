@@ -21,10 +21,8 @@ Converts content from the conversation into a Reveal.js HTML slide deck, writes 
 1. **Extract content structure** — identify the title, sections, and key points from the conversation or user-supplied content. See [TEMPLATE.md](TEMPLATE.md) for content chunking rules.
 2. **Plan slide types and count** — assign each section a slide type: title, bullet, two-column, quote, or code. Max 6 bullets per slide; split if more. See [TEMPLATE.md](TEMPLATE.md) for slide type patterns.
 3. **Write /tmp/slides.html** — use the complete Reveal.js template with all CDN links in correct order. See [TEMPLATE.md](TEMPLATE.md) for the full template.
-4. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/slides.html`.
-5. **Wait for render** — call `mcp__chrome-devtools__wait_for` on the title slide's main heading text. Timeout 10000ms.
-6. **Take screenshot** — call `mcp__chrome-devtools__take_screenshot` and verify the first slide is styled and readable.
-7. **Tell user how to navigate** — reply: "arrow keys to navigate, F for fullscreen". See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if slide rendering looks wrong.
+4. **Render in browser** — follow [`_shared/chrome-devtools-render.md`](../_shared/chrome-devtools-render.md) to open `/tmp/slides.html`, wait for render, and screenshot. `wait_for` the title slide's main heading text. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if slide rendering looks wrong.
+5. **Tell user how to navigate** — reply: "arrow keys to navigate, F for fullscreen".
 
 ## Self-review checklist
 
@@ -55,3 +53,7 @@ Hard rules. Never violate these.
 |------|----------|
 | [TEMPLATE.md](TEMPLATE.md) | Complete Reveal.js HTML template, all slide type patterns, content chunking rules |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, causes, fixes |
+
+## Sharing
+
+To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.

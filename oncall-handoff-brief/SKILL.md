@@ -18,21 +18,16 @@ Produce a comprehensive on-call rotation handoff brief that compounds signals fr
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/oncall-handoff-brief/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "atlas_app_names": ["myapp1", "myapp2"],
-  "spinnaker_apps": ["myapp1", "myapp2"],
-  "maestro_workflow_owners": ["data.platform.myteam"],
-  "slack_channel_ids": ["C01ABC123", "C02DEF456"],
-  "lookback_days": 7
-}
-```
+**Config schema** (`~/.claude/skills/oncall-handoff-brief/config.json`):
+- `atlas_app_names`: list of Atlas application name strings
+- `spinnaker_apps`: list of Spinnaker application name strings
+- `maestro_workflow_owners`: list of Maestro workflow owner strings
+- `slack_channel_ids`: list of Slack channel ID strings
+- `lookback_days`: number (default: 7)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one signal source must be set.** If none is set and the user didn't specify, ask once and save to config.json.
+**Required scope:** at least one signal source (`atlas_app_names`, `spinnaker_apps`, `maestro_workflow_owners`, or `slack_channel_ids`).
 
 ## Arguments
 
@@ -57,7 +52,7 @@ Reads defaults from `~/.claude/skills/oncall-handoff-brief/config.json` if it ex
 
 3. **Check Maestro pipelines.** For each `maestro_workflow_owner`, call `search_workflows` with `owner` and cluster="prod". Then for each workflow, call `get_latest_instance` with cluster="prod". For any FAILED instance, call `get_instance_failures` with cluster="prod" to get step-level detail.
 
-4. **Search Slack for incidents.** For each `slack_channel_id`, use a Slack semantic search tool with query "incident outage SEV alert pages degradation" and metadata filter for `channel_id` and `thread_ts >= {lookback_epoch}`. Fetch full threads via `fetch-slack-thread` for any that match.
+4. **Search Slack for incidents.** See [`_shared/slack-search.md`](../_shared/slack-search.md) for the standard Slack search workflow. Use query terms: `"incident outage SEV alert pages degradation"` scoped to the configured `slack_channel_ids`.
 
 5. **Compile open items.** Identify anything that needs attention from the incoming on-call:
    - Unresolved incidents from Slack

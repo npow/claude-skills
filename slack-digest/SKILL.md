@@ -17,18 +17,13 @@ Produce a weekly digest of key Slack threads from configured channels using Slac
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/slack-digest/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "channel_ids": ["C01ABC123", "C02DEF456"],
-  "lookback_days": 7
-}
-```
+**Config schema** (`~/.claude/skills/slack-digest/config.json`):
+- `channel_ids`: list of Slack channel ID strings
+- `lookback_days`: number (default: 7)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one channel must be set.** If none is set and the user didn't specify, ask once and save to config.json.
+**Required scope:** at least one `channel_ids` entry.
 
 ## Arguments
 
@@ -37,23 +32,19 @@ Reads defaults from `~/.claude/skills/slack-digest/config.json` if it exists.
 
 ## Workflow
 
-1. **Compute time window.** Calculate the epoch timestamp for `now - lookback_days` using `date -d "{lookback_days} days ago" +%s`. This becomes the `thread_ts` filter lower bound.
+1. **Search Slack channels.** See [`_shared/slack-search.md`](../_shared/slack-search.md) for the standard Slack search workflow. Use query terms: `"discussion update question issue decision"` with `size=20` per channel. Count replies per thread from the full thread fetch — this is the engagement signal.
 
-2. **Search each channel for threads.** For each channel_id, call a Slack semantic search tool with a metadata filter combining `channel_id == {id}` AND `thread_ts >= {epoch}`. Use a broad query like "discussion update question issue decision" to cast a wide net. Request `size=20` results per channel.
-
-3. **Fetch full thread context.** For each thread returned, use `fetch-slack-thread` with the permalink to get the full thread (all replies, not just the matched snippet). Count replies per thread — this is the engagement signal.
-
-4. **Classify threads.** For each thread, determine:
+2. **Classify threads.** For each thread, determine:
    - **Topic category**: incident, decision, question, announcement, discussion, or request
    - **Engagement level**: high (10+ replies), medium (4-9 replies), low (1-3 replies)
    - **Resolution status**: resolved (answer given, decision made), unresolved (question still open, no conclusion), or informational (no resolution needed)
    - Classification is based on thread content: questions end with `?` or start with "does anyone", "how do we"; decisions contain "let's go with", "we decided", "agreed"; incidents contain "incident", "outage", "SEV", "pages".
 
-5. **Identify unanswered questions.** A thread is "unanswered" if: it was classified as a question AND has fewer than 3 replies AND no reply contains a clear answer (code block, link, or statement without a trailing `?`).
+3. **Identify unanswered questions.** A thread is "unanswered" if: it was classified as a question AND has fewer than 3 replies AND no reply contains a clear answer (code block, link, or statement without a trailing `?`).
 
-6. **Group threads by topic category.** Within each category, sort by engagement (highest first).
+4. **Group threads by topic category.** Within each category, sort by engagement (highest first).
 
-7. **Generate report.** Output markdown:
+5. **Generate report.** Output markdown:
 
 ```
 ## Slack Digest — {date}
@@ -78,9 +69,9 @@ Channels: {channel names or IDs} | Period: last {lookback_days} days | Threads a
 (Compact list: summary, permalink)
 ```
 
-8. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `slack-digest`. TLDR includes thread count, unanswered questions count, and top discussion topic.
+6. **Deliver as HTML.** Follow the shared HTML delivery pattern in [`_shared/html-delivery.md`](../_shared/html-delivery.md). Report name: `slack-digest`. TLDR includes thread count, unanswered questions count, and top discussion topic.
 
-9. **Terminate.** Report is complete when all channels are searched and threads are grouped with permalinks.
+7. **Terminate.** Report is complete when all channels are searched and threads are grouped with permalinks.
 
 ## Design Principles
 

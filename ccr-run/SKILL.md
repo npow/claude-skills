@@ -21,28 +21,7 @@ Requires [claude-code-router](https://github.com/npow/claude-code-router) runnin
 
 Check if the FIRST word matches a shortcut or full model ID. If it does, use that model and treat the rest as the task. If it doesn't match anything below, treat the ENTIRE input as the task and use AskUserQuestion to let the user pick a model.
 
-**Shortcuts** (case-insensitive):
-| Shortcut | Model ID |
-|----------|----------|
-| codex | gateway,gpt-5.3-codex |
-| gpt | gateway,gpt-5.4 |
-| gpt-mini | gateway,gpt-5.4-mini |
-| gpt-nano | gateway,gpt-5.4-nano |
-| gpt-pro | gateway,gpt-5.4-pro |
-| 4o | gateway,gpt-4o |
-| 4.1 | gateway,gpt-4.1 |
-| gemini | gateway,gemini-2.5-pro |
-| flash | gateway,gemini-2.5-flash |
-| o3 | gateway,o3 |
-| o3-pro | gateway,o3-pro |
-| o3-mini | gateway,o3-mini |
-| o4 | gateway,o4-mini |
-| o1 | gateway,o1 |
-| opus | claude,claude-opus-4-7 |
-| sonnet | claude,claude-sonnet-4-6 |
-| haiku | claude,claude-haiku-4-5-20251001 |
-
-Any `gateway,*` or `claude,*` string is treated as a full model ID directly.
+See [`_shared/ccr-shortcuts.md`](../_shared/ccr-shortcuts.md) for the model shortcut table.
 
 If no model is identified, use AskUserQuestion with these options:
 - "codex" — GPT-5.3 Codex (code generation)

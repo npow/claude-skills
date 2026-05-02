@@ -20,21 +20,16 @@ Produce a weekly software delivery performance report using the four DORA metric
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/dora-lite-report/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "apps": ["myapp1", "myapp2"],
-  "period_days": 7,
-  "comparison_periods": 2,
-  "digest_channel": "#team-digests",
-  "scribe_base_url": "https://your-dora-api.example.com/api/v1/dora"
-}
-```
+**Config schema** (`~/.claude/skills/dora-lite-report/config.json`):
+- `apps`: list of Spinnaker application name strings
+- `period_days`: number (default: 7)
+- `comparison_periods`: number of past periods for trend comparison (default: 2)
+- `digest_channel`: Slack channel for posting (default: `#team-digests`)
+- `scribe_base_url`: DORA metrics API base URL string
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one app must be set.** If none is set and the user didn't specify, ask once and save to config.json. Apps are Spinnaker application names.
+**Required scope:** at least one `apps` entry (Spinnaker application names).
 
 ## Arguments
 

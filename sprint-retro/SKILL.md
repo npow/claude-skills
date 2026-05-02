@@ -29,7 +29,7 @@ Generates a data-backed sprint retrospective from multiple internal sources with
 ## Workflow
 
 1. **Parse input** — extract team member names or Slack alias, sprint window, repo list from arguments.
-2. **Resolve alias** — if input starts with `@`, resolve to individual names via Pandora/Slack search. List resolved names for user verification. See [DATA-SOURCES.md](DATA-SOURCES.md).
+2. **Resolve alias** — if input starts with `@`, resolve to individual names via Pandora/Slack search. List resolved names for user verification. See [`_shared/identity-resolution.md`](../_shared/identity-resolution.md) for the canonical identity resolution workflow. See [DATA-SOURCES.md](DATA-SOURCES.md).
 3. **Gather data from all sources** — query GitHub, Slack (public only), Jira, Google Docs, CI/CD in parallel. See [DATA-SOURCES.md](DATA-SOURCES.md).
 4. **Apply privacy gates** — run every search result through the 5-gate checklist. Discard anything that fails any gate. See [PRIVACY.md](PRIVACY.md).
 5. **Check data coverage** — count sources with actual results. If fewer than 3: label is `retro_partial`. See [GOLDEN-RULES.md](GOLDEN-RULES.md).

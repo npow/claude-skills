@@ -165,6 +165,8 @@ Run the self-review checklist below. Surface any invariant violations before del
 
 ---
 
+See [`_shared/execution-model-contracts.md`](../_shared/execution-model-contracts.md) for parallel agent execution contracts.
+
 ## Integration with other skills
 
 | Where | Calls | Why |

@@ -37,10 +37,7 @@ Research all available sources to produce a comprehensive picture of what a spec
    - `commit_search` with `authors=["{name}", "{email}"]` across relevant repos
    - `diff_search` with `author="{username}"` for significant code patterns added
 
-   **c) Slack threads** (Slack semantic search):
-   - Search for their name/username in recent threads
-   - Look for threads they started or had significant participation in
-   - Focus on public channels only — NEVER search DMs or private channels
+   **c) Slack threads** — See [`_shared/slack-search.md`](../_shared/slack-search.md) for the standard Slack search workflow. Use query terms: the person's name and username. Look for threads they started or had significant participation in.
 
    **d) Documents & Confluence** (search API):
    - Search DOCUMENTS source for docs authored/edited by this person

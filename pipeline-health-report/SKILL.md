@@ -18,24 +18,16 @@ Produce an actionable daily health report for Maestro data workflows using Kragl
 
 ## Configuration
 
-The skill reads defaults from `~/.claude/skills/pipeline-health-report/config.json` if it exists. This is how scheduled runs know which workflows to check without user input.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "owner": "data.platform.myteam",
-  "workflow_id_pattern": "DSE.MYTEAM.*",
-  "workflow_ids": ["wf.one", "wf.two"],
-  "cluster": "prod",
-  "limit": 50
-}
-```
+**Config schema** (`~/.claude/skills/pipeline-health-report/config.json`):
+- `owner`: workflow owner pattern string (e.g., `data.eng.myteam`)
+- `workflow_id_pattern`: wildcard pattern string (e.g., `DSE.BILLING.*`)
+- `workflow_ids`: list of explicit workflow ID strings
+- `cluster`: `"prod"` or `"sandbox"` (default: `"prod"`)
+- `limit`: max workflows to check (default: 50)
 
-**Resolution order** (first match wins):
-1. User's explicit arguments in the prompt override everything
-2. `config.json` defaults
-3. Built-in defaults (cluster=prod, limit=50)
-
-**At least one scope must be set.** The skill needs one of: `owner`, `workflow_id_pattern`, or `workflow_ids`. If none is set and the user didn't specify, ask once — "Which workflows should I check? Provide an owner (e.g. `data.eng.myteam`), a pattern (e.g. `DSE.BILLING.*`), or a list of workflow IDs."
+**Required scope:** at least one of `owner`, `workflow_id_pattern`, or `workflow_ids`.
 
 ## Arguments
 

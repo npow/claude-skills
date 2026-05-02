@@ -49,6 +49,11 @@ maturity: stable
 
 # Deep Design Skill
 
+## When to use deep-design vs spec
+
+- **deep-design**: Multi-agent adversarial workflow — stress-tests designs with parallel critics. Use for complex systems.
+- **spec**: Single-session lightweight spec writer. Use for quick documentation of a decided design.
+
 Adversarially stress-test a design. Given a concept, validate input, draft a spec, attack it with parallel critic agents across orthogonal dimensions, fix discovered flaws using independent judge agents, and repeat until coverage is saturated. Output is a battle-tested design document with an honest coverage report.
 
 ## Execution Model

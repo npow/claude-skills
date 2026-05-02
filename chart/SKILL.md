@@ -21,10 +21,7 @@ Renders interactive charts in the browser using Chart.js from context-supplied d
 1. **Extract data and chart type** — identify labels, datasets, and chart type (bar, line, pie, doughnut, radar) from the user's request or conversation context.
 2. **Choose colors** — assign dataset colors from the standard palette. See [TEMPLATE.md](TEMPLATE.md) for the palette.
 3. **Write the HTML file** — write a complete self-contained file to `/tmp/chart.html` using the Chart.js template matching the chart type. See [TEMPLATE.md](TEMPLATE.md) for all templates.
-4. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/chart.html`.
-5. **Wait for render** — call `mcp__chrome-devtools__wait_for` on a static DOM element (e.g. `<h2 id="ready">` added above the canvas). Chart.js renders to canvas — canvas text is NOT detectable by `wait_for`. Timeout 10000ms.
-6. **Take screenshot** — call `mcp__chrome-devtools__take_screenshot` and verify the chart is visible with labeled axes and readable text.
-7. **Fix and reload if broken** — if screenshot shows problems, edit `/tmp/chart.html`, then call `mcp__chrome-devtools__navigate_page` with `type: reload`. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+4. **Render in browser** — follow [`_shared/chrome-devtools-render.md`](../_shared/chrome-devtools-render.md) to open `/tmp/chart.html`, wait for render, screenshot, and fix-and-reload if needed. `wait_for` the static `<h2 id="ready">` text (Chart.js renders to canvas — canvas text is NOT detectable by `wait_for`). See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for chart-specific fixes.
 
 ## Self-review checklist
 
@@ -56,3 +53,7 @@ Hard rules. Never violate these.
 |------|----------|
 | [TEMPLATE.md](TEMPLATE.md) | Complete Chart.js HTML templates for bar, line, and pie/doughnut; color palette; data format patterns |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, causes, fixes |
+
+## Sharing
+
+To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.

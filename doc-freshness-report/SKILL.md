@@ -18,21 +18,13 @@ Produce a monthly documentation freshness check across configured manual bundles
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/doc-freshness-report/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "manual_bundles": ["myservice", "myplatform"],
-  "repo_doc_paths": [
-    {"repo": "github.com/myorg/repo1", "path": "docs/"},
-    {"repo": "github.com/myorg/repo2", "path": "README.md"}
-  ]
-}
-```
+**Config schema** (`~/.claude/skills/doc-freshness-report/config.json`):
+- `manual_bundles`: list of Netflix Manuals bundle name strings
+- `repo_doc_paths`: list of `{repo, path}` objects pointing to documentation directories or files
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one source must be set** — either `manual_bundles` or `repo_doc_paths`. If none is set and the user didn't specify, ask once and save to config.json.
+**Required scope:** at least one of `manual_bundles` or `repo_doc_paths`.
 
 ## Arguments
 

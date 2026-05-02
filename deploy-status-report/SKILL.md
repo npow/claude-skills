@@ -18,18 +18,13 @@ Produce an actionable report on Spinnaker deployment state using Delivery MCP to
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/deploy-status-report/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "apps": ["myapp1", "myapp2"],
-  "lookback_days": 7
-}
-```
+**Config schema** (`~/.claude/skills/deploy-status-report/config.json`):
+- `apps`: list of Spinnaker application name strings
+- `lookback_days`: number (default: 7)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one app must be set.** If none is set and the user didn't specify, ask once and save to config.json.
+**Required scope:** at least one `apps` entry.
 
 ## Arguments
 

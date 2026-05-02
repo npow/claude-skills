@@ -18,22 +18,15 @@ Produce an actionable weekly health report for Jenkins CI builds using Boost MCP
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/ci-health-report/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "repos": [
-    {"hostType": "GHE", "projectKey": "corp", "repoSlug": "my-repo"}
-  ],
-  "controllers": ["mycontroller"],
-  "job_name_contains": "my-team",
-  "lookback_days": 7
-}
-```
+**Config schema** (`~/.claude/skills/ci-health-report/config.json`):
+- `repos`: list of `{hostType, projectKey, repoSlug}` objects
+- `controllers`: list of Jenkins controller names
+- `job_name_contains`: substring match on job name
+- `lookback_days`: number (default: 7)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one scope must be set:** `repos`, `controllers`, or `job_name_contains`. If none set, ask once and save to config.json.
+**Required scope:** at least one of `repos`, `controllers`, or `job_name_contains`.
 
 ## Arguments
 

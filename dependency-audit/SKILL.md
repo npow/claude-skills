@@ -18,20 +18,12 @@ Produce a monthly dependency and security audit report across configured reposit
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/dependency-audit/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "repos": [
-    "github.com/myorg/repo1",
-    "github.com/myorg/repo2"
-  ]
-}
-```
+**Config schema** (`~/.claude/skills/dependency-audit/config.json`):
+- `repos`: list of repository name strings (Sourcegraph/gh CLI format)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least one repo must be set.** If none is set and the user didn't specify, ask once and save to config.json.
+**Required scope:** at least one `repos` entry.
 
 ## Arguments
 

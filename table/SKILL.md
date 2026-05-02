@@ -21,10 +21,7 @@ Renders interactive sortable, filterable tables in the browser by writing a zero
 2. **Map column types** — assign a `type` to each column: text, number, badge, rating, boolean, or tag. See [TEMPLATE.md](TEMPLATE.md) for rendering rules per type.
 3. **Choose a unique filename** — use `/tmp/table.html` by default. If a file with that name already exists (check with Bash `ls /tmp/table.html`), use a descriptive slug instead (e.g. `/tmp/genai-taxonomy.html`, `/tmp/db-comparison.html`). Never silently overwrite an existing file with unrelated content.
 4. **Write the HTML file** — write a complete self-contained file to the chosen path using the vanilla JS template. See [TEMPLATE.md](TEMPLATE.md) for the full template with sort and filter implementation.
-5. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/<filename>.html`.
-5. **Wait for render** — call `mcp__chrome-devtools__wait_for` on the text of the first column header. Timeout 8000ms.
-7. **Take screenshot** — call `mcp__chrome-devtools__take_screenshot` and verify all columns and rows are visible without horizontal overflow.
-8. **Fix and reload if broken** — if screenshot shows problems, edit the file, then call `mcp__chrome-devtools__navigate_page` with `type: reload`. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+5. **Render in browser** — follow [`_shared/chrome-devtools-render.md`](../_shared/chrome-devtools-render.md) to open the HTML file, wait for render, screenshot, and fix-and-reload if needed. `wait_for` the text of the first column header. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for table-specific fixes.
 
 ## Self-review checklist
 
@@ -59,3 +56,7 @@ Hard rules. Never violate these.
 |------|----------|
 | [TEMPLATE.md](TEMPLATE.md) | Complete vanilla JS HTML template with full sort and filter implementation, CSS design tokens, column type rendering rules |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, likely causes, and fixes |
+
+## Sharing
+
+To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.

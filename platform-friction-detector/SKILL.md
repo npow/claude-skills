@@ -17,22 +17,17 @@ Scan downstream repos, PRs, commits, and Slack for signals that users are quietl
 
 ## Configuration
 
-Reads defaults from `~/.claude/skills/platform-friction-detector/config.json` if it exists.
+See [`_shared/report-config.md`](../_shared/report-config.md) for the standard config resolution pattern.
 
-```json
-{
-  "platform_packages": ["my-platform-lib", "my-data-lib"],
-  "platform_imports": ["from my_platform", "import my_platform", "from my_data_lib"],
-  "search_scope": "github.com/myorg/*",
-  "exclude_repos": ["corp/mlp-mlp", "corp/mli-metaflow-custom"],
-  "slack_channels": [],
-  "lookback_days": 30
-}
-```
+**Config schema** (`~/.claude/skills/platform-friction-detector/config.json`):
+- `platform_packages`: list of package name strings your team owns
+- `platform_imports`: list of import pattern strings (auto-derived from packages if not set)
+- `search_scope`: Sourcegraph repo pattern string (default: org-specific)
+- `exclude_repos`: list of your own platform repo strings to skip
+- `slack_channels`: list of Slack channel ID strings where users discuss your platform
+- `lookback_days`: number (default: 30)
 
-**Resolution order:** user prompt overrides > config.json > built-in defaults.
-
-**At least `platform_packages` must be set.** If not configured and user didn't specify, infer from context (team repos, recent work) or note the gap.
+**Required scope:** at least `platform_packages` must be set.
 
 ## Arguments
 
@@ -75,9 +70,7 @@ Sourcegraph `diff_search` on `corp/*` times out for common patterns. Handle this
    - If step 1 found removed metaflow S3 imports, search the same repos for added `import boto3` or `from boto3` in the same time window
    - Common replacements: raw boto3 for S3 ops, raw requests for API calls, custom implementations of platform features
 
-5. **Search Slack for friction signals.** If slack_channels configured, use a Slack semantic search tool:
-   - Search for: "{package} broken", "{package} issue", "{package} conflict", "alternative to {package}", "can't use {package}", "{package} too heavy", "{package} dependency"
-   - For each hit, fetch the full thread via `fetch-slack-thread` to get context
+5. **Search Slack for friction signals.** If slack_channels configured, follow [`_shared/slack-search.md`](../_shared/slack-search.md) for the standard Slack search workflow. Use query terms per package: `"{package} broken"`, `"{package} issue"`, `"{package} conflict"`, `"alternative to {package}"`, `"can't use {package}"`, `"{package} too heavy"`, `"{package} dependency"`.
 
 6. **Fetch PR context for each signal.** For every diff/commit signal found, resolve the PR:
    - Use `gh api repos/{org}/{repo}/commits/{sha}/pulls` to find the associated PR

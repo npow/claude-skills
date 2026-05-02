@@ -21,10 +21,7 @@ Renders interactive, draggable diagrams in the browser using Cytoscape.js from c
 1. **Extract nodes and edges** — read labels, connections, and any grouping/color hints from the user's request or conversation context.
 2. **Assign colors and positions** — choose a color scheme and set x/y coordinates for a readable layout. See [TEMPLATE.md](TEMPLATE.md) for layout patterns.
 3. **Write the HTML file** — write a complete self-contained file to `/tmp/diagram.html` using the Cytoscape.js template. See [TEMPLATE.md](TEMPLATE.md) for the full template.
-4. **Open in browser** — call `mcp__chrome-devtools__new_page` with `url: file:///tmp/diagram.html`.
-5. **Wait for render** — call `mcp__chrome-devtools__wait_for` on a string that will appear in the legend or a node label. Timeout 10000ms.
-6. **Take screenshot** — call `mcp__chrome-devtools__take_screenshot` and verify nodes are visible and not overlapping.
-7. **Fix and reload if broken** — if screenshot shows problems, edit `/tmp/diagram.html`, then call `mcp__chrome-devtools__navigate_page` with `type: reload`. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+4. **Render in browser** — follow [`_shared/chrome-devtools-render.md`](../_shared/chrome-devtools-render.md) to open `/tmp/diagram.html`, wait for render, screenshot, and fix-and-reload if needed. `wait_for` a string from the legend or a node label. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for diagram-specific fixes.
 
 ## Self-review checklist
 
@@ -57,3 +54,7 @@ Hard rules. Never violate these.
 |------|----------|
 | [TEMPLATE.md](TEMPLATE.md) | Complete Cytoscape.js HTML template, color palette, layout patterns for common diagram types |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, causes, fixes |
+
+## Sharing
+
+To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.
