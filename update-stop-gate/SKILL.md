@@ -69,9 +69,11 @@ The classifier check must be:
 
 ### 6. Verify
 
-Run: `python3 -c "import py_compile; py_compile.compile('$HOME/.claude/hooks/stop-gate.py', doraise=True)"`
+**6a. Python syntax:** Run: `python3 -c "import py_compile; py_compile.compile('$HOME/.claude/hooks/stop-gate.py', doraise=True)"`
 
 If it fails, fix the syntax error (usually an unescaped quote or bad indentation in the f-string).
+
+**6b. No format constraint.** Fast mode sends the full `autonomy-rules.md` to Haiku — no extraction, no regex, no special formatting required. Write rules in whatever markdown format is clearest for humans. Both fast and full mode see every rule automatically.
 
 ## Golden Rules
 
