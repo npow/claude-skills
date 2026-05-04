@@ -73,6 +73,8 @@ Applies to: source code files, system architecture descriptions, API implementat
 | OBSERVABILITY | When this code fails in production, can an operator who has never seen it diagnose the root cause from logs, metrics, and traces alone? Are error messages actionable? | — |
 | DEGRADED MODE | What happens when one dependency is persistently unavailable while others function? Pairwise dependency-down scenarios, partial-failure states, graceful degradation paths | — |
 | TEMPORAL COUPLING | Does correctness depend on execution ordering that is assumed but not structurally enforced? Implicit sequencing, initialization order, deploy ordering | — |
+| RESOURCE EXHAUSTION | Missing timeouts, unbounded retries, uncapped allocations, subprocess hangs, connection leaks, file handle exhaustion. The "what if it never finishes" dimension. | — |
+| CROSS-METHOD CONSISTENCY | When two methods compute the same semantic value (rootdir, env dict, path prefix) independently, do they agree? Locally-correct methods that silently disagree are invisible to single-function review. | — |
 
 **Required categories for `code`:** `correctness`, `error_handling`, `security`, `testability`
 
@@ -88,6 +90,8 @@ Applies to: source code files, system architecture descriptions, API implementat
 - OBSERVABILITY: "For each error path, does the error message + log context provide enough information for an operator who has never seen this code to distinguish between the 3 most likely root causes?", "Are structured logging fields present for request tracing, or are errors logged as opaque strings?", "When this operation times out, what diagnostic information is available to determine WHERE in the call chain it stalled?"
 - DEGRADED MODE: "For each external dependency (DB, cache, queue, upstream service), what is the specified behavior when it is persistently unavailable while all other dependencies function normally?", "Do partial-failure states produce correct results, stale-but-safe results, or silently wrong results?", "Are circuit breakers or fallback paths defined, or does a single dependency failure cascade to total service unavailability?"
 - TEMPORAL COUPLING: "For every sequential phase dependency, is the ordering enforced by structure (locks, barriers, await) or by accident (happens to run in order today)?", "If a background task completes after the consumer has already read the state it was writing, what happens?", "Does initialization order matter, and if so, is it enforced or just documented?"
+- RESOURCE EXHAUSTION: "For every subprocess.run/Popen call: is there a timeout= parameter? What happens if the subprocess hangs?", "For every retry loop: is there a max-retry cap? What happens if retries are exhausted?", "For every network call (HTTP, S3, gRPC): is there a timeout? What happens on network partition — does the caller hang indefinitely?", "For every file/connection open: is it closed on all exit paths including exceptions? grep for open()/connect() without context managers."
+- CROSS-METHOD CONSISTENCY: "For every value that is computed in one method and re-derived in another (rootdir, env dict, path prefix, config key): are the two computations equivalent? grep for the same variable name across methods and verify they agree.", "For every environment dict prepared by one method and consumed by another: does the consumer read from the prepared dict or from os.environ? grep for os.environ.get in methods that receive an env dict parameter.", "For every path normalization: do all callers use the same normalization function, or do some use os.path.normpath while others use string manipulation?"
 
 **Cross-dimensional angles for `code`:**
 - "correctness × error_handling" — "Do the error paths maintain the correctness guarantees of the happy path?"
@@ -96,6 +100,8 @@ Applies to: source code files, system architecture descriptions, API implementat
 - "observability × error_handling" — "Errors are caught, but do the log entries contain enough context for an oncall engineer to diagnose the root cause without deploying a debug build?"
 - "degraded_mode × performance" — "When a dependency is down, does the fallback path have acceptable latency, or does it introduce unbounded retries/timeouts that cascade into caller timeouts?"
 - "temporal_coupling × concurrency" — "Are there ordering assumptions between phases that would break if background tasks were pipelined or parallelized?"
+- "resource_exhaustion × error_handling" — "When a subprocess hangs (no timeout), does the error handling path even fire? A missing timeout means the except clause is unreachable for that failure mode."
+- "cross_method_consistency × correctness" — "Two methods independently compute the same value (env dict, rootdir, path prefix). If they disagree, the system is locally correct everywhere but globally wrong. Grep for the same semantic variable across methods."
 
 ---
 
