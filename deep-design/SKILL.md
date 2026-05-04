@@ -1,8 +1,14 @@
 ---
 name: deep-design
-description: Use when designing, specifying, architecting, or drafting a design for any system, feature, product, protocol, game, or workflow, and you want adversarial stress-testing before writing code. Trigger phrases include "design this", "design the system", "architect this", "draft a design", "design a feature", "design spec", "stress-test the design", "battle-test the design", "find flaws in this design", "design review", "harden the design", "pressure-test the design", "think through the design". DFS-based flaw-finding with parallel critic agents that stress-test until coverage saturates. Output is a battle-tested design document with an honest coverage report.
+description: The single entry point for ALL design and specification work. Use when designing, specifying, architecting, writing a spec, writing an RFC, writing a design doc, or drafting a design for any system, feature, product, protocol, game, or workflow. Trigger phrases include "design this", "design the system", "architect this", "draft a design", "design a feature", "design spec", "stress-test the design", "battle-test the design", "find flaws in this design", "design review", "harden the design", "pressure-test the design", "think through the design", "write a spec", "technical spec", "spec this out", "turn this into a spec", "write up the design", "RFC", "API design", "data model", "implementation spec". Default mode: adversarial stress-testing with parallel critics. Use `--spec` for lightweight single-session spec document generation (no critics).
 user_invocable: true
-argument: The design concept or idea to spec out (a game, product, system, protocol, etc.)
+argument: |
+  The design concept or idea to spec out (a game, product, system, protocol, etc.)
+    --spec                           Lightweight spec mode: single-session document
+                                     generation from conversation/idea. No adversarial
+                                     critics. Outputs a structured spec (RFC, API design,
+                                     data model, implementation spec). Use when you need
+                                     a written document, not a battle-tested design.
 
 category: design
 capabilities:

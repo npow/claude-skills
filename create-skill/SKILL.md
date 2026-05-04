@@ -1,6 +1,6 @@
 ---
 name: create-skill
-description: Use when creating, editing, scaffolding, designing, reviewing, improving, or refactoring a Claude Code skill, slash command, subagent, or agent capability. Trigger phrases include "create skill", "build skill", "scaffold skill", "edit skill", "write skill", "design skill", "improve skill", "fix skill", "review skill", "audit skill", "refactor skill", "new slash command", "new subagent", "turn this workflow into a skill", "add a skill", "authoring skills", "writing skills".
+description: Use when creating, editing, scaffolding, designing, reviewing, improving, or refactoring a Claude Code skill, slash command, subagent, or agent capability. Also use when extracting a repeatable workflow from the current session into a reusable skill. Trigger phrases include "create skill", "build skill", "scaffold skill", "edit skill", "write skill", "design skill", "improve skill", "fix skill", "review skill", "audit skill", "refactor skill", "new slash command", "new subagent", "turn this workflow into a skill", "turn this into a skill", "extract skill from session", "skillify this", "save this workflow as a skill", "add a skill", "authoring skills", "writing skills".
 argument-hint: "[skill purpose or domain]"
 
 category: meta
@@ -113,6 +113,35 @@ Determine whether this is a **workflow**, **reference**, or **shim** skill. If s
 9. **Evaluate** — test the skill with positive, implicit, noisy, and negative prompts (separate from pressure tests). Verify progressive disclosure works. See [EVALUATION.md](EVALUATION.md).
 
 10. **Deploy with pressure-test hand-off** — hand the user the skill + the 3-5 pressure scenarios and the `pressure-tests/` log. Direct them to run the scenarios themselves before relying on the skill. See [PRESSURE-TESTING.md](PRESSURE-TESTING.md).
+
+### Session extraction track (Steps S1-S5)
+
+Use this track when the current session uncovered a repeatable workflow that should become a reusable skill. Trigger: "turn this into a skill", "extract from session", "skillify this", "save this workflow".
+
+S1. **Identify the repeatable task** — what did this session accomplish that will recur? Name it.
+
+S2. **Extract the skeleton** — from conversation context, pull: inputs, ordered steps, success criteria, constraints/pitfalls.
+
+S3. **Classify destination** — decide where the skill belongs:
+  - **Full skill** (`~/.claude/skills/<name>/SKILL.md`) → proceed to workflow or reference track above for the full build.
+  - **Learned skill** (lightweight, project-scoped) → continue S4-S5.
+  - **Documentation only** → write to appropriate doc file, done.
+
+S4. **Draft the learned skill file** — must start with YAML frontmatter:
+  ```yaml
+  ---
+  name: <skill-name>
+  description: <one-line description>
+  triggers:
+    - <trigger-1>
+    - <trigger-2>
+  ---
+  ```
+  Write to one of:
+  - `~/.claude/skills/<skill-name>/SKILL.md` (user-level, reusable across projects)
+  - `.claude/skills/<skill-name>/SKILL.md` (project-level, committed with repo)
+
+S5. **Flag open questions** — if any branching decisions or fuzzy steps remain, note them explicitly in the skill file rather than leaving them implicit. Terminate with label `shipped_lite`.
 
 ### Reference skill track (Steps R1-R6)
 

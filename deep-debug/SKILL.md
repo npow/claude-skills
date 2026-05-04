@@ -1,6 +1,6 @@
 ---
 name: deep-debug
-description: Use when a bug, test failure, or unexpected behavior needs diagnosing — including production incidents, regressions, stack traces, mysterious failures, flaky tests, or any symptom needing root-cause analysis. Trigger phrases include "debug this", "why is this failing", "find the bug", "fix the bug", "root cause", "what's wrong with", "this is broken", "diagnose", "troubleshoot", "investigate this failure", "the test is failing", "this used to work", "why doesn't this work", "where's the bug". Adversarial hypothesis-driven debugging with parallel competing hypotheses across orthogonal dimensions, blind independent judging, discriminating probes that falsify leaders, TDD-gated fix loops, and mandatory architectural escalation after 3 failed attempts.
+description: The single entry point for ALL debugging — bugs, test failures, CI failures, Metaflow run failures, Jenkins build failures, or any unexpected behavior. Trigger phrases include "debug this", "why is this failing", "find the bug", "fix the bug", "root cause", "what's wrong with", "this is broken", "diagnose", "troubleshoot", "investigate this failure", "the test is failing", "this used to work", "why doesn't this work", "where's the bug", "CI failed", "PR is red", "why did my flow fail", "build failed", "Jenkins failure". Composes specialized sub-skills internally (debug-pr for CI, debug-run for Metaflow, debug-jenkins for builds) — the agent always enters through deep-debug, never routes to sub-skills directly.
 user_invocable: true
 argument: The bug description, symptom, error message, or reproduction context
 
@@ -110,6 +110,20 @@ Use deep-debug for:
 - Pure code review or static audit → use `deep-qa` with `--type code`
 
 ## Workflow
+
+### Phase -1: Context-Aware Composition Routing
+
+Before the debug cycle, detect if a specialized sub-skill applies. Invoke it via `Skill()` — deep-debug is the orchestrator, not a bypass.
+
+| Context detected | Sub-skill to invoke | How to detect |
+|---|---|---|
+| GitHub PR URL or "CI failed on PR" | `debug-pr` | URL matches `github.*/pull/\d+` or user mentions PR + CI failure |
+| Metaflow pathspec or "flow failed" | `debug-run` | Input contains `FlowName/RunID` pattern or "metaflow" + failure language |
+| Jenkins build URL or "build failed" | `debug-jenkins` | URL matches `builds.test.netflix.net` or "jenkins" + failure language |
+
+**If a sub-skill matches:** invoke it first to gather structured context (CI logs, run status, build output). Feed its output into Phase 0 as the symptom — then continue with deep-debug's hypothesis-driven cycle on the root cause. The sub-skill handles evidence collection; deep-debug handles root-cause analysis.
+
+**If no sub-skill matches:** proceed directly to Phase 0.
 
 ### Phase 0: Input Validation Gate
 
