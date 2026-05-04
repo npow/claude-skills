@@ -1,14 +1,21 @@
 ---
 name: deep-qa
-description: Use when reviewing, auditing, QAing, critiquing, or assessing any artifact — a spec, code change, diff, PR, research report, skill, prompt, or document — and you want parallel adversarial critic agents to find defects. Trigger phrases include "review this", "audit this", "QA this", "find issues", "find defects", "critique this", "check this for problems", "what's wrong with this", "evaluate this", "run QA", "review the diff", "review the PR", "review my code", "deep QA", "defect audit", "code review", "assess this". Produces a prioritized defect registry with severity-rated findings via parallel critic agents across artifact-type-aware QA dimensions. Does not fix defects — surfaces them for human triage.
+description: Use when reviewing, auditing, QAing, critiquing, verifying, or assessing any artifact — a spec, code change, diff, PR, research report, skill, prompt, or document. Also use for pre-completion verification ("verify this works", "prove this is done", "evidence before claiming complete"). Trigger phrases include "review this", "audit this", "QA this", "find issues", "find defects", "critique this", "check this for problems", "what's wrong with this", "evaluate this", "run QA", "review the diff", "review the PR", "review my code", "deep QA", "defect audit", "code review", "assess this", "verify this works", "verify before completing", "prove this is done", "is this actually working". The single skill for all quality assurance — adversarial review, pre-completion verification, and evidence gathering.
 user_invocable: true
 argument: |
   Path to artifact file (or inline content), with optional flags:
     --type doc|code|research|skill   override artifact type detection
     --auto                           skip all interactive gates
-    --diff [ref]                     QA a git diff instead of a full artifact;
+    --diff [ref|range]               QA a git diff instead of a full artifact;
                                      ref defaults to HEAD~1 (last commit);
-                                     use HEAD~3, a SHA, or a branch name
+                                     use HEAD~3, a SHA, or a branch name;
+                                     use A..B for a commit range within a branch
+                                     (e.g., --diff b0228a0c6..HEAD for only
+                                     the last N commits, not the whole PR)
+    --verify                         Pre-completion verification mode: run
+                                     tests, typecheck, build, gather evidence
+                                     that the change actually works. Reports
+                                     what passed, what failed, what's unverified.
 
 category: qa
 capabilities:
@@ -109,14 +116,56 @@ See DIMENSIONS.md for full dimension tables and angle examples.
 
 ### Phase 0: Input Validation Gate
 
+#### `--verify` mode (pre-completion evidence gathering)
+
+When `--verify` is present, deep-qa runs in verification mode instead of adversarial review. This is the lightweight "prove it works" check before claiming completion.
+
+**Step 0a-verify — Discover execution environment:**
+
+Before running any tests, probe the project for its actual Python/test environment. Do NOT use bare `python`/`python3` — projects with tox, venvs, or multi-environment setups may have the correct interpreter in a non-obvious location. Discovery order:
+1. Check for `tox.ini` / `setup.cfg [tox]` — if present, look for `.tox/*/bin/python` interpreters
+2. Check for `.venv/`, `venv/`, or project-specific venvs (e.g., `test/*/.tox/py/bin/python`)
+3. Check `pyproject.toml` for build system / test runner config
+4. If multiple venvs exist, use the one that matches the changed code's test suite
+5. Record the chosen interpreter path in the verification report
+
+**Step 0b-verify — Gather evidence:**
+
+1. Identify what must be proven: what behavior changed? What should work now?
+2. Run verification in priority order, using the discovered interpreter:
+   - Existing tests (`{interpreter} -m pytest`, `tox`, test suite) — prefer narrowest relevant subset
+   - Type check / build (`mypy`, `tsc`, `cargo check`, etc.)
+   - Narrow direct commands (import check, smoke test, curl endpoint)
+   - Manual validation steps if automation insufficient
+3. Collect results: what passed, what failed, what's unverified.
+
+**Step 0c-verify — Report:**
+
+Output a verification report:
+```
+## Verification Report
+### Verified ✅
+- {what passed and how}
+### Failed ❌  
+- {what failed and the error}
+### Unverified ⚠️
+- {what couldn't be checked and why}
+### Verdict
+{verified | partially_verified | failed}
+```
+
+Do NOT claim completion if any critical path is unverified. If no realistic verification path exists, say so explicitly. Then stop — `--verify` mode does not run adversarial critics.
+
 #### `--diff` mode (fast post-commit QA)
 
-When `--diff [ref]` is present, the artifact is built from the git diff rather than a full file. This costs ~10% as much as a full-repo QA and catches regressions in the changed code and its immediate callers.
+When `--diff [ref|range]` is present, the artifact is built from the git diff rather than a full file. This costs ~10% as much as a full-repo QA and catches regressions in the changed code and its immediate callers.
+
+**Ref parsing:** If the argument contains `..` (e.g., `b0228a0c6..HEAD`, `master..feature`), treat it as a commit range — use `git diff {A} {B}` and `git log --oneline {A}..{B}`. This enables reviewing a SUBSET of a branch (e.g., "only the last 4 bug-fix commits, not the whole PR"). If no `..`, treat as a single ref and diff against HEAD as before.
 
 **Step 0a-diff — Build diff artifact:**
 
-1. Run `git diff {ref}` — include ALL tracked files, not just `*.py`. Frontend code (`.svelte`, `.tsx`, `.ts`, `.js`, `.vue`), templates, SQL, proto files, YAML manifests, and JSON fixtures are routinely consumers of data contracts that Python code changes, and must be in scope. (Previously this step filtered to `*.py`, which caused UI/frontend defects in multi-language projects to be invisible to diff-mode QA.)
-2. If diff is empty: error "No changes found between HEAD and {ref}."
+1. Run `git diff {ref}` (or `git diff {A} {B}` for ranges) — include ALL tracked files, not just `*.py`. Frontend code (`.svelte`, `.tsx`, `.ts`, `.js`, `.vue`), templates, SQL, proto files, YAML manifests, and JSON fixtures are routinely consumers of data contracts that Python code changes, and must be in scope. (Previously this step filtered to `*.py`, which caused UI/frontend defects in multi-language projects to be invisible to diff-mode QA.)
+2. If diff is empty: error "No changes found between HEAD and {ref}" (or "between {A} and {B}").
 3. Extract changed files from the diff header lines (`--- a/...`, `+++ b/...`).
 4. For each changed file, find **callers** of any added/modified function or method:
    - Use `grep -rn "def <name>" <changed_file>` to extract function names from `+` lines
@@ -148,6 +197,10 @@ When `--diff [ref]` is present, the artifact is built from the git diff rather t
 - "For every attribute, return value, or method that the PR newly makes `Optional[X]` (previously always non-None): grep every consumer in the repo and verify each handles `None` without crash, `KeyError`, or silent wrong-behavior. Do not assume lint or validation catches it earlier — audit the consumer's code."
 - "For every new subprocess, file handle, network connection, or lock opened in the diff: is it always closed/drained/released on all exit paths?"
 - "For every security-sensitive path touched (auth, subprocess args, file paths, serialization): what are the injection/bypass edge cases introduced by the change?"
+- "**Fix-regression analysis (MANDATORY when the diff description or commit message contains 'fix', 'revert', 'narrow', 'restrict', or 'drop').** For every fix in the diff: (1) identify the ORIGINAL motivation — what use case or behavior was the pre-fix code serving? (2) Verify the fix doesn't re-break that original use case. A common pattern: code was widened to support case X, the widening caused a regression in case Y, the fix narrows the scope back — but now case X is broken again. Trace both the forward path (does Y work now?) and the backward path (does X still work?). If the fix strips, removes, or conditionally gates something, ask: what OTHER code paths relied on the stripped/removed/gated thing?"
+- "**Papers-over-vs-root-cause check (MANDATORY when the diff is a bug fix).** For each fix: does it address the stated root cause, or does it suppress the symptom? Signs of papering over: adding a filter/skip/guard at the consumer instead of fixing the producer, catching an exception instead of preventing the condition, stripping a value instead of not setting it in the first place, adding a conditional that avoids the crash path without fixing why the crash path is reachable. If the fix papers over, file as major — the underlying bug still exists and will resurface in a different form."
+- "**Structural-twin sweep.** After identifying a bug the diff fixes, `grep -rn` the entire repo for structurally identical patterns — same missing guard, same hardcoded value, same env-var leak, same unhandled Optional. The fix addresses ONE instance; the question is whether other instances of the same bug pattern exist in untouched files. File each twin as a separate defect. This is distinct from contract-fanout (which traces consumers of a changed contract) — structural-twin traces the BUG PATTERN, not the contract."
+- "**Checkpoint/ordering analysis for env vars and subprocess state.** For every environment variable, config value, or mutable process state that the diff adds, removes, strips, or conditionally sets: trace its lifecycle across ALL subprocess spawns in the file and its callers. Verify: (1) the value is present BEFORE every subprocess that needs it, (2) the value is absent AFTER every subprocess that should NOT inherit it, (3) the ordering is correct — stripping happens after the last legitimate consumer and before the first illegitimate inheritor. Common defect: env var is stripped in one code path but still inherited via a different subprocess spawn mechanism (e.g., `Popen` vs `run`, local vs remote executor, direct spawn vs decorator-mediated spawn)."
 
 **`artifact_type` in diff mode:** Default to `code`. Override with `--type` as normal.
 
