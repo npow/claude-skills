@@ -1,6 +1,6 @@
 ---
 name: deep-qa
-description: Use when reviewing, auditing, QAing, critiquing, verifying, or assessing any artifact — a spec, code change, diff, PR, research report, skill, prompt, or document. Also use for pre-completion verification ("verify this works", "prove this is done", "evidence before claiming complete"). Trigger phrases include "review this", "audit this", "QA this", "find issues", "find defects", "critique this", "check this for problems", "what's wrong with this", "evaluate this", "run QA", "review the diff", "review the PR", "review my code", "deep QA", "defect audit", "code review", "assess this", "verify this works", "verify before completing", "prove this is done", "is this actually working". The single skill for all quality assurance — adversarial review, pre-completion verification, and evidence gathering.
+description: Use when reviewing, auditing, QAing, critiquing, verifying, or assessing any artifact — a spec, code change, diff, PR, research report, skill, prompt, or document. Also use for pre-completion verification ("verify this works", "prove this is done", "evidence before claiming complete"). Trigger phrases include "review this", "audit this", "QA this", "find issues", "find defects", "critique this", "check this for problems", "what's wrong with this", "evaluate this", "run QA", "review the diff", "review the PR", "review my code", "deep QA", "defect audit", "code review", "assess this", "verify this works", "verify before completing", "prove this is done", "is this actually working". The single skill for all quality assurance — adversarial review, pre-completion verification, and evidence gathering. Supports cross-model critic lanes (--cross-model) for GPT/Gemini diversity via Netflix Model Gateway.
 user_invocable: true
 argument: |
   Path to artifact file (or inline content), with optional flags:
@@ -16,6 +16,7 @@ argument: |
                                      tests, typecheck, build, gather evidence
                                      that the change actually works. Reports
                                      what passed, what failed, what's unverified.
+    --cross-model                    Enable cross-model critic lanes (GPT + Gemini via MGP)
 
 category: qa
 capabilities:
@@ -24,6 +25,7 @@ capabilities:
   - defect-detection
   - severity-classification
   - ensemble-judges
+  - cross-model-diversity
 best_for:
   - "Reviewing existing artifacts for defects"
   - "Auditing specs, code diffs, PRs, research reports"
@@ -98,6 +100,51 @@ Current deep-qa adoption status:
 | Mandatory author counter-response | ✅ yes | Critic template requires an `Author counter-response` field — if the critic cannot write a plausible defense, the defect is filed as a minor observation instead of a defect. |
 | Rationalization auditor | ✅ yes | Phase 5.6 spawns an independent auditor before final synthesis; `REPORT_FIDELITY\|compromised` triggers re-assembly from judge verdicts only; two failures → `"Audit compromised — report re-assembled from verdicts only"` label. |
 | Falsifiability drop (not downgrade) | ❌ no | deep-qa's nitpick filter downgrades unfalsifiable concerns to minor notes rather than dropping them. Intentional divergence — user chose to keep this behavior when adopting the other three mechanisms. See `_shared/adversarial-judging.md` §4 for the pattern this skill deliberately departs from. |
+
+### Cross-Model Critic Lanes
+
+When `--cross-model` is passed (or always in `--auto` mode for diff-mode QA), deep-qa spawns additional critic lanes through the Netflix Model Gateway (MGP) using non-Claude model families. This provides cross-model diversity — findings confirmed independently by different model families have the highest confidence.
+
+**Architecture:** Cross-model critics run alongside normal Sonnet subagents. They receive the same angle files and artifact content. Their findings merge into the same dedup pipeline.
+
+**Model selection:**
+- GPT lane: `gpt-5.4` via MGP OpenAI-compatible endpoint
+- Gemini lane: `gemini-3.1-pro-preview` via MGP OpenAI-compatible endpoint
+- Both use `OPENAI_BASE_URL=http://mgp.local.dev.netflix.net:9123/proxy/npowws/v1` with `OPENAI_API_KEY=sk-dummy`
+
+**When cross-model critics run:**
+- `--cross-model` flag: always (any mode)
+- `--auto --diff`: always (diff-mode auto benefits most from cross-model diversity)
+- Otherwise: only when explicitly requested
+
+**Cross-model critic allocation per round:**
+- Of the 8 critic slots per round, allocate up to 2 for cross-model lanes (1 GPT, 1 Gemini)
+- Cross-model critics get the highest-priority angles from the frontier
+- Remaining 6 slots run normal Sonnet subagents on the remaining angles
+
+**Implementation:** Each cross-model critic is spawned as a Bash tool call running a Python script that:
+1. Reads the angle file from `deep-qa-{run_id}/angles/{angle.id}.md`
+2. Reads the artifact from `deep-qa-{run_id}/artifact.md`
+3. Sends both to the MGP endpoint with the critic prompt template
+4. Writes structured output to `deep-qa-{run_id}/critiques/{angle.id}-{model}.md`
+
+**Script location:** `~/.claude/skills/deep-qa/scripts/cross-model-critic.py`
+
+**Cross-model weighting in dedup (Phase 3 step 7):**
+When deduplicating findings, apply this weighting:
+
+| Signal | Confidence | Action |
+|--------|-----------|--------|
+| Same finding from 2+ different model families (e.g., Sonnet + GPT) | Highest | Preserve at highest proposed severity; tag `cross_model_confirmed` |
+| Same finding from 2+ Sonnet critics (same family) | High | Normal dedup — merge at highest severity |
+| Single cross-model finding not confirmed by any Sonnet critic | Standard | Verify normally; flag as `cross_model_unique` for extra attention in synthesis |
+| Single Sonnet finding | Standard | Normal processing |
+
+Add `cross_model_confirmed` and `cross_model_unique` tags to defect entries in state.json. In Phase 6 synthesis, highlight cross-model-confirmed findings prominently.
+
+**Cost:** Cross-model lanes add ~$0.10-0.30 per round (2 additional model calls). Total run cost increase: ~20-40% when enabled.
+
+**Failure handling:** If an MGP call fails (timeout, model unavailable, auth error), log the failure and continue with Sonnet-only critics for that round. Cross-model lanes are supplementary — never block the run.
 
 ## Artifact Types
 

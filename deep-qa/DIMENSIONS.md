@@ -76,6 +76,28 @@ Applies to: source code files, system architecture descriptions, API implementat
 | RESOURCE EXHAUSTION | Missing timeouts, unbounded retries, uncapped allocations, subprocess hangs, connection leaks, file handle exhaustion. The "what if it never finishes" dimension. | — |
 | CROSS-METHOD CONSISTENCY | When two methods compute the same semantic value (rootdir, env dict, path prefix) independently, do they agree? Locally-correct methods that silently disagree are invisible to single-function review. | — |
 
+### Ownership Boundaries (code)
+
+Each dimension owns a specific failure class. When a finding could plausibly belong to multiple dimensions, the "Owns" list determines which critic reports it. Critics MUST NOT report findings outside their ownership — even if the finding is real and important, it belongs to the owning dimension's critic.
+
+| Dimension | Owns | Does not own |
+|-----------|------|-------------|
+| CORRECTNESS | Logic errors, algorithmic bugs, wrong return values, edge-case failures on valid input, type confusion, off-by-one, null/None dereference on happy path | Error recovery behavior, code structure, performance, naming, test gaps |
+| ERROR HANDLING | Exception handling, error propagation, fallback behavior, recovery paths, retry logic, error messages, graceful degradation on invalid input | Happy-path correctness, code structure, performance, naming |
+| SECURITY | Injection vectors, auth/authz gaps, credential exposure, trust boundary violations, data leakage, OWASP Top 10 | Correct-path logic, error recovery, performance, code structure |
+| PERFORMANCE | Algorithmic complexity, N+1 queries, unnecessary allocations, hot-path bloat, blocking I/O in async, memory leaks, unbounded growth | Correctness, error handling, security, naming/readability |
+| TESTABILITY | Test coverage gaps, untestable code, non-deterministic tests, tautological assertions, missing test categories | Correctness of production code, error handling, security, performance |
+| MAINTAINABILITY | Naming clarity, readability, cyclomatic complexity, coupling, code reuse, future change hazards, dead code | Correctness, error handling, security, performance |
+| API DESIGN | Interface clarity, backwards compatibility, breaking changes, error contracts, method signatures, parameter design | Implementation correctness, internal error handling, performance |
+| CONCURRENCY | Race conditions, deadlocks, thread safety, shared mutable state, lock ordering, atomic operations | Sequential logic correctness, error messages, naming, performance of non-concurrent code |
+| OBSERVABILITY | Log quality, metric coverage, trace propagation, diagnostic context in errors, alertability, operator experience | Whether the code is correct, how errors are handled (only whether they're diagnosable) |
+| DEGRADED MODE | Partial-failure behavior, circuit breakers, dependency-down scenarios, graceful degradation paths, blast radius | Normal-path correctness, code structure, performance under normal conditions |
+| TEMPORAL COUPLING | Execution ordering assumptions, initialization sequences, deploy ordering, implicit happens-before | Logic correctness (given correct ordering), error handling, naming |
+| RESOURCE EXHAUSTION | Missing timeouts, unbounded retries, uncapped allocations, connection/handle leaks, subprocess hangs | Correctness, error message quality, code structure |
+| CROSS-METHOD CONSISTENCY | Independent computations of same semantic value disagreeing across methods | Single-method correctness, error handling, naming |
+
+**Overlap resolution rule:** When a single code pattern triggers findings in multiple dimensions (e.g., a missing null check is both a CORRECTNESS edge case and an ERROR HANDLING gap), the dimension whose "Owns" list most specifically describes the failure class takes priority. In ambiguous cases: CORRECTNESS wins over ERROR HANDLING for null/None on valid input; ERROR HANDLING wins for null/None from failed external calls; SECURITY wins for any finding with an exploitable attack vector regardless of other dimensions.
+
 **Required categories for `code`:** `correctness`, `error_handling`, `security`, `testability`, `temporal_coupling`
 
 **Typical angles:**
