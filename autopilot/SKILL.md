@@ -59,6 +59,8 @@ Read the input. Classify along three axes:
 
 Output: a `TaskProfile` logged to the user. Example: "Task: multi-file feature, partial spec, 4 subtasks (2 parallel + 2 sequential). Topology: staged fanout."
 
+**Pressure awareness:** this skill applies the pressure circuit breakers from [`_shared/pressure-awareness.md`](../_shared/pressure-awareness.md). After 2 retries of the same phase producing no new evidence, escalate rather than retrying. The iron-law phase gates already enforce checkpoint evidence; this contract adds the diminishing-returns check to prevent grinding within a phase.
+
 ### Phase 1: Plan (conditional — skip if atomic)
 
 - If clarity is "vague idea": invoke deep-design inline to stress-test the concept, then deep-plan to break into steps.

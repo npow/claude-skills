@@ -72,6 +72,8 @@ Systematically audit an existing artifact for defects using parallel critic agen
 
 ## Execution Model
 
+**Pressure awareness:** this skill applies the pressure circuit breakers from [`_shared/pressure-awareness.md`](../_shared/pressure-awareness.md). After each critic round, check for diminishing returns (round N < 20% of round N-1 findings → eligible for early termination). After 3 rounds with < 20% new findings, stop rather than grinding.
+
 Shares deep-design's core execution contracts:
 
 - **All data passed to agents via files, never inline.** Artifact, known-defects list, angle definitions — all written to disk before spawning.
