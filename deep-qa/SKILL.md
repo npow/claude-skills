@@ -110,7 +110,7 @@ When `--cross-model` is passed (or always in `--auto` mode for diff-mode QA), de
 **Model selection:**
 - GPT lane: `gpt-5.4` via MGP OpenAI-compatible endpoint
 - Gemini lane: `gemini-3.1-pro-preview` via MGP OpenAI-compatible endpoint
-- Both use `OPENAI_BASE_URL=http://mgp.local.dev.netflix.net:9123/proxy/npowws/v1` with `OPENAI_API_KEY=sk-dummy`
+- Both use `MGP_CRITIC_BASE_URL=http://mgp.local.dev.netflix.net:9123/proxy/npowws/v1` (default; do NOT rely on `OPENAI_BASE_URL` — workbench sets it to a projectless mesh endpoint)
 
 **When cross-model critics run:**
 - `--cross-model` flag: always (any mode)

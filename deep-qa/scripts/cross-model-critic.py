@@ -24,10 +24,10 @@ import urllib.error
 from datetime import datetime, timezone
 
 MGP_BASE = os.environ.get(
-    "OPENAI_BASE_URL",
+    "MGP_CRITIC_BASE_URL",
     "http://mgp.local.dev.netflix.net:9123/proxy/npowws/v1",
 )
-MGP_KEY = os.environ.get("OPENAI_API_KEY", "sk-dummy")
+MGP_KEY = os.environ.get("MGP_CRITIC_API_KEY", os.environ.get("OPENAI_API_KEY", "sk-dummy"))
 
 MAX_ARTIFACT_CHARS = 120_000
 MAX_COMPLETION_TOKENS = 16_384
