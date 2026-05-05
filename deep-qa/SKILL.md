@@ -104,7 +104,7 @@ Current deep-qa adoption status:
 | Type | Applies to | Required QA Categories |
 |------|-----------|------------------------|
 | `doc` | specs, design docs, RFCs, API docs, architecture docs | completeness, internal_consistency, feasibility, edge_cases |
-| `code` | source code, system architecture descriptions | correctness, error_handling, security, testability |
+| `code` | source code, system architecture descriptions | correctness, error_handling, security, testability, temporal_coupling |
 | `research` | research reports, literature reviews, deep-research outputs | accuracy, citation_validity, logical_consistency, coverage_gaps |
 | `skill` | Claude skills, system prompts, agent specs, tool instructions | behavioral_correctness, instruction_conflicts, injection_resistance, cost_runaway_risk |
 
@@ -830,6 +830,7 @@ These are excuses critics and judges use to suppress, downgrade, or ignore real 
 | "The proper noun sounds like a real Netflix tool" | Plausibility is not evidence. If a project/tool/teammate name has zero backing citation in the artifact, query the source system to verify it exists. LLMs confabulate convincing names from training-time priors. |
 | "X is on the team and worked on Y, so it's safe to say X did Y" | Team membership is not authorship. Re-query who actually authored/owned/assigned/committed the specific artifact. Cross-team work routinely surfaces as ownership confusion in attribution reports. |
 | "The handle is consistent across the report — that's enough" | Handles differ across systems (GHE vs GitHub.com vs Slack vs email). Build the cross-platform identity map; a query under the wrong handle returns zero results and looks like 'no work,' silently masking real activity (or vice versa). |
+| "Each file's changes look correct in isolation — the PR is fine" | File-local correctness does not imply composition correctness. When changes span multiple files composed by an orchestrator (bootstrap sequence, command list builder, pipeline), the bug lives in the ORDERING at the call site, not in any individual file. Open the orchestrator and trace which changed file runs first. Concrete miss: file A cleans up PYTHONHOME, file B shells out to subprocess needing clean env — both correct alone, but orchestrator runs B before A. This is the 'file-local review without call-site composition' pattern (missed in PR #1800 argv ordering, PR #1850 PYTHONHOME sequencing). |
 
 When you catch ANY of these in your reasoning, stop and re-read the relevant Golden Rule.
 
@@ -864,6 +865,7 @@ When you catch ANY of these in your reasoning, stop and re-read the relevant Gol
 - [ ] If `COHERENCE_SHALLOW` (100% STANDALONE across 6+ findings): flagged in Phase 6 caveats
 - [ ] Whenever the PR changes a contract (signature, shape, calling convention, named symbol, protocol, config key): a **legacy-symbol sweep** angle and a **contract fanout audit** angle both ran as round-1 CRITICAL priority with their own critics — the critics searched the ENTIRE artifact surface (whole repo, all files, all languages, all formats), not just changed files, and enumerated both producers and consumers of the changed contract
 - [ ] Whenever the PR makes a backward-compat claim: a **docstring / comment sweep** surfaced stale references to the old contract (filed as minor but filed)
+- [ ] Whenever the PR changes 2+ files that share env/state dependencies: a **cross-file orchestration sequencing** angle verified that every orchestrator composing those files runs producer-before-consumer (opened orchestrator files even when NOT in the diff)
 
 ---
 

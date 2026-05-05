@@ -76,7 +76,7 @@ Applies to: source code files, system architecture descriptions, API implementat
 | RESOURCE EXHAUSTION | Missing timeouts, unbounded retries, uncapped allocations, subprocess hangs, connection leaks, file handle exhaustion. The "what if it never finishes" dimension. | — |
 | CROSS-METHOD CONSISTENCY | When two methods compute the same semantic value (rootdir, env dict, path prefix) independently, do they agree? Locally-correct methods that silently disagree are invisible to single-function review. | — |
 
-**Required categories for `code`:** `correctness`, `error_handling`, `security`, `testability`
+**Required categories for `code`:** `correctness`, `error_handling`, `security`, `testability`, `temporal_coupling`
 
 **Typical angles:**
 - CORRECTNESS: "What happens at the boundary values of [key function]?", "Does the algorithm handle empty, null, zero, and maximum-value inputs?", "Is the return value correct for all code paths including error paths?"
@@ -89,7 +89,7 @@ Applies to: source code files, system architecture descriptions, API implementat
 **Typical angles (new dimensions):**
 - OBSERVABILITY: "For each error path, does the error message + log context provide enough information for an operator who has never seen this code to distinguish between the 3 most likely root causes?", "Are structured logging fields present for request tracing, or are errors logged as opaque strings?", "When this operation times out, what diagnostic information is available to determine WHERE in the call chain it stalled?"
 - DEGRADED MODE: "For each external dependency (DB, cache, queue, upstream service), what is the specified behavior when it is persistently unavailable while all other dependencies function normally?", "Do partial-failure states produce correct results, stale-but-safe results, or silently wrong results?", "Are circuit breakers or fallback paths defined, or does a single dependency failure cascade to total service unavailability?"
-- TEMPORAL COUPLING: "For every sequential phase dependency, is the ordering enforced by structure (locks, barriers, await) or by accident (happens to run in order today)?", "If a background task completes after the consumer has already read the state it was writing, what happens?", "Does initialization order matter, and if so, is it enforced or just documented?", "When changes span multiple files composed by an orchestrator (bootstrap sequence, command list builder, pipeline), open the orchestrator and trace the execution order — does each changed file's assumption about environment/state hold at the point where the orchestrator calls it? A change that cleans up env vars in file A and a change that depends on clean env vars in file B are both correct in isolation, but if the orchestrator runs B before A, the fix is defeated."
+- TEMPORAL COUPLING: "For every sequential phase dependency, is the ordering enforced by structure (locks, barriers, await) or by accident (happens to run in order today)?", "If a background task completes after the consumer has already read the state it was writing, what happens?", "Does initialization order matter, and if so, is it enforced or just documented?", "When changes span multiple files composed by an orchestrator (bootstrap sequence, command list builder, pipeline), open the orchestrator and trace the execution order — does each changed file's assumption about environment/state hold at the point where the orchestrator calls it? A change that cleans up env vars in file A and a change that depends on clean env vars in file B are both correct in isolation, but if the orchestrator runs B before A, the fix is defeated.", "IMPLICIT ORDERING via list position or sequence return values: some orchestrators don't call functions directly — they build a LIST of commands/steps that execute in list order (e.g., `bootstrap_commands()` returning bash commands, pipeline stage lists, Makefile target sequences). The ordering is encoded in list position, not in control flow. When two changed files contribute items to such a list, verify the list index of each item — a cleanup step at index 15 does not protect a subprocess at index 8 even though both are 'in the same function.' This is the most common form of the file-local-review-without-call-site-composition bug."
 - RESOURCE EXHAUSTION: "For every subprocess.run/Popen call: is there a timeout= parameter? What happens if the subprocess hangs?", "For every retry loop: is there a max-retry cap? What happens if retries are exhausted?", "For every network call (HTTP, S3, gRPC): is there a timeout? What happens on network partition — does the caller hang indefinitely?", "For every file/connection open: is it closed on all exit paths including exceptions? grep for open()/connect() without context managers."
 - CROSS-METHOD CONSISTENCY: "For every value that is computed in one method and re-derived in another (rootdir, env dict, path prefix, config key): are the two computations equivalent? grep for the same variable name across methods and verify they agree.", "For every environment dict prepared by one method and consumed by another: does the consumer read from the prepared dict or from os.environ? grep for os.environ.get in methods that receive an env dict parameter.", "For every path normalization: do all callers use the same normalization function, or do some use os.path.normpath while others use string manipulation?"
 
@@ -212,6 +212,14 @@ Track in `state.json`:
   "instruction_conflicts": false,
   "injection_resistance": false,
   "cost_runaway_risk": false
+}
+// For code type:
+"required_categories_covered": {
+  "correctness": false,
+  "error_handling": false,
+  "security": false,
+  "testability": false,
+  "temporal_coupling": false
 }
 ```
 
