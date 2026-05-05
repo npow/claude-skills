@@ -122,11 +122,21 @@ When `--cross-model` is passed (or always in `--auto` mode for diff-mode QA), de
 - Cross-model critics get the highest-priority angles from the frontier
 - Remaining 6 slots run normal Sonnet subagents on the remaining angles
 
-**Implementation:** Each cross-model critic is spawned as a Bash tool call running a Python script that:
-1. Reads the angle file from `deep-qa-{run_id}/angles/{angle.id}.md`
-2. Reads the artifact from `deep-qa-{run_id}/artifact.md`
-3. Sends both to the MGP endpoint with the critic prompt template
-4. Writes structured output to `deep-qa-{run_id}/critiques/{angle.id}-{model}.md`
+**Implementation:** Each cross-model critic is spawned as a Bash tool call running a Python script:
+
+```bash
+python3 ~/.claude/skills/deep-qa/scripts/cross-model-critic.py \
+    --angle-file deep-qa-{run_id}/angles/{angle.id}.md \
+    --artifact-file deep-qa-{run_id}/artifact.md \
+    --output-file deep-qa-{run_id}/critiques/{angle.id}-{model}.md \
+    --model gpt-5.4 \
+    --angle-id {angle.id} \
+    --dimension {angle.dimension} \
+    --mode {artifact_type} \
+    --known-defects-file deep-qa-{run_id}/known-defects.md
+```
+
+The script accepts `--mode` (code/doc/research/skill/security) and tailors both the system prompt and output format to the artifact type. Output is FORMAT.md-compliant — same `**QA Dimension:**` headers and `### Defect:` structure as Sonnet critics — so Phase 3 dedup and synthesis consume it without transformation.
 
 **Script location:** `~/.claude/skills/deep-qa/scripts/cross-model-critic.py`
 
@@ -439,7 +449,7 @@ Continue? [y/N/redirect:<focus>]
    - Angle files: `deep-qa-{run_id}/angles/{angle.id}.md`
    - If any verification fails: halt with error, do not spawn
 3. **Batch state update:** Write `status: "in_progress"` and `spawn_time_iso` for ALL angles in a single state.json write. Re-read state.json and verify `generation == N+1`. If mismatch: log conflict, retry once with fresh read, then halt.
-4. **Spawn ALL critic agents in a SINGLE message** — emit all 8 Agent tool calls in one response so they run concurrently (120s timeout). Each agent reads its own angle file; you do NOT need to read angle files before spawning. Do NOT read files, check state, or do any work between Agent calls — the entire set must be in one turn. Sequential one-at-a-time spawning is a workflow violation.
+4. **Spawn ALL critics in a SINGLE message** — emit all tool calls in one response so they run concurrently (120s timeout). When `--cross-model` is active, the message contains a mix: up to 6 Agent tool calls (Sonnet critics) + up to 2 Bash tool calls (cross-model MGP scripts). Each agent reads its own angle file; you do NOT need to read angle files before spawning. Do NOT read files, check state, or do any work between tool calls — the entire set must be in one turn. Sequential one-at-a-time spawning is a workflow violation.
 5. On timeout: mark `timed_out`, write `"generation": += 1`, do NOT re-queue, do NOT increment dedup counter
 6. Collect new angles from ALL completed agents BEFORE running dedup
 7. Apply dedup against stable pre-round snapshot. **Assign `depth = parent.depth + 1`** to each critic-reported angle. Reject angles where `depth > max_depth`. Enforce frontier cap with required-category protection (see STATE.md).
@@ -809,14 +819,10 @@ When `--fix` is passed, deep-qa adds a fix-review loop after the QA rounds:
 
 This changes deep-qa from "surface defects" to "surface and resolve defects."
 
-## Cross-Provider Mode (`--cross-provider`)
-
-When `--cross-provider` is passed, spawn additional critics on non-Claude models (GPT, Gemini) for maximum blind-spot diversity. Requires `mcp__pal__codereview` or equivalent. Each non-Claude critic runs the same dimension focus but from a different model's perspective.
-
 ## Additional Flags (ported from review skill)
 
 - `--fix` — auto-fix critical/major issues and re-review (loop)
-- `--cross-provider` — add non-Claude critics for blind-spot diversity
+- `--cross-model` — add non-Claude critics via MGP for blind-spot diversity (see Cross-Model Critic Lanes above)
 - `--mode` — select preset dimension focus (code/security/proposal/claims/design)
 - `--max-rounds=N` — cap critique-fix loop (default: 3)
 

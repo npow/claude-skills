@@ -7,6 +7,9 @@ Usage:
         --artifact-file deep-qa-run/artifact.md \
         --output-file deep-qa-run/critiques/angle-1-gpt.md \
         --model gpt-5.4 \
+        --angle-id angle-1 \
+        --dimension correctness \
+        --mode code \
         --known-defects-file deep-qa-run/known-defects.md
 
 Models route through Netflix Model Gateway (MGP) OpenAI-compatible endpoint.
@@ -18,6 +21,7 @@ import os
 import sys
 import urllib.request
 import urllib.error
+from datetime import datetime, timezone
 
 MGP_BASE = os.environ.get(
     "OPENAI_BASE_URL",
@@ -29,25 +33,73 @@ MAX_ARTIFACT_CHARS = 120_000
 MAX_COMPLETION_TOKENS = 16_384
 TIMEOUT_SECONDS = 120
 
-SYSTEM_PROMPT = """\
+SYSTEM_PROMPTS = {
+    "code": """\
 You are an independent code critic performing adversarial quality review.
 You have NO prior context about this codebase's history, design decisions, or ongoing work.
 Review purely based on what you see. Flag anything that appears problematic.
-Your findings will be validated by a senior engineer with full context.
+Your findings will be validated by a senior engineer with full context.""",
+    "doc": """\
+You are an independent specification critic performing adversarial quality review.
+You have NO prior context about this project's history, constraints, or decisions.
+Review purely based on what you see. Flag ambiguities, contradictions, missing requirements,
+unspecified error paths, and gaps that would cause divergent implementations.
+Your findings will be validated by the specification owner.""",
+    "research": """\
+You are an independent research critic performing adversarial quality review.
+You have NO prior context about this research topic or methodology.
+Review purely based on what you see. Flag unsupported claims, methodological gaps,
+missing evidence, logical fallacies, and conclusions that don't follow from the data.
+Your findings will be validated by the research lead.""",
+    "skill": """\
+You are an independent skill/workflow critic performing adversarial quality review.
+You have NO prior context about this skill's design intent or operational environment.
+Review purely based on what you see. Flag workflow gaps, missing error handling,
+ambiguous instructions, untested edge cases, and contract violations.
+Your findings will be validated by the skill maintainer.""",
+    "security": """\
+You are an independent security critic performing adversarial review.
+You have NO prior context about the threat model or security architecture.
+Review purely based on what you see. Flag injection vectors, auth gaps, data exposure,
+privilege escalation paths, and unsafe defaults.
+Your findings will be validated by the security team.""",
+}
 
-Output format — one defect per block, using EXACTLY this structure:
+OUTPUT_FORMAT = """\
 
-DEFECT|<id>|<severity>|<dimension>|<title>
-<description>
-EVIDENCE: <specific code or pattern>
-AUTHOR_COUNTER: <strongest argument that this is intentional>
+Output format — for EACH defect found, use EXACTLY this markdown structure:
+
+### Defect: {title}
+**Severity:** critical | major | minor
+
+**Scenario:**
+A concrete, specific scenario demonstrating the defect. Not abstract — describe a real consumer
+encountering the problem step by step.
+
+**Root Cause:**
+WHY this is broken. The underlying gap, assumption, or omission — not just the symptom.
+
+**Suggested Remediation Direction (optional):**
+How to address the root cause. Brief — the artifact owner decides how to fix it.
+
 ---
 
-Severity: critical, major, minor
-If no defects found for this angle, output: NO_DEFECTS|<dimension>|<reason>
+After all defects, include:
 
-Do NOT soften findings. Do NOT assume patterns are intentional. Report everything.\
-"""
+## New QA Angles Discovered
+List 1-3 genuinely novel angles, or "None — this dimension is thoroughly covered."
+
+## Mini-Synthesis
+3+ sentences covering: what defect patterns this angle revealed, how they connect,
+and what this changes about your understanding of the artifact's overall quality risks.
+
+## Exhaustion Assessment
+**Score: {1-5}**
+1 = barely scratched the surface, 5 = fully QA'd
+**What's missing (if score < 4):** specific gaps a follow-up pass should target
+
+If no defects found, output "No defects found for this angle." and explain why in Mini-Synthesis.
+Do NOT soften findings. Do NOT assume patterns are intentional. Report everything."""
 
 
 def read_file(path: str, max_chars: int = 0) -> str:
@@ -97,6 +149,9 @@ def main():
     parser.add_argument("--artifact-file", required=True)
     parser.add_argument("--output-file", required=True)
     parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--angle-id", required=True)
+    parser.add_argument("--dimension", required=True)
+    parser.add_argument("--mode", default="code", choices=list(SYSTEM_PROMPTS.keys()))
     parser.add_argument("--known-defects-file", default="")
     parser.add_argument("--temperature", type=float, default=0.7)
     args = parser.parse_args()
@@ -108,20 +163,31 @@ def main():
     if args.known_defects_file and os.path.exists(args.known_defects_file):
         known_defects = read_file(args.known_defects_file)
 
+    system_prompt = SYSTEM_PROMPTS[args.mode] + OUTPUT_FORMAT
+
     user_msg = f"## QA Angle\n\n{angle}\n\n"
     if known_defects:
         user_msg += f"## Already-Known Defects (do NOT re-report these)\n\n{known_defects}\n\n"
     user_msg += f"## Artifact Under Review\n\n{artifact}"
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_msg},
     ]
 
-    print(f"Calling {args.model} via MGP...", file=sys.stderr)
+    print(f"Calling {args.model} via MGP (mode={args.mode})...", file=sys.stderr)
     response = call_mgp(args.model, messages, temperature=args.temperature)
 
-    header = f"# Cross-Model Critique ({args.model})\n\n"
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    header = (
+        f"# {args.angle_id}: cross-model critique ({args.model})\n"
+        f"**Artifact Type:** {args.mode}\n"
+        f"**QA Dimension:** {args.dimension}\n"
+        f"**Depth:** 0\n"
+        f"**Parent:** seed\n"
+        f"**Date:** {date_str}\n\n"
+        f"## Defects Found\n\n"
+    )
     with open(args.output_file, "w") as f:
         f.write(header + response)
 
