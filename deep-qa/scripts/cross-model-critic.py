@@ -148,7 +148,7 @@ def main():
     parser.add_argument("--angle-file", required=True)
     parser.add_argument("--artifact-file", required=True)
     parser.add_argument("--output-file", required=True)
-    parser.add_argument("--model", default="gpt-5.4")
+    parser.add_argument("--model", default="gpt-5.4-pro")
     parser.add_argument("--angle-id", required=True)
     parser.add_argument("--dimension", required=True)
     parser.add_argument("--mode", default="code", choices=list(SYSTEM_PROMPTS.keys()))
