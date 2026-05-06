@@ -206,6 +206,7 @@ class DeepQaInput:
     verifier_user_prompt: str = ""
     synth_system_prompt: str = ""
     synth_user_prompt: str = ""
+    cross_model_enabled: bool = True
 
 
 # Tier-appropriate max_tokens (Haiku caps at 8192 output tokens).
@@ -213,7 +214,11 @@ _HAIKU_MAX_TOKENS = 8192
 _SONNET_MAX_TOKENS = 128000
 
 # Bounded parallelism per round (spec: max 8 critics per round).
+# When cross-model is enabled, 6 Haiku + 2 cross-model (1 GPT, 1 Gemini).
 _MAX_CRITICS_PER_ROUND = 8
+_MAX_CROSS_MODEL_PER_ROUND = 2
+_CROSS_MODEL_SCRIPT = "~/.claude/skills/deep-qa/scripts/cross-model-critic.py"
+_CROSS_MODEL_MODELS = ["gpt-5.4-pro", "gemini-3.1-pro-preview"]
 
 # Maximum defects per judge batch (spec: ≤5 per batch).
 _MAX_DEFECTS_PER_JUDGE_BATCH = 5
@@ -361,8 +366,13 @@ class DeepQaWorkflow:
             generation += 1
 
             # Pop up to _MAX_CRITICS_PER_ROUND highest-priority angles.
+            # Reserve slots for cross-model critics if enabled.
+            cross_model_count = min(_MAX_CROSS_MODEL_PER_ROUND, len(frontier)) if inp.cross_model_enabled else 0
+            haiku_count = _MAX_CRITICS_PER_ROUND - cross_model_count
             batch = frontier[:_MAX_CRITICS_PER_ROUND]
             frontier = frontier[_MAX_CRITICS_PER_ROUND:]
+            haiku_batch = batch[:haiku_count]
+            cross_model_batch = batch[haiku_count:] if cross_model_count > 0 else []
 
             # Write critic prompt files before spawning.
             critic_prompt_paths: list[str] = []
@@ -384,8 +394,11 @@ class DeepQaWorkflow:
                 )
                 critic_prompt_paths.append(ppath)
 
-            # Spawn critics in parallel (180s timeout per spec).
-            critic_coros = [
+            haiku_paths = critic_prompt_paths[:haiku_count]
+            cross_model_paths = critic_prompt_paths[haiku_count:]
+
+            # Spawn Haiku critics in parallel.
+            critic_coros: list = [
                 workflow.execute_activity(
                     "spawn_subagent",
                     SpawnSubagentInput(
@@ -401,8 +414,47 @@ class DeepQaWorkflow:
                     heartbeat_timeout=timedelta(seconds=120),
                     retry_policy=HAIKU_POLICY,
                 )
-                for ppath in critic_prompt_paths
+                for ppath in haiku_paths
             ]
+
+            # Spawn cross-model critics via CLI (tools_needed=True runs the script).
+            for cm_idx, (cm_angle, cm_path) in enumerate(zip(cross_model_batch, cross_model_paths)):
+                model = _CROSS_MODEL_MODELS[cm_idx % len(_CROSS_MODEL_MODELS)]
+                cm_output = f"{inp.run_dir}/critic-r{round_idx}-cm-{model.split('-')[0]}.txt"
+                cm_prompt_path = f"{inp.run_dir}/critic-r{round_idx}-cm-{cm_idx}-prompt.txt"
+                cm_cmd = (
+                    f"python3 {_CROSS_MODEL_SCRIPT} "
+                    f"--angle-file {cm_path} "
+                    f"--artifact-file {artifact_snapshot} "
+                    f"--output-file {cm_output} "
+                    f"--model {model} "
+                    f"--angle-id {cm_angle.question[:40]} "
+                    f"--dimension {cm_angle.dimension} "
+                    f"--mode {inp.artifact_type}"
+                )
+                await workflow.execute_activity(
+                    "write_artifact",
+                    WriteArtifactInput(path=cm_prompt_path, content=f"Run this command and report its output:\n{cm_cmd}"),
+                    start_to_close_timeout=timedelta(seconds=10),
+                    retry_policy=HAIKU_POLICY,
+                )
+                critic_coros.append(
+                    workflow.execute_activity(
+                        "spawn_subagent",
+                        SpawnSubagentInput(
+                            role=f"cross-model-critic-{model.split('-')[0]}",
+                            tier_name="SONNET",
+                            system_prompt="Run the command in the prompt file. Report the output file contents as structured output.",
+                            user_prompt_path=cm_prompt_path,
+                            tools_needed=True,
+                            run_dir=inp.run_dir,
+                        ),
+                        start_to_close_timeout=timedelta(seconds=300),
+                        heartbeat_timeout=timedelta(seconds=120),
+                        retry_policy=SONNET_POLICY,
+                    )
+                )
+
             critic_outputs = await asyncio.gather(*critic_coros, return_exceptions=True)
 
             new_defects_this_round: list[Defect] = []

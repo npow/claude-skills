@@ -24,6 +24,7 @@ def _build_input(
         max_rounds = int(cli_args.get("max_rounds", 3))
     except (TypeError, ValueError):
         max_rounds = 3
+    cross_model = str(cli_args.get("cross_model", "true")).lower() != "false"
     return DeepQaInput(
         run_id=run_id,
         artifact_path=str(path),
@@ -32,6 +33,7 @@ def _build_input(
         run_dir=run_dir,
         max_rounds=max_rounds,
         notify=True,
+        cross_model_enabled=cross_model,
         dim_discovery_system_prompt=load_claude_skill_prompt("deep-qa", "dim_discovery.system"),
         dim_discovery_user_prompt=load_claude_skill_prompt("deep-qa", "dim_discovery.user"),
         critic_system_prompt=load_claude_skill_prompt("deep-qa", "critic.system"),
