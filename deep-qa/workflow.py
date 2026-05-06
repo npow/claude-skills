@@ -366,13 +366,13 @@ class DeepQaWorkflow:
             generation += 1
 
             # Pop up to _MAX_CRITICS_PER_ROUND highest-priority angles.
-            # Reserve slots for cross-model critics if enabled.
-            cross_model_count = min(_MAX_CROSS_MODEL_PER_ROUND, len(frontier)) if inp.cross_model_enabled else 0
-            haiku_count = _MAX_CRITICS_PER_ROUND - cross_model_count
             batch = frontier[:_MAX_CRITICS_PER_ROUND]
             frontier = frontier[_MAX_CRITICS_PER_ROUND:]
+            # Reserve last N slots in batch for cross-model critics.
+            cross_model_count = min(_MAX_CROSS_MODEL_PER_ROUND, len(batch)) if inp.cross_model_enabled else 0
+            haiku_count = len(batch) - cross_model_count
             haiku_batch = batch[:haiku_count]
-            cross_model_batch = batch[haiku_count:] if cross_model_count > 0 else []
+            cross_model_batch = batch[haiku_count:]
 
             # Write critic prompt files before spawning.
             critic_prompt_paths: list[str] = []
