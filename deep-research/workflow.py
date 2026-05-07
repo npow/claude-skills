@@ -19,7 +19,7 @@ Implements:
                emits VERIFIED, MISMATCHES, UNVERIFIABLE, SAMPLING_STRATEGY.
   Phase 5   — Synthesis with cross-cutting analysis section.
   Phase 6   — Termination labels (4 spec labels + absolute hard-stop at
-               max_rounds * 3).
+               max_rounds * 5).
   v4.1      — Translation round-trip tracking per direction.
 """
 
@@ -118,7 +118,7 @@ class DeepResearchWorkflow:
         findings_dir = f"{run_dir}/deep-research-findings"
         progress_path = f"{run_dir}/progress.json"
         seed_path = f"{run_dir}/seed-topic.md"
-        abs_cap = inp.max_rounds * 3
+        abs_cap = inp.max_rounds * 5
 
         # Write seed to a separate file — agents read it via tools.
         # Follows files-not-inline contract from _shared/execution-model-contracts.md.

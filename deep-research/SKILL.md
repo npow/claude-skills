@@ -318,18 +318,18 @@ User sets max_rounds explicitly — no hardcoded default.
 ```
 initial_directions = count of directions in Phase 1
 max_agents_per_round = state.max_agents_per_round or 6      # default 6, tune to your quota
-depth_multiplier      = state.depth_multiplier or 1.5        # expected sub-direction yield
-min_recommended       = state.min_recommended_rounds or 8    # floor for noisy topics
+depth_multiplier      = state.depth_multiplier or 2.5        # expected sub-direction yield
+min_recommended       = state.min_recommended_rounds or 30   # floor — prefer saturation over budget limits
 
 min_rounds_to_cover_seed = ceil(initial_directions / max_agents_per_round)
 recommended              = ceil(min_rounds_to_cover_seed * depth_multiplier)
 recommended              = max(recommended, min_recommended)
 ```
-Example (defaults): 20 initial directions → ceil(20/6)=4 × 1.5=6 → recommend 8.
-Example (defaults): 30 initial directions → ceil(30/6)=5 × 1.5=7.5 → recommend 8.
+Example (defaults): 20 initial directions → ceil(20/6)=4 × 2.5=10 → recommend 30.
+Example (defaults): 40 initial directions → ceil(40/6)=7 × 2.5=17.5 → recommend 30.
 Wrong constants change recommended depth, not correctness — the soft gate still prompts at `max_rounds`.
 
-Note: `max_rounds` is a **soft gate** — the skill will prompt to extend when reached with non-empty frontier. Set conservatively; you can always extend.
+Note: `max_rounds` is a **soft gate** — the skill will prompt to extend when reached with non-empty frontier. **Prefer saturation over budget limits.** Set `max_rounds` high enough that frontier exhaustion or coverage plateau is the normal termination condition, not the round limit.
 
 ---
 
@@ -493,7 +493,7 @@ Terminate when ANY of these is true (any-of-4, not all-of-4):
 
 **Blind-spot gate:** condition 2 CANNOT fire if any of PRIOR-FAILURE / BASELINE / ADJACENT-EFFORTS / STRATEGIC-TIMING / ACTUAL-USAGE is uncovered, or if unconsumed-leads count > 0. Dimension coverage alone is necessary but not sufficient for "coverage plateau."
 
-`max_rounds` is a **soft gate** — it prompts the user, it does not auto-terminate. Only `--auto` makes it a hard stop. Absolute hard ceiling is `max_rounds * 3`.
+`max_rounds` is a **soft gate** — it prompts the user, it does not auto-terminate. **In `--auto` mode, the coordinator continues until saturation** (coverage plateau or frontier exhaustion), not until `max_rounds`. `max_rounds` in `--auto` mode only triggers a progress log, not a stop. Absolute hard ceiling is `max_rounds * 5`.
 
 ---
 
@@ -576,13 +576,13 @@ The `--depth` flag controls research budget (usable directly or via the investig
 
 | Depth | Dimensions | Tool calls/direction | Max rounds | Cross-cutting dims required |
 |-------|-----------|---------------------|------------|---------------------------|
-| `quick` | 2-3 | 3 | 1 | BASELINE + ACTUAL-USAGE |
-| `standard` | 3-5 | 5-10 | 3 | 3 of 5 |
+| `quick` | 2-3 | 3 | 3 | BASELINE + ACTUAL-USAGE |
+| `standard` | 3-5 | 5-10 | 30 | 3 of 5 |
 | `deep` | 5-7 | 10+ | unlimited | all 5 |
 
-For `quick` mode: skip novelty detection, vocabulary bootstrap, breadth auditing, and contrarian pass. Run one round of parallel research, synthesize, ship. This is the "80% quality in 20% of the time" option.
+For `quick` mode: skip novelty detection, vocabulary bootstrap, breadth auditing, and contrarian pass. Runs up to 3 rounds, synthesize, ship. This is the "80% quality in 20% of the time" option.
 
-For `standard` mode (default): run all phases but cap rounds at 3 and skip the contrarian pass.
+For `standard` mode (default): run all phases, skip the contrarian pass. **Runs until saturation** (coverage plateau or frontier exhaustion), with `max_rounds=30` as a soft gate — not a hard stop.
 
 For `deep` mode: full deep-research spec with no shortcuts.
 
@@ -625,7 +625,7 @@ The coordinator WILL be tempted to skip steps. These are the talking points it m
 | "This forum post / personal blog counts as a citation." | No. `unverified` tier sources do NOT count toward corroboration. They may appear in the source table as context, but the claim's `corroboration` field only counts primary + secondary. |
 | "Exhaustion threshold met — we're done with this direction." | No. Exhaustion ≥ 4 is one termination trigger, not a license to skip the coverage plateau check or the counter-evidence search. Exhaustion measures what was found, not what was missed. |
 | "Honest coverage report can wait — the findings are the main product." | No. The coverage report IS the product. An overclaimed research report is worse than a short one. Termination label + Coverage % + Evidence Quality + single-source count are non-optional. |
-| "Just one more round will close the gap." | No. The budget soft gate exists because "one more round" is how runs spiral. If the user wants more, they extend. The coordinator does not self-extend. |
+| "Just one more round will close the gap." | Maybe. If the frontier is non-empty and coverage plateau hasn't been reached, continue. Saturation is the preferred termination condition — stopping early with unexplored frontier is worse than running extra rounds. The coordinator self-extends in `--auto` mode until saturation. Only stop when: frontier empties, coverage plateau is confirmed, or the absolute hard ceiling is hit. |
 | "The second agent repeated the first — that's corroboration." | No. Two agents reading the same sources is not independent corroboration. Independence is a source-level property, not an agent-level property. |
 | "Counter-evidence was weak, so I didn't cite it." | No. Disconfirming evidence that was found MUST be cited inline with the claim and the field set to `yes_disconfirming_evidence_present`. Omitting it is selection bias dressed up as editorial judgment. |
 | "I'll merge stale-source claims into the main text — flagging them is clutter." | No. Stale sources get counted and surfaced in the final report. The reader cannot assess freshness if the coordinator launders the date. |
@@ -756,8 +756,10 @@ Trigger: `exhaustion_score <= 2 AND duplication[direction] < 2`
 
 When `--auto` is passed:
 - All prospective round gates are skipped
-- Runs to max_rounds
-- ⚠️ No cost circuit breaker — set an appropriate max_rounds before starting
+- **Runs until saturation** (coverage plateau or frontier exhaustion), NOT until `max_rounds`
+- `max_rounds` triggers a progress log entry, not a stop — the coordinator continues past it
+- Absolute hard ceiling: `max_rounds * 5` (prevents truly infinite runs on pathological topics)
+- ⚠️ Prefer saturation over budget limits — stopping early with unexplored frontier is the worse outcome
 
 ---
 

@@ -222,9 +222,9 @@ Options:
 ```
 - If user says y/+N: update max_rounds, continue
 - If user says n: stop, synthesize, label: "User-stopped at round N — {M} frontier directions unexplored"
-- `--auto` flag overrides this gate and hard-stops at max_rounds (unattended runs)
+- **`--auto` flag: coordinator continues past `max_rounds` until saturation** (coverage plateau or frontier exhaustion). `max_rounds` triggers a progress log, not a stop. Prefer saturation over budget limits — stopping early with unexplored frontier is worse than running extra rounds.
 
-**True hard stop:** `max_rounds * 3` as absolute ceiling (prevents runaway cost on `--auto` with growing frontier).
+**True hard stop:** `max_rounds * 5` as absolute ceiling (prevents truly infinite runs on pathological topics).
 
 ---
 
