@@ -198,6 +198,19 @@ Before running any tests, probe the project for its actual Python/test environme
    - Manual validation steps if automation insufficient
 3. Collect results: what passed, what failed, what's unverified.
 
+**Step 0b-verify-mutation — Mutation testing (conditional):**
+
+After step 0b-verify confirms tests pass (green baseline), run mutation testing to verify tests actually catch meaningful failures:
+
+1. **Gate:** Only run if ALL of: (a) tests passed in step 0b, (b) test files exist for the changed code, (c) artifact type is `code`, (d) `--depth=quick` is NOT set.
+2. **Invoke:** Spawn the `mutation-test` skill as a background agent targeting changed files. Pass a 3-minute total budget. The skill measures baseline test duration, generates mutations prioritized by severity (business_logic + concurrency first), and runs each within an adaptive timeout (3× baseline).
+3. **Map results to verification report:**
+   - Surviving `business_logic` or `concurrency` mutations → add to **Unverified ⚠️** as "Tests pass but don't catch: {mutation description}"
+   - Surviving `data_flow` or `error_handling` mutations → add to **Unverified ⚠️** as "Test gap: {mutation description}"
+   - All mutations killed → add to **Verified ✅** as "Mutation testing: {N}/{N} mutations killed — tests catch semantic changes"
+   - Budget exhausted → note how many mutations were tested vs skipped
+4. **Verdict impact:** Surviving high-severity mutations (business_logic, concurrency) downgrade verdict from `verified` to `partially_verified`. Surviving medium-severity mutations are noted but don't downgrade the verdict.
+
 **Step 0c-verify — Report:**
 
 Output a verification report:
@@ -205,10 +218,12 @@ Output a verification report:
 ## Verification Report
 ### Verified ✅
 - {what passed and how}
+- Mutation testing: {K}/{N} mutations killed
 ### Failed ❌  
 - {what failed and the error}
 ### Unverified ⚠️
 - {what couldn't be checked and why}
+- {surviving mutations from mutation-test, if any}
 ### Verdict
 {verified | partially_verified | failed}
 ```
@@ -466,6 +481,20 @@ Continue? [y/N/redirect:<focus>]
 **MANDATORY CONTINUATION:** After collecting all critic results for any round, you MUST continue — either to the next round's step 1 (if rounds remain) or to Phase 5 termination check (if this was the last round). Producing an empty response or ending the turn after critic collection is a workflow violation. The skill is not complete until Phase 6 writes `qa-report.md`.
 
 **Pipelining rationale:** Severity judges and coordinator summaries are reporting artifacts consumed only in Phase 6. They do not affect angle selection, dedup, or coverage evaluation. Running them in the background while the next round's critics execute hides their latency entirely.
+
+**Mutation testing lane (empirical TESTABILITY — Round 1 only):**
+
+When ALL of: (a) `artifact_type == "code"`, (b) test files exist for the artifact's target files, (c) `--no-cross-model` is NOT set, (d) `--depth=quick` is NOT set — spawn a mutation-test background agent in Round 1 alongside the first critic batch:
+
+1. **Spawn:** In the same single-message critic spawn (step 4), include an additional Agent call that invokes the `mutation-test` skill targeting the artifact's source files. Pass total budget of 3 minutes. The agent runs independently and writes results to `deep-qa-{run_id}/mutation-report.md`.
+2. **Collect:** Drain the mutation-test agent at Phase 5.5 (alongside pass-1 judges). Do NOT wait for it during rounds.
+3. **Map to defects:** Each surviving mutant becomes a defect entry in state.json:
+   - `dimension: "TESTABILITY"`, `source: "mutation-test"`
+   - `business_logic` or `concurrency` surviving mutation → `severity: "critical"`
+   - `data_flow` or `error_handling` surviving mutation → `severity: "major"`
+   - `judge_status: "pre-judged"` (mutation survival is empirical evidence — no blind judge needed)
+4. **Report:** Include mutation-test results as a subsection in the Phase 6 final report under TESTABILITY findings.
+5. **Skip gracefully:** If mutation-test agent times out, fails, or finds no test files, log and continue — the lane is supplementary.
 
 **No redesign phase.** Defects are catalogued with severity; status remains `open` unless disputed by validation.
 
