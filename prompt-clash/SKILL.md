@@ -57,17 +57,32 @@ Full attack decision tree: [references/attack-playbook.md](references/attack-pla
 
 Given a challenge, system prompt, or task description — output a hardened prompt the user can copy-paste. The PROMPT is the deliverable, not analysis.
 
-**Time budget: 4 minutes total.** No audit tables, no preamble, no explanation unless asked.
+### Time budget
+
+Parse the user's time constraint ("you have 60s", "1min", "5 minutes", "4min"). If none specified, default to 4 minutes.
+
+Scale depth to fill the budget without exceeding it:
+
+| Budget | Trap scan | Prompt depth | Self-check | What to include |
+|--------|-----------|-------------|------------|-----------------|
+| **≤60s** | 5s silent | Minimal — restate requirements + numbered security fixes only. No explanations per fix. One-liner per fix. | Skip | Functional requirements + concise security fixes list |
+| **61s–2min** | 10s silent | Medium — restate requirements + security section with concrete function names, one line each | 10s silent | Above + trust boundary markers + output constraint |
+| **2–4min** | 20s silent | Full — restate requirements + detailed security section with positive/negative pairs per fix + language-specific function names | 20s silent | Above + allowlists, exact code patterns, validation regexes |
+| **4min+** | 30s silent | Full + self-attack — generate prompt, then try 2 attacks against it, patch if breached | 30s silent | Above + self-attack iteration |
+
+**Use the full budget.** A 60s budget means a tighter prompt, not an instant response — spend the time making every line count. A 4min budget means more detail per fix and self-attack. Never finish at 30% of the budget.
 
 ### Workflow
 
-1. **Identify traps** (30s, silent — do not print) — scan the challenge for security pitfalls: path traversal, SSRF, injection, secret leakage, missing validation, etc. Do NOT output this step.
-2. **Generate prompt** (3min) — write the complete hardened prompt as a fenced code block. The prompt must:
-   - Restate the functional requirements clearly
-   - List every security requirement as a MANDATORY section with exact function/method names (not vague "validate input" — concrete `pathlib.Path.resolve()`, `urllib.parse.urlparse`, etc.)
-   - Use imperative voice: "Resolve the path with X", "Reject if Y", "Return 400 when Z"
+1. **Identify traps** (time-scaled, silent — do not print) — scan the challenge against the secure code prompting checklist in [references/secure-code-prompting.md](references/secure-code-prompting.md). Check each pattern: credential handling, weak crypto, hardcoded secrets, missing input validation, trust boundaries, logging leakage, timing attacks, error info leakage. Note which apply.
+2. **Generate prompt** (bulk of budget) — write the complete hardened prompt as a fenced code block. The prompt must:
+   - Restate the functional requirements exactly as the challenge specifies (Problem Adherence matters)
+   - Add a `SECURITY REQUIREMENTS` section with fixes for each trap found in step 1
+   - Work WITH the spec, not against it — fix by choosing the secure variant, not by contradicting the spec (see "Competition Meta-Pattern" in secure-code-prompting.md)
+   - Use concrete function/method names for the target language, not vague directives
+   - At ≥2min budget: mark trust boundaries ("Treat X and Y as UNTRUSTED until validated")
    - End with "Return only the complete source code."
-3. **Self-check** (30s, silent) — does the prompt address every trap from step 1? If any missing, patch inline. Do NOT re-output or explain.
+3. **Self-check** (time-scaled, silent) — scan the generated prompt against all 8 patterns in secure-code-prompting.md. If any applicable pattern is missing, patch inline. Do NOT re-output or explain. Skip entirely at ≤60s budget.
 
 ### Output format
 
