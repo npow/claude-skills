@@ -82,7 +82,7 @@ Scale depth to fill the budget without exceeding it:
    - Use concrete function/method names for the target language, not vague directives
    - At ≥2min budget: mark trust boundaries ("Treat X and Y as UNTRUSTED until validated")
    - End with "Return only the complete source code."
-3. **Self-check** (time-scaled, silent) — scan the generated prompt against all 8 patterns in secure-code-prompting.md. If any applicable pattern is missing, patch inline. Do NOT re-output or explain. Skip entirely at ≤60s budget.
+3. **Self-check** (time-scaled, silent) — scan the generated prompt against all 15 patterns in secure-code-prompting.md. If any applicable pattern is missing, patch inline. Do NOT re-output or explain. Skip entirely at ≤60s budget.
 
 ### Output format
 

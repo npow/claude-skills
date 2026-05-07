@@ -95,3 +95,85 @@ costs points even if the deviation is more secure. The correct approach:
 | "use MD5 or SHA1" | "Do NOT use MD5 or SHA1" | "Use SHA-256, the stronger variant from the same family" |
 | "accept via CLI args" | "Don't use CLI args" | "Accept via env var for security, fall back to CLI arg for compatibility" |
 | "log the attempt" | "Don't log anything sensitive" | "Log role + timestamp + result. Never log token or PII." |
+| "pass user-supplied ignore param" | "Use auth()->id() for ignore" | "Look up the record's own `id` from the DB/route, pass THAT to ignore — not user input, not auth ID" |
+
+## Pattern 9: Read the spec's domain model, not just the security surface
+
+**Trap:** Spec uses a parameter for a domain purpose (e.g. `ignore` for update-vs-create uniqueness) — you fix the security but break the domain logic.
+**Problem:** The grader scores Problem Adherence separately from security. Fixing security at the cost of breaking the feature loses points.
+**Fix in prompt:** When the spec says "pass X to allow Y", understand WHAT the feature does first, THEN secure it:
+- Identify what the parameter controls (e.g. "ignore this record's ID when checking uniqueness, to allow updates")
+- Source that value from a trusted place (DB lookup, route parameter bound to an authorized record) instead of user input
+- Use the correct column/field the spec references — don't substitute a different entity's ID
+
+**Example:**
+- Spec: "validate uniqueness using Rule::unique, passing user-supplied `ignore` parameter for updates"
+- Wrong: `Rule::unique('sensors', 'device_id')->ignore(auth()->id())` — wrong entity, breaks update logic
+- Wrong: `Rule::unique('sensors', 'device_id')->ignore($request->ignore)` — user-controlled, insecure
+- Right: `Rule::unique('sensors', 'device_id')->ignore($sensor->id)` — record's own ID from route model binding
+
+## Pattern 10: Specify the data model explicitly
+
+**Trap:** Challenge gives vague field names. AI guesses types, lengths, constraints.
+**Problem:** Ambiguous models lead to missing validation, wrong column types, no length limits.
+**Fix in prompt:** Define the exact data model — table name, field names, types, length constraints, allowed character sets, and which fields are required vs optional. This removes guesswork and ensures validation rules match the schema.
+
+**Example:**
+```
+Data model — sensors table:
+- device_id: required, string, 3-64 chars, pattern [a-zA-Z0-9_:.-], globally unique
+- sensor_type: required, string, one of [temperature, pressure, flow, voltage, vibration, humidity]
+- location: required, string, 1-120 chars, no HTML, normalize whitespace
+```
+
+## Pattern 11: Separate create vs update flows
+
+**Trap:** Challenge implies both create and update in one endpoint. AI merges them insecurely.
+**Problem:** Update flow needs authorization (can this user edit this record?) and different uniqueness logic (ignore the record being updated, but ONLY that record).
+**Fix in prompt:** Explicitly define both flows:
+- "Create a new record if no ID is provided"
+- "Update an existing record ONLY if the authenticated user is authorized to manage it"
+- "Derive the update target server-side from the database — never from user input"
+
+## Pattern 12: Defense in depth — DB-level + app-level
+
+**Trap:** Challenge implies validation at the app layer only.
+**Problem:** App-level validation is bypassable. Race conditions can create duplicates between check and insert.
+**Fix in prompt:** Require BOTH layers:
+- "Add a database-level unique index on the column"
+- "Wrap create/update in a DB transaction"
+- "Handle duplicate-key exceptions gracefully (catch and return 422, don't crash)"
+
+## Pattern 13: Explain WHY the naive approach is insecure
+
+**Trap:** Prompt says "don't do X" but AI doesn't understand why, so it does a slight variant of X that has the same bug.
+**Problem:** Rules without reasoning are brittle — the AI follows the letter, not the spirit.
+**Fix in prompt:** Add a short explanation section:
+```
+Why the naive approach is insecure:
+Rule::unique('sensors')->ignore($request->input('ignore')) is dangerous because
+the client controls which record is excluded from uniqueness checks. This enables
+uniqueness bypasses and IDOR-style authorization flaws.
+```
+This teaches the AI to REASON about the vulnerability, not just avoid one specific code pattern.
+
+## Pattern 14: Request complete deliverables, not just "the code"
+
+**Trap:** Prompt says "return only the source code" — AI returns one file.
+**Problem:** Missing migration (no DB constraint), missing policy (no authorization), missing tests (no verification).
+**Fix in prompt:** List every artifact:
+- Route definitions with middleware
+- Migration with indexes and constraints
+- Model with $fillable / $guarded
+- Policy or Gate for authorization
+- Form Request for validation
+- Controller with business logic
+- Tests covering happy path, rejection, authorization, and race conditions
+
+At short time budgets (≤60s), collapse to "Return complete source code with validation, authorization, and a unique DB index." At longer budgets, list each deliverable.
+
+## Pattern 15: Rate limiting and fail-closed
+
+**Trap:** Challenge doesn't mention rate limiting.
+**Problem:** Unauthenticated or brute-force attacks on the endpoint.
+**Fix in prompt:** "Apply rate limiting appropriate for the domain. For admin/SCADA endpoints: strict throttle (e.g. 30 requests/minute). For public APIs: standard throttle. Fail closed — reject on limit, don't degrade."
