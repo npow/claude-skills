@@ -33,6 +33,7 @@ from datetime import timedelta
 from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
+    import os as _os_module
     from sagaflow.durable.activities import (
         EmitFindingInput,
         FinalizeManifestInput,
@@ -47,6 +48,8 @@ with workflow.unsafe.imports_passed_through():
         DeepResearchState,
         SourceVerification,
     )
+
+_RESEARCH_MCP_CATEGORIES_RAW = _os_module.environ.get("RESEARCH_MCP_CATEGORIES", "{}")
 
 _PROGRESS_POLICY = HAIKU_POLICY
 _PROGRESS_TITLE = "deep-research"
@@ -259,36 +262,72 @@ class DeepResearchWorkflow:
         # ------------------------------------------------------------------ #
         if state.topic_novelty in ("novel", "cold_start"):
             vocab_prompt_path = f"{run_dir}/vocab-bootstrap-prompt.txt"
+            _vocab_system = (
+                "You bootstrap domain vocabulary from Wikipedia using WebFetch. "
+                "After completing your research, your FINAL output MUST be ONLY "
+                "the structured block below — no prose, no summary, no explanation.\n\n"
+                "STRUCTURED_OUTPUT_START\n"
+                "CANONICAL_TERMS|<json array of strings>\n"
+                "DISCOVERED_SOURCES|<json array of URLs>\n"
+                "STRUCTURED_OUTPUT_END"
+            )
             await _write(vocab_prompt_path,
                 f"Research topic file: {seed_path}\n"
                 "Read the file above for the full research topic.\n\n"
                 "Build domain vocabulary using Wikipedia WebFetch.\n"
                 "1. WebFetch Wikipedia opensearch API for this topic.\n"
                 "2. WebFetch top-3 Wikipedia articles.\n"
-                "3. Extract bolded terms, H2/H3 headings, See-also, categories.\n"
-                "Output vocabulary_bootstrap.json:\n"
-                '{"canonical_terms": [...], "discovered_sources": [...]}\n'
+                "3. Extract bolded terms, H2/H3 headings, See-also, categories.\n\n"
+                "Your FINAL output MUST be ONLY this structured block — "
+                "no prose before or after:\n"
                 "STRUCTURED_OUTPUT_START\n"
-                "CANONICAL_TERMS|<json array of strings>\n"
-                "DISCOVERED_SOURCES|<json array of URLs>\n"
+                "CANONICAL_TERMS|[\"term1\", \"term2\", ...]\n"
+                "DISCOVERED_SOURCES|[\"https://en.wikipedia.org/...\", ...]\n"
                 "STRUCTURED_OUTPUT_END"
             )
             vocab_result = await _spawn(
                 role="vocab-bootstrap",
                 tier="OPUS",
-                system_prompt=(
-                    "You bootstrap domain vocabulary from Wikipedia using WebFetch. "
-                    "STRUCTURED_OUTPUT_START\n"
-                    "CANONICAL_TERMS|<json array>\n"
-                    "DISCOVERED_SOURCES|<json array of URLs>\n"
-                    "STRUCTURED_OUTPUT_END"
-                ),
+                system_prompt=_vocab_system,
                 prompt_path=vocab_prompt_path,
                 max_tokens=128000,
                 tools_needed=True,
             )
-            raw_terms = vocab_result.get("CANONICAL_TERMS", "[]")
-            raw_discovered = vocab_result.get("DISCOVERED_SOURCES", "[]")
+            # Retry once with output_schema (forced JSON at API level) if the
+            # subagent returned prose instead of structured output markers.
+            if vocab_result.get("_sagaflow_malformed") == "1":
+                retry_prompt_path = f"{run_dir}/vocab-bootstrap-retry-prompt.txt"
+                raw_prose = vocab_result.get("_raw", "")
+                await _write(retry_prompt_path,
+                    "Extract canonical terms and source URLs from this research "
+                    "output into the JSON schema.\n\n"
+                    f"{raw_prose}"
+                )
+                _vocab_schema = {
+                    "type": "object",
+                    "properties": {
+                        "canonical_terms": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "discovered_sources": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                    "required": ["canonical_terms", "discovered_sources"],
+                }
+                vocab_result = await _spawn(
+                    role="vocab-bootstrap",
+                    tier="SONNET",
+                    system_prompt="Extract structured data from research output.",
+                    prompt_path=retry_prompt_path,
+                    max_tokens=32000,
+                    tools_needed=False,
+                    output_schema=_vocab_schema,
+                )
+            raw_terms = vocab_result.get("CANONICAL_TERMS") or vocab_result.get("canonical_terms") or "[]"
+            raw_discovered = vocab_result.get("DISCOVERED_SOURCES") or vocab_result.get("discovered_sources") or "[]"
             try:
                 canonical_terms = json.loads(raw_terms)
             except json.JSONDecodeError:
@@ -356,6 +395,40 @@ class DeepResearchWorkflow:
             tools_needed=True,
         )
         raw_directions = _parse_json_list(dim_result.get("DIRECTIONS", "[]"))
+
+        if workflow.patched("direction-retry-v1"):
+            if not raw_directions:
+                workflow.logger.warning(
+                    "dim-discover returned 0 parseable directions (raw=%s); retrying",
+                    dim_result.get("DIRECTIONS", "")[:500],
+                )
+                dim_result_retry = await _spawn(
+                    role="dim-discover-retry",
+                    tier="OPUS",
+                    system_prompt=(
+                        "You generate research directions. Your previous attempt was not "
+                        "parseable. Output ONLY valid JSON — no markdown fences, no prose "
+                        "before or after the structured block.\n"
+                        "STRUCTURED_OUTPUT_START\n"
+                        'DIRECTIONS|[{"id":"d1","dimension":"HOW","question":"...","priority":"high"}, ...]\n'
+                        "STRUCTURED_OUTPUT_END"
+                    ),
+                    prompt_path=dim_prompt_path,
+                    max_tokens=128000,
+                    tools_needed=True,
+                )
+                raw_directions = _parse_json_list(
+                    dim_result_retry.get("DIRECTIONS", "[]")
+                )
+
+            if not raw_directions:
+                workflow.logger.error(
+                    "dim-discover returned 0 directions after retry — failing run"
+                )
+                raise workflow.ApplicationError(
+                    "dim-discover produced 0 parseable directions after 2 attempts"
+                )
+
         raw_directions = raw_directions[:inp.max_directions]
         directions = [
             Direction(
@@ -394,10 +467,8 @@ class DeepResearchWorkflow:
         # (JSON: {"category": ["kw1","kw2"]}). Unmatched seeds get "web-only".
         mcp_config_path: str | None = None
         if workflow.patched("scoped-mcp-v1"):
-            import json as _json
-            _raw = os.environ.get("RESEARCH_MCP_CATEGORIES", "{}")
             _category_keywords: dict[str, set[str]] = {
-                cat: set(kws) for cat, kws in _json.loads(_raw).items()
+                cat: set(kws) for cat, kws in json.loads(_RESEARCH_MCP_CATEGORIES_RAW).items()
             }
             seed_lower = inp.seed.lower()
             mcp_needs: list[str] = []
@@ -823,6 +894,16 @@ class DeepResearchWorkflow:
         steps = await _report_progress(run_dir, 3, "completed", _steps=steps)
         steps = await _report_progress(run_dir, 4, "in_progress", _steps=steps)
 
+        if workflow.patched("refuse-empty-synthesis-v1"):
+            if not all_findings:
+                workflow.logger.error(
+                    "0 findings after all rounds — refusing to synthesize an empty report"
+                )
+                raise workflow.ApplicationError(
+                    "Research produced 0 findings — cannot synthesize. "
+                    "Check researcher spawn/completion logs."
+                )
+
         # ------------------------------------------------------------------ #
         # Phase 5 — Synthesis                                                 #
         # ------------------------------------------------------------------ #
@@ -965,6 +1046,7 @@ async def _spawn(
     max_tokens: int,
     tools_needed: bool,
     mcp_config_path: str | None = None,
+    output_schema: dict | None = None,
 ) -> dict[str, str]:
     timeout = 7200 if tools_needed else 3600
     result = await workflow.execute_activity(
@@ -977,6 +1059,7 @@ async def _spawn(
             max_tokens=max_tokens,
             tools_needed=tools_needed,
             mcp_config_path=mcp_config_path,
+            output_schema=output_schema,
         ),
         start_to_close_timeout=timedelta(seconds=timeout),
         heartbeat_timeout=timedelta(seconds=120),
@@ -995,12 +1078,46 @@ def _safe_year(val) -> int:
 
 
 def _parse_json_list(raw: str) -> list[dict]:
+    # Try direct parse first.
     try:
         parsed = json.loads(raw)
         if isinstance(parsed, list):
             return [x for x in parsed if isinstance(x, dict)]
     except json.JSONDecodeError:
         pass
+    # Try extracting a JSON array from surrounding text (LLMs often wrap in markdown).
+    import re
+    for m in re.finditer(r'\[[\s\S]*?\](?=\s*$|\s*```)', raw):
+        try:
+            parsed = json.loads(m.group())
+            if isinstance(parsed, list):
+                result = [x for x in parsed if isinstance(x, dict)]
+                if result:
+                    return result
+        except json.JSONDecodeError:
+            continue
+    # Last resort: find the largest [...] substring.
+    bracket_depth = 0
+    start = -1
+    for i, ch in enumerate(raw):
+        if ch == '[' and start == -1:
+            start = i
+            bracket_depth = 1
+        elif ch == '[' and start != -1:
+            bracket_depth += 1
+        elif ch == ']' and start != -1:
+            bracket_depth -= 1
+            if bracket_depth == 0:
+                try:
+                    parsed = json.loads(raw[start:i + 1])
+                    if isinstance(parsed, list):
+                        result = [x for x in parsed if isinstance(x, dict)]
+                        if result:
+                            return result
+                except json.JSONDecodeError:
+                    pass
+                start = -1
+    workflow.logger.warning("_parse_json_list: all parsing strategies failed for input (first 500 chars): %s", raw[:500])
     return []
 
 
