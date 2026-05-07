@@ -43,7 +43,7 @@ Then generate CROSS-DIMENSIONAL directions (intersections):
 "HOW × LIMITS" → "What implementation constraints create the known failure modes?"
 ```
 
-**Maximum: 25 initial directions.** Fewer is better — leave budget for depth.
+**Maximum: 30 initial directions.** Fewer is better — leave budget for depth. (Raised from 25 to accommodate OPERATIONAL-INVENTORY entity generation for domain-scoped topics.)
 
 **Depth priority bonus:** Child directions (discovered by agents) get base priority +2 over same-tier siblings at the same depth level. This makes the priority queue implement genuine depth-first ordering.
 

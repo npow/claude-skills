@@ -292,8 +292,16 @@ Coordinator reads pre-mortem.md; each flagged blind spot becomes an auto-seeded 
     **(c) Org-doc seeding:** Search docs, wikis, and knowledge bases for portfolio docs, roadmaps, and organizational charts BEFORE generating content-keyword directions. These docs enumerate product surface areas that keyword searches would miss. Every entity mentioned in an org doc without a corresponding content-keyword direction → auto-generates one.
     **(d) Adoption fingerprinting:** Search for import/instantiation patterns of known frameworks and SDKs to find who's USING them in production code, not just who has them in docs. Each distinct consumer discovered this way that isn't already in scope → new direction.
     **Coverage verification gate (mandatory):** After structural discovery, count: how many discovered entities (teams/products/repos) have ≥1 content-keyword direction targeting them? If <80%, the expansion is incomplete — generate missing directions before proceeding to Round 1. This gate prevents the failure mode where structural discovery finds N entities but content searches only cover N/5."
+  - **OPERATIONAL-INVENTORY** — "When the seed involves a specific domain, team, or organization's tooling, systematically enumerate ALL systems practitioners interact with by mining operational sources — not strategic docs. Strategic docs tell you ABOUT systems; operational sources tell you WHAT SYSTEMS EXIST. Five sub-passes:
+    **(a) Onboarding-doc mining:** Search for onboarding docs, getting-started guides, bootcamp materials, and 'new hire' documents for the target domain. These are curated 'everything you need to know' lists maintained by humans — they enumerate systems that keyword searches miss because the systems are too mundane to appear in strategic memos. Every named system/tool/service in an onboarding doc without a corresponding direction → auto-generate one at priority=high.
+    **(b) Repository dependency crawl:** For topics involving codebases, use Sourcegraph or repo inspection to discover actual imports, build dependencies, CLI tool invocations, config file references, and service client instantiations. Follow the dependency graph: what does the code import? What services does it call? What CLIs do the scripts invoke? Each distinct external system discovered this way → candidate direction. This catches systems like Cybertron, Pensive, DataAuditor, MELD DSL that exist in code but not in architecture docs.
+    **(c) Console/dashboard enumeration:** For org-scoped topics, check organizational dashboards, service catalogs, and console pages that list what the org owns and depends on. These are authoritative inventories of operational systems. Every listed system not already in scope → candidate direction.
+    **(d) Slack channel mining:** Read channel topics, pinned messages, and bookmarks of the domain's primary Slack channels. Also sample recent threads for system names mentioned in operational context ('I deployed to X', 'check the Y dashboard', 'run the Z CLI'). Each system mentioned in operational context without a direction → candidate.
+    **(e) CLI/tool invocation sampling:** Search for shell command patterns, Makefile targets, CI config steps, and README 'getting started' sections that reference tools by invocation name. CLI tools and developer utilities are invisible in strategic docs but appear in every 'how to run this' guide. Each distinct tool → candidate direction.
+    **Entity inventory register (mandatory output):** Produce a flat list of ALL distinct systems/tools/services discovered across sub-passes (a)-(e), with source attribution. This register is the denominator for the Entity Saturation gate at termination (Phase 6). Write to `state.json → operational_inventory`. Each entity is tagged: `covered` (has ≥1 explored direction), `queued` (direction exists but unexplored), or `undiscovered` (no direction yet — auto-generate one).
+    **Activation rule:** This dimension activates when the seed topic references a specific team, organization, domain, workflow, or role (e.g. 'AIMS algo developer tools', 'MLP platform readiness', 'data engineer workflow'). For pure-concept topics ('what is reinforcement learning?'), skip this dimension. When in doubt, activate — the sub-passes gracefully produce empty results for non-organizational topics."
   Each cross-cutting dimension gets ≥1 direction at priority=high, in addition to seed-specific directions.
-- Maximum: 25 initial directions (cross-cutting dimensions count against this cap)
+- Maximum: 30 initial directions (cross-cutting dimensions count against this cap; raised from 25 to accommodate OPERATIONAL-INVENTORY entity generation)
 - Minimum dimension rule:
   - 0 applicable → error; prompt user to clarify
   - 1-2 applicable → warn user; ask if they want to continue
@@ -319,14 +327,15 @@ User sets max_rounds explicitly — no hardcoded default.
 initial_directions = count of directions in Phase 1
 max_agents_per_round = state.max_agents_per_round or 6      # default 6, tune to your quota
 depth_multiplier      = state.depth_multiplier or 2.5        # expected sub-direction yield
-min_recommended       = state.min_recommended_rounds or 30   # floor — prefer saturation over budget limits
+min_recommended       = state.min_recommended_rounds or 10   # floor — adaptive formula should drive, not this
 
 min_rounds_to_cover_seed = ceil(initial_directions / max_agents_per_round)
 recommended              = ceil(min_rounds_to_cover_seed * depth_multiplier)
 recommended              = max(recommended, min_recommended)
 ```
-Example (defaults): 20 initial directions → ceil(20/6)=4 × 2.5=10 → recommend 30.
-Example (defaults): 40 initial directions → ceil(40/6)=7 × 2.5=17.5 → recommend 30.
+Example (defaults): 15 initial directions → ceil(15/6)=3 × 2.5=7.5 → recommend 10.
+Example (defaults): 20 initial directions → ceil(20/6)=4 × 2.5=10 → recommend 10.
+Example (defaults): 40 initial directions → ceil(40/6)=7 × 2.5=17.5 → recommend 18.
 Wrong constants change recommended depth, not correctness — the soft gate still prompts at `max_rounds`.
 
 Note: `max_rounds` is a **soft gate** — the skill will prompt to extend when reached with non-empty frontier. **Prefer saturation over budget limits.** Set `max_rounds` high enough that frontier exhaustion or coverage plateau is the normal termination condition, not the round limit.
@@ -487,11 +496,13 @@ and counter-evidence gaps that the research pass may not have self-checked.)
 
 Terminate when ANY of these is true (any-of-4, not all-of-4):
 1. **User chooses N at a round gate** (explicit user decision)
-2. **Coverage plateau:** No new dimensions for 3 consecutive rounds AND all frontier items have exhaustion ≥ 4 AND **blind-spot check passes** (all 6 cross-cutting dimensions have ≥1 explored direction AND unconsumed-leads count == 0)
+2. **Coverage plateau:** No new dimensions for 3 consecutive rounds AND all frontier items have exhaustion ≥ 4 AND **blind-spot check passes** (all 7 cross-cutting dimensions have ≥1 explored direction AND unconsumed-leads count == 0) AND **entity saturation check passes** (see below)
 3. **Budget soft gate:** `max_rounds` reached with non-empty frontier → prompt user to extend or stop (see DFS.md Step 5)
 4. **Frontier actually empties** (possible because direction reporting is optional)
 
-**Blind-spot gate:** condition 2 CANNOT fire if any of PRIOR-FAILURE / BASELINE / ADJACENT-EFFORTS / STRATEGIC-TIMING / ACTUAL-USAGE is uncovered, or if unconsumed-leads count > 0. Dimension coverage alone is necessary but not sufficient for "coverage plateau."
+**Blind-spot gate:** condition 2 CANNOT fire if any of PRIOR-FAILURE / BASELINE / ADJACENT-EFFORTS / STRATEGIC-TIMING / ACTUAL-USAGE / OPERATIONAL-INVENTORY is uncovered, or if unconsumed-leads count > 0. Dimension coverage alone is necessary but not sufficient for "coverage plateau."
+
+**Entity Saturation gate (new — applies when OPERATIONAL-INVENTORY is active):** condition 2 CANNOT fire if `state.json → operational_inventory` exists AND >20% of registered entities have status `undiscovered`. When the gate blocks, coordinator auto-generates directions for the top-priority undiscovered entities (up to `max_agents_per_round`) and injects one additional round. After the recovery round, re-check saturation; if still >20% undiscovered, terminate but tag the report `COVERAGE_CAVEAT_ENTITY_INVENTORY_INCOMPLETE: {N} of {M} entities unexplored`. This prevents the failure mode where structural/operational discovery finds 90 systems but content research only covers 60.
 
 `max_rounds` is a **soft gate** — it prompts the user, it does not auto-terminate. **In `--auto` mode, the coordinator continues until saturation** (coverage plateau or frontier exhaustion), not until `max_rounds`. `max_rounds` in `--auto` mode only triggers a progress log, not a stop. Absolute hard ceiling is `max_rounds * 5`.
 
@@ -582,7 +593,7 @@ The `--depth` flag controls research budget (usable directly or via the investig
 
 For `quick` mode: skip novelty detection, vocabulary bootstrap, breadth auditing, and contrarian pass. Runs up to 3 rounds, synthesize, ship. This is the "80% quality in 20% of the time" option.
 
-For `standard` mode (default): run all phases, skip the contrarian pass. **Runs until saturation** (coverage plateau or frontier exhaustion), with `max_rounds=30` as a soft gate — not a hard stop.
+For `standard` mode (default): run all phases, skip the contrarian pass. **Runs until saturation** (coverage plateau or frontier exhaustion), with `max_rounds=30` as a soft gate — not a hard stop. In `--auto` mode, continues past `max_rounds` until saturation; absolute ceiling is `max_rounds * 5` (150).
 
 For `deep` mode: full deep-research spec with no shortcuts.
 

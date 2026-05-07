@@ -269,6 +269,18 @@ If empty: write "None — all claims have at least one fresh source."
 [What aspects were NOT adequately covered? exhaustion score < 3?]
 [What would a follow-up research run focus on?]
 
+### Entity Inventory (when OPERATIONAL-INVENTORY dimension is active)
+
+[REQUIRED when `state.json → operational_inventory` exists. Lists ALL discovered systems/tools/services with their research coverage status. This is the completeness ledger — it lets the reader see at a glance which systems were deeply assessed, which were mentioned in passing, and which were discovered but not researched.]
+
+| Entity | Source of discovery | Coverage status | Direction ID(s) | Notes |
+|--------|--------------------:|-----------------|-----------------|-------|
+| {system name} | onboarding-doc / repo-dep / console / slack / cli-sample | covered / name-dropped / unexplored | dir_XXX | {brief note on findings or why unexplored} |
+
+**Coverage summary:** {N} of {M} entities covered ({percentage}%), {P} name-dropped, {Q} unexplored.
+
+If unexplored > 0: "⚠️ The following entities were discovered during operational inventory but not independently researched: {list}. A follow-up run targeting these entities would improve coverage."
+
 ---
 
 ## All Sources
