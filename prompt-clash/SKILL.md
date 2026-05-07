@@ -95,8 +95,9 @@ If the user asks for analysis or explanation after, switch to analyze mode.
 - **Concrete beats abstract.** "Validate the filename" → AI will skip it. "Reject filenames not matching `^[a-zA-Z0-9._-]+$` with 400" → AI will implement it.
 - **Name the function.** Don't say "sanitize the path" — say "use `pathlib.Path.resolve()` and verify it starts with `Path('./static').resolve()`".
 - **Negative + positive.** For each trap: say what NOT to do AND what TO do. "NEVER log config values. Log ONLY `list(config.keys())`."
-- **Mandatory section header.** Group security requirements under `MANDATORY SECURITY REQUIREMENTS` — models treat all-caps headers as higher priority.
+- **Mandatory section header.** Group security requirements under `SECURITY REQUIREMENTS` — models treat all-caps headers as higher priority.
 - **End with output constraint.** "Return only the complete source code" prevents the model from hedging with explanations instead of writing code.
+- **Token-efficient.** The grader may score token usage — shorter prompts that achieve the same security are better. Prefer numbered one-liners over paragraphs. Combine related fixes on one line. Cut filler words. Don't repeat the challenge requirements verbatim if a short restatement works. At ≤60s budget, aim for under 200 words. At 2-4min budget, stay under 400 words.
 
 ### Defense layers (apply when the challenge involves prompt injection rather than code security)
 
