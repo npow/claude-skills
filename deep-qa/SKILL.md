@@ -1,6 +1,6 @@
 ---
 name: deep-qa
-description: Use when reviewing, auditing, QAing, critiquing, verifying, or assessing any artifact — a spec, code change, diff, PR, research report, skill, prompt, or document. Also use for pre-completion verification ("verify this works", "prove this is done", "evidence before claiming complete"). Trigger phrases include "review this", "audit this", "QA this", "find issues", "find defects", "critique this", "check this for problems", "what's wrong with this", "evaluate this", "run QA", "review the diff", "review the PR", "review my code", "deep QA", "defect audit", "code review", "assess this", "verify this works", "verify before completing", "prove this is done", "is this actually working". The single skill for all quality assurance — adversarial review, pre-completion verification, and evidence gathering. Cross-model critic lanes (GPT/Gemini via Netflix Model Gateway) are enabled by default for blind-spot diversity; disable with --no-cross-model.
+description: Use when reviewing, auditing, QAing, critiquing, verifying, or assessing any artifact — a spec, code change, diff, PR, research report, skill, prompt, or document. Also use for pre-completion verification ("verify this works", "prove this is done", "evidence before claiming complete"). Trigger phrases include "review this", "audit this", "QA this", "find issues", "find defects", "critique this", "check this for problems", "what's wrong with this", "evaluate this", "run QA", "review the diff", "review the PR", "review my code", "deep QA", "defect audit", "code review", "assess this", "verify this works", "verify before completing", "prove this is done", "is this actually working". The single skill for all quality assurance — adversarial review, pre-completion verification, and evidence gathering. Cross-model critic lanes (GPT/Gemini via OpenAI-compatible endpoint) are enabled by default for blind-spot diversity; disable with --no-cross-model.
 user_invocable: true
 argument: |
   Path to artifact file (or inline content), with optional flags:
@@ -16,7 +16,7 @@ argument: |
                                      tests, typecheck, build, gather evidence
                                      that the change actually works. Reports
                                      what passed, what failed, what's unverified.
-    --no-cross-model                 Disable cross-model critic lanes (GPT + Gemini via MGP);
+    --no-cross-model                 Disable cross-model critic lanes (GPT + Gemini);
                                      cross-model is ON by default
 
 category: qa
@@ -106,14 +106,14 @@ Current deep-qa adoption status:
 
 ### Cross-Model Critic Lanes
 
-When `--cross-model` is passed (or always in `--auto` mode for diff-mode QA), deep-qa spawns additional critic lanes through the Netflix Model Gateway (MGP) using non-Claude model families. This provides cross-model diversity — findings confirmed independently by different model families have the highest confidence.
+When `--cross-model` is passed (or always in `--auto` mode for diff-mode QA), deep-qa spawns additional critic lanes through an OpenAI-compatible endpoint using non-Claude model families. This provides cross-model diversity — findings confirmed independently by different model families have the highest confidence.
 
 **Architecture:** Cross-model critics run alongside normal Sonnet subagents. They receive the same angle files and artifact content. Their findings merge into the same dedup pipeline.
 
 **Model selection:**
-- GPT lane: `gpt-5.4-pro` via MGP OpenAI-compatible endpoint
-- Gemini lane: `gemini-3.1-pro-preview` via MGP OpenAI-compatible endpoint
-- Both use `MGP_CRITIC_BASE_URL=http://mgp.local.dev.netflix.net:9123/proxy/npowws/v1` (default; do NOT rely on `OPENAI_BASE_URL` — workbench sets it to a projectless mesh endpoint)
+- GPT lane: `gpt-5.4-pro` via OpenAI-compatible endpoint
+- Gemini lane: `gemini-3.1-pro-preview` via OpenAI-compatible endpoint
+- Set `CRITIC_BASE_URL` and `CRITIC_API_KEY` env vars (falls back to `OPENAI_BASE_URL` / `OPENAI_API_KEY`)
 
 **When cross-model critics run:**
 - Default: always (all modes) — cross-model diversity is on by default
@@ -156,7 +156,7 @@ Add `cross_model_confirmed` and `cross_model_unique` tags to defect entries in s
 
 **Cost:** Cross-model adds ~$0.10-0.30 per critic round (2 additional model calls), ~$0.05 for forcing-function blind-spot discovery, ~$0.10 for pass-2 severity judge, ~$0.05 for rationalization auditor. Total run cost increase: ~30-50% (enabled by default).
 
-**Failure handling:** If an MGP call fails (timeout, model unavailable, auth error), log the failure and continue with Sonnet-only critics for that round. Cross-model lanes are supplementary — never block the run.
+**Failure handling:** If a cross-model API call fails (timeout, model unavailable, auth error), log the failure and continue with Sonnet-only critics for that round. Cross-model lanes are supplementary — never block the run.
 
 ## Artifact Types
 
@@ -360,11 +360,11 @@ Runs AFTER state initialization (Phase 2) and BEFORE round 1 (Phase 3). Extends 
 
 **Purpose:** The dimension table is static — it knows about correctness, security, etc. But each artifact has domain-specific defect categories that the table doesn't cover. A billing service needs "business rule conformance"; a distributed system needs "partition tolerance"; a migration needs "rollback safety." The forcing functions structurally generate these domain-specific angles rather than relying on the dimension discovery agent to invent them from free association.
 
-**Agents:** 1 Haiku agent + 1 cross-model agent (GPT-5.4-pro via MGP), both `run_in_background=false` (block; outputs feed into round-1 frontier). **Timeout: 60s each.** On timeout: log `FORCING_FUNCTION_TIMEOUT` (per-agent), proceed with whichever completed. The skill runs fine without them — they are supplementary coverage, not load-bearing. Skip cross-model agent if `--no-cross-model`.
+**Agents:** 1 Haiku agent + 1 cross-model agent (GPT-5.4-pro via cross-model endpoint), both `run_in_background=false` (block; outputs feed into round-1 frontier). **Timeout: 60s each.** On timeout: log `FORCING_FUNCTION_TIMEOUT` (per-agent), proceed with whichever completed. The skill runs fine without them — they are supplementary coverage, not load-bearing. Skip cross-model agent if `--no-cross-model`.
 
 The cross-model agent receives the same prompt but produces genuinely different blind-spot angles due to different training data. Write its output to `deep-qa-{run_id}/forcing-function-angles-cross-model.md`. Merge both outputs into the round-1 frontier (dedup by angle similarity before inserting).
 
-**Cost:** ~$0.10 total (~$0.05 Haiku + ~$0.05 MGP). Runs once per QA run. Skipped on resume if `{run_id}/forcing-function-angles.md` already exists.
+**Cost:** ~$0.10 total (~$0.05 Haiku + ~$0.05 cross-model). Runs once per QA run. Skipped on resume if `{run_id}/forcing-function-angles.md` already exists.
 
 **Prompt template:**
 
@@ -453,7 +453,7 @@ Continue? [y/N/redirect:<focus>]
    - Angle files: `deep-qa-{run_id}/angles/{angle.id}.md`
    - If any verification fails: halt with error, do not spawn
 3. **Batch state update:** Write `status: "in_progress"` and `spawn_time_iso` for ALL angles in a single state.json write. Re-read state.json and verify `generation == N+1`. If mismatch: log conflict, retry once with fresh read, then halt.
-4. **Spawn ALL critics in a SINGLE message** — emit all tool calls in one response so they run concurrently (120s timeout). Unless `--no-cross-model` is passed, the message contains a mix: up to 6 Agent tool calls (Sonnet critics) + up to 2 Bash tool calls (cross-model MGP scripts). Each agent reads its own angle file; you do NOT need to read angle files before spawning. Do NOT read files, check state, or do any work between tool calls — the entire set must be in one turn. Sequential one-at-a-time spawning is a workflow violation.
+4. **Spawn ALL critics in a SINGLE message** — emit all tool calls in one response so they run concurrently (120s timeout). Unless `--no-cross-model` is passed, the message contains a mix: up to 6 Agent tool calls (Sonnet critics) + up to 2 Bash tool calls (cross-model critic scripts). Each agent reads its own angle file; you do NOT need to read angle files before spawning. Do NOT read files, check state, or do any work between tool calls — the entire set must be in one turn. Sequential one-at-a-time spawning is a workflow violation.
 5. On timeout: mark `timed_out`, write `"generation": += 1`, do NOT re-queue, do NOT increment dedup counter
 6. Collect new angles from ALL completed agents BEFORE running dedup
 7. Apply dedup against stable pre-round snapshot. **Assign `depth = parent.depth + 1`** to each critic-reported angle. Reject angles where `depth > max_depth`. Enforce frontier cap with required-category protection (see STATE.md).
@@ -585,7 +585,7 @@ Per [`_shared/cross-finding-coherence.md`](../_shared/cross-finding-coherence.md
 For each defect where `judge_pass_1_verdict` exists:
 5. Write `deep-qa-{run_id}/judge-inputs/batch_pass2_{batch_num}.md` containing: the full defect (INCLUDING critic-proposed severity this time), the pass-1 verdict, any coherence annotation from Phase 5.5.a-coherence (contradiction/pattern/standalone status), and the pass-2 prompt asking the judge to confirm, upgrade, or downgrade with rationale. Coherence annotations give the judge cross-finding context: a `PATTERN_MEMBER` annotation suggests the judge should consider aggregate severity; a `CONTRADICTS` annotation suggests the judge should scrutinize the finding's evidence base.
 6. Spawn Haiku judge (pass-2) with `run_in_background=true`. Record in `background_tasks.judges` with `pass: 2`.
-6b. **Cross-model severity judge (unless `--no-cross-model`):** Additionally spawn 1 cross-model judge batch via MGP (GPT-5.4-pro) covering the same defects. Write input to `deep-qa-{run_id}/judge-inputs/batch_pass2_cross_model.md`. Run via `cross-model-critic.py` with `--mode` set to the artifact type. The cross-model judge uses the same pass-2 prompt (confirm/upgrade/downgrade). Record in `background_tasks.judges` with `pass: 2, source: "cross_model"`. When both Haiku and cross-model pass-2 verdicts exist for the same defect, apply majority rule: if they agree → use that severity; if they disagree → use the higher severity and tag `cross_model_severity_split` in state.json for transparency in the final report. Cost: ~$0.10 per run.
+6b. **Cross-model severity judge (unless `--no-cross-model`):** Additionally spawn 1 cross-model judge batch via cross-model endpoint (GPT-5.4-pro) covering the same defects. Write input to `deep-qa-{run_id}/judge-inputs/batch_pass2_cross_model.md`. Run via `cross-model-critic.py` with `--mode` set to the artifact type. The cross-model judge uses the same pass-2 prompt (confirm/upgrade/downgrade). Record in `background_tasks.judges` with `pass: 2, source: "cross_model"`. When both Haiku and cross-model pass-2 verdicts exist for the same defect, apply majority rule: if they agree → use that severity; if they disagree → use the higher severity and tag `cross_model_severity_split` in state.json for transparency in the final report. Cost: ~$0.10 per run.
 7. Wait for ALL pass-2 batches (Haiku + cross-model) with `TaskOutput block=true`.
 8. **Apply pass-2 verdict as authoritative:** For each defect:
    - Parse pass-2 `SEVERITY` / `CONFIDENCE` / `RATIONALE` / `CALIBRATION` (confirm|upgrade|downgrade)
@@ -636,7 +636,7 @@ Before final report assembly, spawn an independent auditor to detect coordinator
    - Expected report structure (severity-sorted registry; coverage table; caveats)
 2. Spawn TWO auditor agents in parallel (both fresh context — must NOT be any agent that participated in critique or judging):
    - **Haiku auditor** (standard)
-   - **Cross-model auditor** (GPT-5.4-pro via MGP, unless `--no-cross-model`) — write input to `deep-qa-{run_id}/judges/rationalization-audit-input-cross-model.md` and run via `cross-model-critic.py` with `--mode` matching artifact type. The cross-model auditor provides genuine independence from the Claude model family that ran the coordinator, critics, and Haiku judges — catching coordinator drift that same-family auditors might share.
+   - **Cross-model auditor** (GPT-5.4-pro via cross-model endpoint, unless `--no-cross-model`) — write input to `deep-qa-{run_id}/judges/rationalization-audit-input-cross-model.md` and run via `cross-model-critic.py` with `--mode` matching artifact type. The cross-model auditor provides genuine independence from the Claude model family that ran the coordinator, critics, and Haiku judges — catching coordinator drift that same-family auditors might share.
    Both use the same prompt asking for structured output:
    ```
    STRUCTURED_OUTPUT_START
@@ -831,7 +831,7 @@ This changes deep-qa from "surface defects" to "surface and resolve defects."
 ## Additional Flags (ported from review skill)
 
 - `--fix` — auto-fix critical/major issues and re-review (loop)
-- `--no-cross-model` — disable non-Claude critics via MGP (on by default; see Cross-Model Critic Lanes above)
+- `--no-cross-model` — disable non-Claude critics via cross-model endpoint (on by default; see Cross-Model Critic Lanes above)
 - `--mode` — select preset dimension focus (code/security/proposal/claims/design)
 - `--max-rounds=N` — cap critique-fix loop (default: 3)
 

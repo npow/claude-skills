@@ -121,7 +121,7 @@ Before the debug cycle, detect if a specialized sub-skill applies. Invoke it via
 |---|---|---|
 | GitHub PR URL or "CI failed on PR" | `debug-pr` | URL matches `github.*/pull/\d+` or user mentions PR + CI failure |
 | Metaflow pathspec or "flow failed" | `debug-run` | Input contains `FlowName/RunID` pattern or "metaflow" + failure language |
-| Jenkins build URL or "build failed" | `debug-jenkins` | URL matches `builds.test.netflix.net` or "jenkins" + failure language |
+| Jenkins build URL or "build failed" | `debug-jenkins` | URL matches a Jenkins host or "jenkins" + failure language |
 
 **If a sub-skill matches:** invoke it first to gather structured context (CI logs, run status, build output). Feed its output into Phase 0 as the symptom — then continue with deep-debug's hypothesis-driven cycle on the root cause. The sub-skill handles evidence collection; deep-debug handles root-cause analysis.
 

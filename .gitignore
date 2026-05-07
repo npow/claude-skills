@@ -27,14 +27,32 @@ test-smart/
 test-smart.md
 DEMO.md
 
-# Symlinks managed by metaflow-agent install.sh
+# Symlinks to Netflix-internal skills in dotfiles
 add-resource
 contribute
+d2-intent
 debug-pr
 debug-run
+fix-pr
+inspect-jenkins
+inspect-pr
+inspect-run
+metaflow-release
+metatron-intent
+radar
+run-tests
+swagger-intent
+trigger-jenkins
+upload-report
 
 # Local OAuth credentials — never commit
 google-workspace-setup/client_secrets.json
+
+# Netflix-internal skills that should live in dotfiles
+doc-freshness-report/
+metaflow-oss-release/
+oncall-handoff-brief/
+pr-status/
 
 # Netflix-internal skills hosted separately at github.netflix.net/npow/claude-skills # oss-ok
 mako-gpu-status

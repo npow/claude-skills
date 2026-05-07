@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-model critic for deep-qa: sends an angle + artifact to a non-Claude model via MGP.
+"""Cross-model critic for deep-qa: sends an angle + artifact to a non-Claude model.
 
 Usage:
     python3 cross-model-critic.py \
@@ -12,7 +12,7 @@ Usage:
         --mode code \
         --known-defects-file deep-qa-run/known-defects.md
 
-Models route through Netflix Model Gateway (MGP) OpenAI-compatible endpoint.
+Requires an OpenAI-compatible endpoint. Set CRITIC_BASE_URL and CRITIC_API_KEY env vars.
 """
 
 import argparse
@@ -23,11 +23,8 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone
 
-MGP_BASE = os.environ.get(
-    "MGP_CRITIC_BASE_URL",
-    "http://mgp.local.dev.netflix.net:9123/proxy/npowws/v1",
-)
-MGP_KEY = os.environ.get("MGP_CRITIC_API_KEY", os.environ.get("OPENAI_API_KEY", "sk-dummy"))
+CRITIC_BASE = os.environ.get("CRITIC_BASE_URL") or os.environ.get("OPENAI_BASE_URL", "")
+CRITIC_KEY = os.environ.get("CRITIC_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
 
 MAX_ARTIFACT_CHARS = 120_000
 MAX_COMPLETION_TOKENS = 16_384
@@ -102,6 +99,15 @@ If no defects found, output "No defects found for this angle." and explain why i
 Do NOT soften findings. Do NOT assume patterns are intentional. Report everything."""
 
 
+def _check_config() -> None:
+    if not CRITIC_BASE:
+        print("CRITIC_BASE_URL (or OPENAI_BASE_URL) must be set.", file=sys.stderr)
+        sys.exit(1)
+    if not CRITIC_KEY:
+        print("CRITIC_API_KEY (or OPENAI_API_KEY) must be set.", file=sys.stderr)
+        sys.exit(1)
+
+
 def read_file(path: str, max_chars: int = 0) -> str:
     with open(path, "r") as f:
         content = f.read()
@@ -110,8 +116,8 @@ def read_file(path: str, max_chars: int = 0) -> str:
     return content
 
 
-def call_mgp(model: str, messages: list[dict], temperature: float = 0.7) -> str:
-    url = f"{MGP_BASE}/chat/completions"
+def call_critic(model: str, messages: list[dict], temperature: float = 0.7) -> str:
+    url = f"{CRITIC_BASE}/chat/completions"
     payload = {
         "model": model,
         "messages": messages,
@@ -125,7 +131,7 @@ def call_mgp(model: str, messages: list[dict], temperature: float = 0.7) -> str:
         data=data,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {MGP_KEY}",
+            "Authorization": f"Bearer {CRITIC_KEY}",
         },
         method="POST",
     )
@@ -136,10 +142,10 @@ def call_mgp(model: str, messages: list[dict], temperature: float = 0.7) -> str:
             return result["choices"][0]["message"]["content"]
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
-        print(f"MGP HTTP {e.code}: {body[:500]}", file=sys.stderr)
+        print(f"Critic HTTP {e.code}: {body[:500]}", file=sys.stderr)
         raise
     except urllib.error.URLError as e:
-        print(f"MGP connection error: {e.reason}", file=sys.stderr)
+        print(f"Critic connection error: {e.reason}", file=sys.stderr)
         raise
 
 
@@ -156,6 +162,7 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.7)
     args = parser.parse_args()
 
+    _check_config()
     angle = read_file(args.angle_file)
     artifact = read_file(args.artifact_file, max_chars=MAX_ARTIFACT_CHARS)
 
@@ -175,8 +182,8 @@ def main():
         {"role": "user", "content": user_msg},
     ]
 
-    print(f"Calling {args.model} via MGP (mode={args.mode})...", file=sys.stderr)
-    response = call_mgp(args.model, messages, temperature=args.temperature)
+    print(f"Calling {args.model} via cross-model endpoint (mode={args.mode})...", file=sys.stderr)
+    response = call_critic(args.model, messages, temperature=args.temperature)
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     header = (

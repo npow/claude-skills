@@ -40,10 +40,10 @@ git remote get-url origin 2>/dev/null
 gh pr view <NUMBER> --json title,body,additions,deletions,changedFiles,baseRefName,headRefName
 gh pr diff <NUMBER>
 
-# OR for GitHub Enterprise (github.netflix.net)
-GH_HOST=github.netflix.net gh pr view <NUMBER> --repo <ORG/REPO> \
+# OR for GitHub Enterprise
+GH_HOST=<GHE_HOST> gh pr view <NUMBER> --repo <ORG/REPO> \
   --json title,body,additions,deletions,changedFiles,baseRefName,headRefName
-GH_HOST=github.netflix.net gh pr diff <NUMBER> --repo <ORG/REPO>
+GH_HOST=<GHE_HOST> gh pr diff <NUMBER> --repo <ORG/REPO>
 ```
 
 Read the diff carefully. For each dimension below, scan the ENTIRE diff — not just the first file.
@@ -355,7 +355,7 @@ EOF
 
 OR for GitHub Enterprise:
 ```bash
-GH_HOST=github.netflix.net gh pr comment <NUMBER> --repo <ORG/REPO> --body "$(cat <<'EOF'
+GH_HOST=<GHE_HOST> gh pr comment <NUMBER> --repo <ORG/REPO> --body "$(cat <<'EOF'
 <review content>
 EOF
 )"

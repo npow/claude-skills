@@ -390,18 +390,20 @@ class DeepResearchWorkflow:
         state.cross_cut_coverage = {dim: [] for dim in CROSS_CUT_DIMS}
 
         # MCP scoping — only load servers the researchers actually need.
+        # Keyword→category mappings are loaded from RESEARCH_MCP_CATEGORIES env var
+        # (JSON: {"category": ["kw1","kw2"]}). Unmatched seeds get "web-only".
         mcp_config_path: str | None = None
         if workflow.patched("scoped-mcp-v1"):
-            _NETFLIX_KEYWORDS = {"netflix", "nflx", "spinnaker", "maestro", "metaflow",
-                                 "titus", "mantis", "atlas", "zuul", "eureka", "edda"}
-            _DATA_KEYWORDS = {"iceberg", "hive", "spark", "sql", "warehouse", "kragle",
-                              "table", "dataset", "pipeline", "etl"}
+            import json as _json
+            _raw = os.environ.get("RESEARCH_MCP_CATEGORIES", "{}")
+            _category_keywords: dict[str, set[str]] = {
+                cat: set(kws) for cat, kws in _json.loads(_raw).items()
+            }
             seed_lower = inp.seed.lower()
             mcp_needs: list[str] = []
-            if any(kw in seed_lower for kw in _NETFLIX_KEYWORDS):
-                mcp_needs.append("netflix-research")
-            if any(kw in seed_lower for kw in _DATA_KEYWORDS):
-                mcp_needs.append("data")
+            for cat, kws in _category_keywords.items():
+                if any(kw in seed_lower for kw in kws):
+                    mcp_needs.append(cat)
             if not mcp_needs:
                 mcp_needs.append("web-only")
             from sagaflow.transport.mcp_registry import resolve_and_generate
