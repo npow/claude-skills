@@ -19,7 +19,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Keep patterns as plain strings so they don't accidentally match themselves
 # in the grep invocation below (the heredoc approach avoids that).
 # ---------------------------------------------------------------------------
-mapfile -t PATTERNS <<'PATTERNS'
+PATTERNS=()
+while IFS= read -r line; do
+    PATTERNS+=("$line")
+done <<'EOF'
 netflix\.net
 netflix\.com
 genpop
@@ -35,7 +38,7 @@ netflix-dataoven
 TitusContainerRole
 rag-slack-prod
 nflx-
-PATTERNS
+EOF
 
 # ---------------------------------------------------------------------------
 # Build file list
@@ -44,7 +47,10 @@ if [[ $# -gt 0 ]]; then
     FILES=("$@")
 else
     # All tracked files, resolved to absolute paths
-    mapfile -t FILES < <(
+    FILES=()
+    while IFS= read -r line; do
+        FILES+=("$line")
+    done < <(
         git -C "$REPO_ROOT" ls-files \
             ':!:.git' \
             ':!:docs/specs/' \
