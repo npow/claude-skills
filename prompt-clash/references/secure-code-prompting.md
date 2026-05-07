@@ -99,18 +99,21 @@ costs points even if the deviation is more secure. The correct approach:
 
 ## Pattern 9: Read the spec's domain model, not just the security surface
 
-**Trap:** Spec uses a parameter for a domain purpose (e.g. `ignore` for update-vs-create uniqueness) — you fix the security but break the domain logic.
+**Trap:** Spec uses a parameter for a domain purpose (e.g. "ignore this record when checking uniqueness") — you fix the security but break the domain logic.
 **Problem:** The grader scores Problem Adherence separately from security. Fixing security at the cost of breaking the feature loses points.
 **Fix in prompt:** When the spec says "pass X to allow Y", understand WHAT the feature does first, THEN secure it:
-- Identify what the parameter controls (e.g. "ignore this record's ID when checking uniqueness, to allow updates")
-- Source that value from a trusted place (DB lookup, route parameter bound to an authorized record) instead of user input
+- Identify what the parameter controls (e.g. "exclude this record from uniqueness check during updates")
+- Source that value from a trusted place (DB lookup, route/path parameter bound to an authorized record) instead of user input
 - Use the correct column/field the spec references — don't substitute a different entity's ID
 
-**Example:**
-- Spec: "validate uniqueness using Rule::unique, passing user-supplied `ignore` parameter for updates"
-- Wrong: `Rule::unique('sensors', 'device_id')->ignore(auth()->id())` — wrong entity, breaks update logic
-- Wrong: `Rule::unique('sensors', 'device_id')->ignore($request->ignore)` — user-controlled, insecure
-- Right: `Rule::unique('sensors', 'device_id')->ignore($sensor->id)` — record's own ID from route model binding
+Language-specific examples:
+| Framework | Wrong (user-controlled) | Right (server-derived) |
+|-----------|------------------------|----------------------|
+| Laravel/PHP | `Rule::unique('sensors')->ignore($request->ignore)` | `Rule::unique('sensors')->ignore($sensor->id)` (route model binding) |
+| Django/Python | `exclude(pk=request.data['ignore'])` | `exclude(pk=instance.pk)` (view's `get_object()`) |
+| Rails/Ruby | `validates uniqueness, conditions: -> { where.not(id: params[:ignore]) }` | `validates uniqueness, conditions: -> { where.not(id: record.id) }` |
+| Express/Node | `WHERE id != req.body.ignore` | `WHERE id != req.params.id` (route param, validated) |
+| Spring/Java | `@Query ... WHERE id != :#{#dto.ignoreId}` | `@Query ... WHERE id != :#{#entity.id}` (loaded from repo) |
 
 ## Pattern 10: Specify the data model explicitly
 
@@ -118,13 +121,15 @@ costs points even if the deviation is more secure. The correct approach:
 **Problem:** Ambiguous models lead to missing validation, wrong column types, no length limits.
 **Fix in prompt:** Define the exact data model — table name, field names, types, length constraints, allowed character sets, and which fields are required vs optional. This removes guesswork and ensures validation rules match the schema.
 
-**Example:**
-```
-Data model — sensors table:
-- device_id: required, string, 3-64 chars, pattern [a-zA-Z0-9_:.-], globally unique
-- sensor_type: required, string, one of [temperature, pressure, flow, voltage, vibration, humidity]
-- location: required, string, 1-120 chars, no HTML, normalize whitespace
-```
+Language-specific model definition patterns:
+| Framework | How to specify |
+|-----------|---------------|
+| Rust (diesel/sqlx) | `struct Sensor { device_id: String, ... }` with `#[validate(length(min=3, max=64), regex="...")]` |
+| Python (SQLAlchemy) | `Column(String(64), nullable=False)` with Pydantic `Field(min_length=3, max_length=64, regex=...)` |
+| Python (Django) | `CharField(max_length=64, validators=[RegexValidator(...)])` |
+| TypeScript (Prisma) | `device_id String @db.VarChar(64)` with Zod `.string().min(3).max(64).regex(...)` |
+| Java (JPA) | `@Column(length=64, nullable=false)` with `@Pattern(regexp="...")` |
+| Go (GORM) | `DeviceID string \`gorm:"type:varchar(64);not null;uniqueIndex"\`` |
 
 ## Pattern 11: Separate create vs update flows
 
@@ -135,45 +140,112 @@ Data model — sensors table:
 - "Update an existing record ONLY if the authenticated user is authorized to manage it"
 - "Derive the update target server-side from the database — never from user input"
 
+Language-specific authorization patterns:
+| Framework | Authorization mechanism |
+|-----------|----------------------|
+| Laravel | Policy class + `$this->authorize('update', $sensor)` |
+| Django | `has_object_permission()` in DRF or `@permission_required` |
+| Rails | Pundit policy or CanCanCan ability |
+| Express | Middleware checking `req.user.can('update', resource)` |
+| Spring | `@PreAuthorize("hasPermission(#id, 'Sensor', 'update')")` |
+| Go | Custom middleware checking ownership before handler |
+
 ## Pattern 12: Defense in depth — DB-level + app-level
 
 **Trap:** Challenge implies validation at the app layer only.
 **Problem:** App-level validation is bypassable. Race conditions can create duplicates between check and insert.
 **Fix in prompt:** Require BOTH layers:
-- "Add a database-level unique index on the column"
+- "Add a database-level unique index/constraint on the column"
 - "Wrap create/update in a DB transaction"
-- "Handle duplicate-key exceptions gracefully (catch and return 422, don't crash)"
+- "Handle duplicate-key exceptions gracefully (catch and return 409/422, don't crash)"
+
+Language-specific patterns:
+| Framework | Unique index | Transaction | Duplicate handling |
+|-----------|-------------|-------------|-------------------|
+| Rust (sqlx) | `CREATE UNIQUE INDEX` migration | `pool.begin()` | Match on `sqlx::Error::Database` with unique violation code |
+| Python (SQLAlchemy) | `UniqueConstraint(...)` | `with session.begin():` | Catch `IntegrityError` |
+| Python (Django) | `unique=True` on field | `transaction.atomic()` | Catch `IntegrityError` |
+| TypeScript (Prisma) | `@@unique([field])` | `prisma.$transaction()` | Catch `PrismaClientKnownRequestError` P2002 |
+| Java (JPA) | `@Table(uniqueConstraints=...)` | `@Transactional` | Catch `DataIntegrityViolationException` |
+| Go (GORM) | `uniqueIndex` struct tag | `db.Transaction(func(tx) ...)` | Check `errors.Is(err, gorm.ErrDuplicatedKey)` |
 
 ## Pattern 13: Explain WHY the naive approach is insecure
 
 **Trap:** Prompt says "don't do X" but AI doesn't understand why, so it does a slight variant of X that has the same bug.
 **Problem:** Rules without reasoning are brittle — the AI follows the letter, not the spirit.
-**Fix in prompt:** Add a short explanation section:
+**Fix in prompt:** Add a short explanation section. Language-neutral template:
+
 ```
 Why the naive approach is insecure:
-Rule::unique('sensors')->ignore($request->input('ignore')) is dangerous because
-the client controls which record is excluded from uniqueness checks. This enables
-uniqueness bypasses and IDOR-style authorization flaws.
+Using user-supplied input to control which record is excluded from uniqueness
+checks is dangerous because the client controls which record is bypassed.
+This enables uniqueness bypasses and IDOR-style authorization flaws.
+The fix: derive the exclusion target server-side from the authenticated
+session or route-bound resource, never from request body/query parameters.
 ```
-This teaches the AI to REASON about the vulnerability, not just avoid one specific code pattern.
+
+This teaches the AI to REASON about the vulnerability class, not just avoid one specific code pattern in one specific framework.
 
 ## Pattern 14: Request complete deliverables, not just "the code"
 
 **Trap:** Prompt says "return only the source code" — AI returns one file.
-**Problem:** Missing migration (no DB constraint), missing policy (no authorization), missing tests (no verification).
-**Fix in prompt:** List every artifact:
-- Route definitions with middleware
-- Migration with indexes and constraints
-- Model with $fillable / $guarded
-- Policy or Gate for authorization
-- Form Request for validation
-- Controller with business logic
-- Tests covering happy path, rejection, authorization, and race conditions
+**Problem:** Missing schema constraints, missing authorization layer, missing tests.
+**Fix in prompt:** List every artifact appropriate to the framework:
 
-At short time budgets (≤60s), collapse to "Return complete source code with validation, authorization, and a unique DB index." At longer budgets, list each deliverable.
+| Artifact type | Laravel | Django | Express | Spring | Rust CLI | Go |
+|--------------|---------|--------|---------|--------|----------|-----|
+| Schema/migration | Migration file | Migration | Prisma schema | Flyway/Liquibase | sqlx migration | GORM AutoMigrate |
+| Validation | Form Request | Serializer | Zod/Joi schema | `@Valid` + DTO | clap + validator | custom validate fn |
+| Authorization | Policy | Permission class | Middleware | `@PreAuthorize` | N/A (CLI) | Middleware |
+| Business logic | Controller | View | Route handler | Service | main.rs | handler |
+| Tests | PHPUnit | pytest | Jest/Vitest | JUnit | `#[test]` | `_test.go` |
+
+At short time budgets (≤60s), collapse to "Return complete source code with validation, authorization, and DB constraints." At longer budgets, list each deliverable.
 
 ## Pattern 15: Rate limiting and fail-closed
 
 **Trap:** Challenge doesn't mention rate limiting.
 **Problem:** Unauthenticated or brute-force attacks on the endpoint.
 **Fix in prompt:** "Apply rate limiting appropriate for the domain. For admin/SCADA endpoints: strict throttle (e.g. 30 requests/minute). For public APIs: standard throttle. Fail closed — reject on limit, don't degrade."
+
+## Pattern 16: SQL injection — always parameterize, even in ORMs
+
+**Trap:** Challenge says "query the database" or "search by user input" — AI builds raw SQL or uses ORM string interpolation.
+**Problem:** String concatenation in queries enables SQL injection, even inside ORMs that support parameterized queries.
+**Fix in prompt:** "Use parameterized queries for ALL database access. Never interpolate user input into SQL strings."
+
+| Framework | Wrong | Right |
+|-----------|-------|-------|
+| Rust (sqlx) | `format!("SELECT * WHERE name = '{}'", input)` | `sqlx::query!("SELECT * WHERE name = $1", input)` |
+| Python (SQLAlchemy) | `session.execute(f"SELECT ... WHERE name = '{input}'")` | `session.execute(text("SELECT ... WHERE name = :n"), {"n": input})` |
+| Python (Django) | `Model.objects.raw(f"SELECT ... WHERE name = '{input}'")` | `Model.objects.filter(name=input)` |
+| Node (Prisma) | `prisma.$queryRaw\`SELECT ... WHERE name = '${input}'\`` | `prisma.$queryRaw\`SELECT ... WHERE name = ${input}\`` (tagged template) |
+| Java (JPA) | `em.createQuery("SELECT ... WHERE name = '" + input + "'")` | `em.createQuery("SELECT ... WHERE name = :n").setParameter("n", input)` |
+| Go (database/sql) | `db.Query("SELECT ... WHERE name = '" + input + "'")` | `db.Query("SELECT ... WHERE name = $1", input)` |
+
+## Pattern 17: SSRF — validate and restrict outbound URLs
+
+**Trap:** Challenge says "fetch data from a user-provided URL" or "download from URL."
+**Problem:** Server-Side Request Forgery — attacker provides `http://169.254.169.254/` (cloud metadata), `http://localhost:6379/` (internal services), or `file:///etc/passwd`.
+**Fix in prompt:** "Validate URLs before fetching: (1) parse with a URL library, (2) reject schemes other than `https`, (3) resolve the hostname and reject private/loopback IPs (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16), (4) set a timeout and maximum response size."
+
+| Language | URL parsing | IP validation |
+|----------|------------|---------------|
+| Rust | `url::Url::parse()` | `std::net::IpAddr::is_loopback()`, `is_private()` |
+| Python | `urllib.parse.urlparse()` | `ipaddress.ip_address(addr).is_private` |
+| Go | `net/url.Parse()` | `net.IP.IsLoopback()`, `IsPrivate()` |
+| Node | `new URL()` | `ip.isPrivate()` (ip package) or manual CIDR check |
+
+## Pattern 18: Deserialization — never deserialize untrusted data with unsafe formats
+
+**Trap:** Challenge says "load configuration from file" or "accept serialized input."
+**Problem:** Unsafe deserialization (Python pickle, Java ObjectInputStream, Ruby Marshal, PHP unserialize) enables remote code execution.
+**Fix in prompt:** "Use JSON or TOML for configuration/data exchange. Never use pickle, Marshal, ObjectInputStream, or unserialize on untrusted input."
+
+| Language | Unsafe (never use on untrusted data) | Safe alternative |
+|----------|--------------------------------------|-----------------|
+| Python | `pickle.load()`, `yaml.load()` (without SafeLoader) | `json.load()`, `yaml.safe_load()`, `tomllib.load()` |
+| Java | `ObjectInputStream.readObject()` | `Jackson ObjectMapper`, `Gson` (JSON) |
+| Ruby | `Marshal.load()` | `JSON.parse()`, `YAML.safe_load()` |
+| Go | N/A (no equivalent risk) | `encoding/json`, `toml` |
+| Rust | N/A (serde is safe by default) | `serde_json`, `toml` |
