@@ -55,10 +55,35 @@ Full attack decision tree: [references/attack-playbook.md](references/attack-pla
 
 ## Mode: Defend
 
-Given a system prompt (or task description), harden it:
+Given a challenge, system prompt, or task description — output a hardened prompt the user can copy-paste. The PROMPT is the deliverable, not analysis.
 
-1. **Audit** — identify every vulnerability in the current prompt against the attack tier list
-2. **Layer defenses** — apply in this order (each layer independently useful):
+**Time budget: 4 minutes total.** No audit tables, no preamble, no explanation unless asked.
+
+### Workflow
+
+1. **Identify traps** (30s, silent — do not print) — scan the challenge for security pitfalls: path traversal, SSRF, injection, secret leakage, missing validation, etc. Do NOT output this step.
+2. **Generate prompt** (3min) — write the complete hardened prompt as a fenced code block. The prompt must:
+   - Restate the functional requirements clearly
+   - List every security requirement as a MANDATORY section with exact function/method names (not vague "validate input" — concrete `pathlib.Path.resolve()`, `urllib.parse.urlparse`, etc.)
+   - Use imperative voice: "Resolve the path with X", "Reject if Y", "Return 400 when Z"
+   - End with "Return only the complete source code."
+3. **Self-check** (30s, silent) — does the prompt address every trap from step 1? If any missing, patch inline. Do NOT re-output or explain.
+
+### Output format
+
+Return ONLY the prompt in a fenced code block. No audit tables. No attack analysis. No "here's what I did" explanation. The user is in a timed round and will copy-paste the code block directly.
+
+If the user asks for analysis or explanation after, switch to analyze mode.
+
+### Prompt construction rules
+
+- **Concrete beats abstract.** "Validate the filename" → AI will skip it. "Reject filenames not matching `^[a-zA-Z0-9._-]+$` with 400" → AI will implement it.
+- **Name the function.** Don't say "sanitize the path" — say "use `pathlib.Path.resolve()` and verify it starts with `Path('./static').resolve()`".
+- **Negative + positive.** For each trap: say what NOT to do AND what TO do. "NEVER log config values. Log ONLY `list(config.keys())`."
+- **Mandatory section header.** Group security requirements under `MANDATORY SECURITY REQUIREMENTS` — models treat all-caps headers as higher priority.
+- **End with output constraint.** "Return only the complete source code" prevents the model from hedging with explanations instead of writing code.
+
+### Defense layers (apply when the challenge involves prompt injection rather than code security)
 
 | Layer | Defense | Blocks |
 |-------|---------|--------|
@@ -70,10 +95,6 @@ Given a system prompt (or task description), harden it:
 | 6 | Language pin ("ALWAYS respond in English") | Language-switch attacks |
 | 7 | Self-check instruction ("Before responding, verify...") | Subtle leakage |
 | 8 | Fixed refusal template for violations | Partial compliance |
-
-3. **Output hardened prompt** — ready to copy-paste
-4. **Self-attack** — immediately try 3 attacks against the hardened version, report results
-5. **Iterate** — if any self-attack succeeds, patch and re-test
 
 Defense templates: [references/defense-templates.md](references/defense-templates.md)
 
