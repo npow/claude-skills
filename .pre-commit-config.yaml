@@ -1,4 +1,11 @@
 repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.12
+    hooks:
+      - id: ruff
+        name: Ruff lint (undefined names, syntax errors)
+        args: [--select, "E999,F821", --no-fix]
+        types_or: [python]
   - repo: local
     hooks:
       - id: no-internal-refs
