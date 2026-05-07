@@ -204,12 +204,13 @@ After step 0b-verify confirms tests pass (green baseline), run mutation testing 
 
 1. **Gate:** Only run if ALL of: (a) tests passed in step 0b, (b) test files exist for the changed code, (c) artifact type is `code`, (d) `--depth=quick` is NOT set.
 2. **Invoke:** Spawn the `mutation-test` skill as a background agent targeting changed files. Pass a 3-minute total budget. The skill measures baseline test duration, generates mutations prioritized by severity (business_logic + concurrency first), and runs each within an adaptive timeout (3× baseline).
-3. **Map results to verification report:**
-   - Surviving `business_logic` or `concurrency` mutations → add to **Unverified ⚠️** as "Tests pass but don't catch: {mutation description}"
-   - Surviving `data_flow` or `error_handling` mutations → add to **Unverified ⚠️** as "Test gap: {mutation description}"
-   - All mutations killed → add to **Verified ✅** as "Mutation testing: {N}/{N} mutations killed — tests catch semantic changes"
-   - Budget exhausted → note how many mutations were tested vs skipped
-4. **Verdict impact:** Surviving high-severity mutations (business_logic, concurrency) downgrade verdict from `verified` to `partially_verified`. Surviving medium-severity mutations are noted but don't downgrade the verdict.
+3. **Consume structured records:** Read the structured result records from mutation-test (not the markdown report). Only `survived` status records become verification gaps. Other statuses map to caveats:
+   - `survived` with `scope: changed` → **Unverified ⚠️** as "Tests pass but don't catch: {description}"
+   - `survived` with `scope: adjacent_unchanged` → **Unverified ⚠️** as "Pre-existing test gap (not introduced by this change): {description}"
+   - `killed` / `timeout` → **Verified ✅** (tests caught the mutation)
+   - `skipped_budget` / `baseline_failed` / `no_tests` → **Verification Caveats** (not defects)
+   - All mutations killed → **Verified ✅** as "Mutation testing: {N}/{N} mutations killed"
+4. **Verdict impact:** Surviving mutations with `scope: changed` in `business_logic` or `concurrency` categories downgrade verdict from `verified` to `partially_verified`. Surviving mutations with `scope: adjacent_unchanged` are noted but don't downgrade the verdict — they are pre-existing gaps.
 
 **Step 0c-verify — Report:**
 
@@ -486,14 +487,15 @@ Continue? [y/N/redirect:<focus>]
 
 When ALL of: (a) `artifact_type == "code"`, (b) test files exist for the artifact's target files, (c) `--no-cross-model` is NOT set, (d) `--depth=quick` is NOT set — spawn a mutation-test background agent in Round 1 alongside the first critic batch:
 
-1. **Spawn:** In the same single-message critic spawn (step 4), include an additional Agent call that invokes the `mutation-test` skill targeting the artifact's source files. Pass total budget of 3 minutes. The agent runs independently and writes results to `deep-qa-{run_id}/mutation-report.md`.
+1. **Spawn:** In the same single-message critic spawn (step 4), include an additional Agent call that invokes the `mutation-test` skill targeting the artifact's source files. Pass total budget of 3 minutes. The agent runs independently and writes structured result records to `deep-qa-{run_id}/mutation-results.json`.
 2. **Collect:** Drain the mutation-test agent at Phase 5.5 (alongside pass-1 judges). Do NOT wait for it during rounds.
-3. **Map to defects:** Each surviving mutant becomes a defect entry in state.json:
-   - `dimension: "TESTABILITY"`, `source: "mutation-test"`
-   - `business_logic` or `concurrency` surviving mutation → `severity: "critical"`
-   - `data_flow` or `error_handling` surviving mutation → `severity: "major"`
-   - `judge_status: "pre-judged"` (mutation survival is empirical evidence — no blind judge needed)
-4. **Report:** Include mutation-test results as a subsection in the Phase 6 final report under TESTABILITY findings.
+3. **Ingest structured records into state.json:** Only records with `status: "survived"` become defect entries. All other statuses are verification metadata, not defects.
+   - `survived` + `scope: changed` → defect in state.json with `dimension: "TESTABILITY"`, `source: "mutation-test"`, `judge_status: "pre-judged"`. Severity: `critical` only when category is `business_logic` or `concurrency`; otherwise `major`.
+   - `survived` + `scope: adjacent_unchanged` → defect with `severity: "minor"`, excluded from autopilot's fix loop. Pre-existing gap not introduced by this change.
+   - `survived` + `scope: unrelated` → do NOT create a defect. Report in a low-noise appendix only.
+   - `killed`, `timeout` → not defects. `timeout` means the mutation was detected (tests couldn't finish = breakage caught).
+   - `skipped_budget`, `baseline_failed`, `no_tests` → verification caveats logged in state.json metadata, not defects.
+4. **Report:** Include mutation-test results as a subsection in the Phase 6 final report under TESTABILITY findings. Separate `changed`-scope findings (actionable) from `adjacent_unchanged` (informational).
 5. **Skip gracefully:** If mutation-test agent times out, fails, or finds no test files, log and continue — the lane is supplementary.
 
 **No redesign phase.** Defects are catalogued with severity; status remains `open` unless disputed by validation.

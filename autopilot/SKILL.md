@@ -121,8 +121,7 @@ For pipeline: each phase gate requires all subtasks in that phase to pass verifi
 
 After all subtasks complete:
 - Invoke deep-qa in fix mode on the combined output
-- deep-qa's TESTABILITY dimension now includes an empirical mutation-test lane (spawned automatically for code artifacts with tests, 3-min budget). Surviving mutants surface as testability defects. This is transitive — autopilot gets mutation testing through deep-qa without any additional wiring.
-- If autopilot *wrote* the tests (not just the code), deep-qa's `--verify` mode also runs mutation-test to validate that the generated tests actually catch semantic changes.
+- deep-qa's TESTABILITY dimension includes an empirical mutation-test lane (spawned automatically for code artifacts with tests, 3-min budget). Surviving mutants with `scope: changed` surface as testability defects and enter the fix loop. Surviving mutants with `scope: adjacent_unchanged` are `minor` and excluded from the fix loop — they are pre-existing gaps not introduced by this change.
 - If defects found: fix and re-verify (loop, max 2 QA rounds)
 - If clean: proceed to ship
 
