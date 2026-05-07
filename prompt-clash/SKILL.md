@@ -97,7 +97,7 @@ If the user asks for analysis or explanation after, switch to analyze mode.
 - **Negative + positive.** For each trap: say what NOT to do AND what TO do. "NEVER log config values. Log ONLY `list(config.keys())`."
 - **Mandatory section header.** Group security requirements under `SECURITY REQUIREMENTS` — models treat all-caps headers as higher priority.
 - **End with output constraint.** "Return only the complete source code" prevents the model from hedging with explanations instead of writing code.
-- **Token-efficient.** The grader may score token usage — shorter prompts that achieve the same security are better. Prefer numbered one-liners over paragraphs. Combine related fixes on one line. Cut filler words. Don't repeat the challenge requirements verbatim if a short restatement works. At ≤60s budget, aim for under 200 words. At 2-4min budget, stay under 400 words.
+- **Token-efficient output.** The grader scores the generated prompt's token count — fewer tokens for the same security coverage scores higher. The prompt you output in the code block is what gets billed. Rules: (1) Don't repeat challenge requirements verbatim — compress to one sentence. (2) Numbered one-liners per fix, not paragraphs. (3) Cut filler words ("please", "make sure to", "it is important that"). (4) Combine related fixes: "Use SHA-256 (`sha2` crate), constant-time comparison (`subtle` crate)" = one line, two fixes. (5) Skip explanations of WHY inside the prompt unless budget is ≥4min — the coding agent doesn't need to understand the vulnerability, just avoid it. Target: ≤150 tokens at 60s, ≤300 tokens at 2-4min.
 
 ### Defense layers (apply when the challenge involves prompt injection rather than code security)
 
