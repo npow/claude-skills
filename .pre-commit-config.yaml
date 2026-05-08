@@ -6,6 +6,16 @@ repos:
         name: Ruff lint (undefined names, syntax errors)
         args: [--select, "F821", --no-fix]
         types_or: [python]
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.402
+    hooks:
+      - id: pyright
+        name: Pyright type check (catches workflow.<bad-attr>, etc.)
+        files: '^[^/]+/workflow\.py$|^[^/]+/state\.py$|^[^/]+/__init__\.py$'
+        additional_dependencies:
+          - temporalio>=1.8.0
+          - sagaflow>=0.10.2
+          - pydantic>=2.0
   - repo: local
     hooks:
       - id: no-internal-refs

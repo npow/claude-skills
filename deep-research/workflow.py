@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from temporalio import workflow
+from temporalio.exceptions import ApplicationError
 
 with workflow.unsafe.imports_passed_through():
     from sagaflow.durable.activities import (
@@ -423,7 +424,7 @@ class DeepResearchWorkflow:
                 workflow.logger.error(
                     "dim-discover returned 0 directions after retry — failing run"
                 )
-                raise workflow.ApplicationError(
+                raise ApplicationError(
                     "dim-discover produced 0 parseable directions after 2 attempts"
                 )
 
@@ -897,7 +898,7 @@ class DeepResearchWorkflow:
                 workflow.logger.error(
                     "0 findings after all rounds — refusing to synthesize an empty report"
                 )
-                raise workflow.ApplicationError(
+                raise ApplicationError(
                     "Research produced 0 findings — cannot synthesize. "
                     "Check researcher spawn/completion logs."
                 )
