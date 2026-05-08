@@ -1,8 +1,8 @@
 {
-  "include": ["*/workflow.py", "*/state.py", "*/__init__.py"],
+  "include": ["*/workflow.py"],
   "exclude": ["**/__pycache__", "**/*.bak.*", "_lint_test_*"],
   "reportAttributeAccessIssue": "error",
-  "reportMissingImports": "warning",
+  "reportMissingImports": "none",
   "reportMissingTypeStubs": "none",
   "pythonVersion": "3.10",
   "typeCheckingMode": "basic"

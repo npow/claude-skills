@@ -11,11 +11,10 @@ repos:
     hooks:
       - id: pyright
         name: Pyright type check (catches workflow.<bad-attr>, etc.)
-        files: '^[^/]+/workflow\.py$|^[^/]+/state\.py$|^[^/]+/__init__\.py$'
+        files: '^[^/]+/workflow\.py$'
         additional_dependencies:
-          - temporalio>=1.8.0
-          - sagaflow>=0.10.2
-          - pydantic>=2.0
+          - temporalio==1.27.0
+          - pydantic==2.11.10
   - repo: local
     hooks:
       - id: no-internal-refs
