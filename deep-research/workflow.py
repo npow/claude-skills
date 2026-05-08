@@ -467,6 +467,11 @@ class DeepResearchWorkflow:
         # (JSON: {"category": ["kw1","kw2"]}). Unmatched seeds get "web-only".
         mcp_config_path: str | None = None
         if workflow.patched("scoped-mcp-v1"):
+<<<<<<< HEAD
+=======
+            import json as _json
+            _raw = _RESEARCH_MCP_CATEGORIES_RAW
+>>>>>>> 70ee606 (fix: move os.environ read to module level for Temporal sandbox)
             _category_keywords: dict[str, set[str]] = {
                 cat: set(kws) for cat, kws in json.loads(_RESEARCH_MCP_CATEGORIES_RAW).items()
             }
