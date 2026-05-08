@@ -852,11 +852,14 @@ IMPORTANT: You are NOT being asked for another fix. You are being asked to diagn
 
 After the final report (Phase 8), run a lightweight retrospect scan:
 1. Scan for P1-P3 signals (user corrections, self-corrections, structural failures)
-2. If any found: invoke `/retrospect` for full analysis with enforcement-first patches
-3. If none found: skip — no output needed
+2. Scan for P6 signals: check if any QA or judge verdicts reveal defect clusters —
+   same failure class 2+ times, or a hypothesis that should have been tried earlier
+   but was systematically missed. Maps to a behavioral gap, not a one-off miss.
+3. If P1-P3 or qualifying P6 signals found: invoke `/retrospect` for full enforcement-first analysis
+4. If none found: skip — no output needed
 
-This ensures debugging anti-patterns (wrong hypotheses, missed logs, assumption-based coding)
-are captured as enforceable rules while context is fresh.
+This creates a self-improving loop: debugging anti-patterns become enforceable rules
+even when the user doesn't intervene.
 
 ## Integration with Other Skills
 

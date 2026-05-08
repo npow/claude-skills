@@ -137,10 +137,14 @@ Output: what was built, what was verified, what's untested, termination label.
 
 After ship, run a lightweight retrospect scan on this session:
 1. Scan for P1-P3 signals (user corrections, self-corrections, structural failures)
-2. If any found: invoke `/retrospect` for full analysis with enforcement-first patches
-3. If none found: skip — no output needed
+2. Scan for P6 signals (QA-driven patterns): check if Phase 4 deep-qa found defect clusters
+   that suggest behavioral gaps — same defect class 2+ times, severity >= major, maps to a
+   missing workflow step rather than an isolated code bug
+3. If P1-P3 or qualifying P6 signals found: invoke `/retrospect` for full enforcement-first analysis
+4. If none found: skip — no output needed
 
-This ensures behavioral fixes are captured while context is fresh, not lost to session end.
+This creates a self-improving loop: QA findings that reveal systematic gaps become enforceable
+rules, not just one-off fixes. The agent gets better even without user intervention.
 
 **Termination labels** (honest, exhaustive):
 - `completed_verified` — all subtasks passed verification + QA clean
