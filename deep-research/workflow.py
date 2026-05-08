@@ -94,6 +94,7 @@ class DeepResearchInput:
     inbox_path: str
     run_dir: str
     max_rounds: int = 1000
+    min_rounds: int = 3
     max_directions: int = 100
     max_concurrent_researchers: int = 20
     notify: bool = True
@@ -708,7 +709,8 @@ class DeepResearchWorkflow:
                 _CONVERGENCE_THRESHOLD = 5
             recent_gains = progress["info_gain_rates"][-_CONVERGENCE_WINDOW:]
             info_gain_converged = (
-                len(recent_gains) >= _CONVERGENCE_WINDOW
+                round_num >= inp.min_rounds
+                and len(recent_gains) >= _CONVERGENCE_WINDOW
                 and all(g["rate"] < _CONVERGENCE_THRESHOLD for g in recent_gains)
             )
             state.frontier = [d for d in state.frontier if d.status == "frontier"]
@@ -800,6 +802,74 @@ class DeepResearchWorkflow:
                     )
                     new_added += 1
             progress["expansions"].append({"round": round_num, "proposed": len(new_raw), "added": new_added})
+
+            if not directions and round_num < inp.min_rounds:
+                gap_prompt_path = f"{run_dir}/gap-r{round_num}.txt"
+                covered_dims = {f.get("dimension", "") for f in all_findings}
+                all_dims = set(CROSS_CUT_DIMS) | set(d.dimension for d in current_batch)
+                uncovered = all_dims - covered_dims
+                await _write(gap_prompt_path,
+                    f"Research topic file: {seed_path}\n\n"
+                    f"CRITICAL: The direction expander returned 0 new directions after round "
+                    f"{round_num}, but we have NOT reached saturation (min_rounds={inp.min_rounds}). "
+                    f"This is an early exit — the research is INCOMPLETE.\n\n"
+                    f"Already explored ({len(explored_questions)} directions):\n"
+                    + "\n".join(f"- {q}" for q in list(explored_questions)[:50]) + "\n\n"
+                    f"Dimensions with ZERO coverage: {sorted(uncovered) if uncovered else 'none'}\n"
+                    f"Dimensions covered: {sorted(covered_dims)}\n\n"
+                    "Your job: generate NEW directions that the previous expander missed. "
+                    "Strategies:\n"
+                    "1. Drill deeper into specific teams/entities mentioned in findings\n"
+                    "2. Cover dimensions with zero or thin coverage\n"
+                    "3. Cross-reference: find connections between teams that weren't explored\n"
+                    "4. Verify/challenge: create directions that test uncertain claims\n"
+                    "5. Quantitative: directions targeting metrics, costs, scale numbers\n"
+                    "6. Historical: evolution over time, migration stories, deprecation timelines\n\n"
+                    f"Generate at least {max(10, inp.max_directions // 3)} new directions. "
+                    "DO NOT return 0 — the research is incomplete and needs more rounds.\n\n"
+                    "STRUCTURED_OUTPUT_START\n"
+                    'DIRECTIONS|[{"id":"d_gap_r' + str(round_num) + '_1","dimension":"...","question":"...","priority":"high"}, ...]\n'
+                    "STRUCTURED_OUTPUT_END"
+                )
+                gap_result = await _spawn(
+                    role="gap-analyst",
+                    tier="OPUS",
+                    system_prompt=(
+                        "You are a research gap analyst. The previous direction expander "
+                        "returned 0 new directions too early. Find gaps the expander missed. "
+                        "Use all available tools to discover underexplored areas. "
+                        "NEVER return an empty list — if the topic is broad enough to have "
+                        "had a first round of research, there are always follow-up angles.\n"
+                        "STRUCTURED_OUTPUT_START\n"
+                        'DIRECTIONS|[{"id":"...","dimension":"...","question":"...","priority":"..."}, ...]\n'
+                        "STRUCTURED_OUTPUT_END"
+                    ),
+                    prompt_path=gap_prompt_path,
+                    max_tokens=128000,
+                    tools_needed=True,
+                )
+                gap_raw = _parse_json_list(gap_result.get("DIRECTIONS", "[]"))
+                gap_added = 0
+                for d in gap_raw:
+                    q = d.get("question", "")
+                    if q and q not in explored_questions:
+                        directions.append(
+                            Direction(
+                                id=d.get("id", f"d_gap_r{round_num}_{gap_added}"),
+                                question=q,
+                                dimension=d.get("dimension", "HOW"),
+                                priority=d.get("priority", "high"),
+                            )
+                        )
+                        gap_added += 1
+                progress.setdefault("gap_recoveries", []).append(
+                    {"round": round_num, "proposed": len(gap_raw), "added": gap_added}
+                )
+                workflow.logger.info(
+                    "Gap recovery after round %d: proposed=%d, added=%d",
+                    round_num, len(gap_raw), gap_added,
+                )
+
             progress["directions_remaining"] = len(directions)
             await _update_progress(
                 phase=f"round_{round_num}_done",
@@ -814,8 +884,10 @@ class DeepResearchWorkflow:
         frontier_empty = not directions
         if abs_hit:
             state.termination_label = f"User-stopped at round {round_num}"
+        elif frontier_empty and round_num >= inp.min_rounds:
+            state.termination_label = f"Frontier exhausted after {round_num} rounds — no new directions generated"
         elif frontier_empty:
-            state.termination_label = "Convergence — frontier exhausted"
+            state.termination_label = f"Frontier exhausted prematurely at round {round_num} (before min_rounds={inp.min_rounds})"
         elif round_num >= inp.max_rounds:
             state.termination_label = "Budget soft gate — user chose to extend or stop"
         else:

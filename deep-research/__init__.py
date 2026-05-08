@@ -30,6 +30,10 @@ def _build_input(
         max_rounds = int(cli_args.get("max_rounds", 1000))
     except (TypeError, ValueError):
         max_rounds = 1000
+    try:
+        min_rounds = int(cli_args.get("min_rounds", 3))
+    except (TypeError, ValueError):
+        min_rounds = 3
     return DeepResearchInput(
         run_id=run_id,
         seed=seed,
@@ -37,6 +41,7 @@ def _build_input(
         run_dir=run_dir,
         max_directions=max_dirs,
         max_rounds=max_rounds,
+        min_rounds=min_rounds,
         notify=True,
         mcp_categories_json=os.environ.get("RESEARCH_MCP_CATEGORIES", "{}"),
     )

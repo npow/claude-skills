@@ -209,7 +209,7 @@ If gaps found → generate new TOP-LEVEL directions (not sub-directions) with hi
 1. **User chooses N at a prospective gate** (explicit user decision) → label: "User-stopped at round N"
 2. **Coverage plateau:** No new dimensions for 3 consecutive rounds AND all frontier items have exhaustion score ≥ 4 → label: "Coverage plateau — frontier saturated"
 3. **Budget soft gate:** `max_rounds` reached AND frontier is non-empty → show gate (below), do NOT auto-stop
-4. **Frontier actually empties** (possible because direction reporting is optional) → label: "Convergence — frontier exhausted"
+4. **Frontier actually empties** AFTER `min_rounds` (default 3) → label: "Frontier exhausted after N rounds". Before `min_rounds`, a gap-analysis agent forces new directions to prevent premature termination.
 
 **`max_rounds` is a soft gate, not a hard stop.** When `max_rounds` is reached with frontier non-empty:
 ```
