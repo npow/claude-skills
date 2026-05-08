@@ -33,7 +33,6 @@ from datetime import timedelta
 from temporalio import workflow
 
 with workflow.unsafe.imports_passed_through():
-    import os as _os_module
     from sagaflow.durable.activities import (
         EmitFindingInput,
         FinalizeManifestInput,
@@ -48,8 +47,6 @@ with workflow.unsafe.imports_passed_through():
         DeepResearchState,
         SourceVerification,
     )
-
-_RESEARCH_MCP_CATEGORIES_RAW = _os_module.environ.get("RESEARCH_MCP_CATEGORIES", "{}")
 
 _PROGRESS_POLICY = HAIKU_POLICY
 _PROGRESS_TITLE = "deep-research"
@@ -99,6 +96,7 @@ class DeepResearchInput:
     max_directions: int = 100
     max_concurrent_researchers: int = 20
     notify: bool = True
+    mcp_categories_json: str = "{}"
 
 
 # ---------------------------------------------------------------------------
@@ -463,17 +461,12 @@ class DeepResearchWorkflow:
         state.cross_cut_coverage = {dim: [] for dim in CROSS_CUT_DIMS}
 
         # MCP scoping — only load servers the researchers actually need.
-        # Keyword→category mappings are loaded from RESEARCH_MCP_CATEGORIES env var
+        # Keyword→category mappings come from inp.mcp_categories_json
         # (JSON: {"category": ["kw1","kw2"]}). Unmatched seeds get "web-only".
         mcp_config_path: str | None = None
         if workflow.patched("scoped-mcp-v1"):
-<<<<<<< HEAD
-=======
-            import json as _json
-            _raw = _RESEARCH_MCP_CATEGORIES_RAW
->>>>>>> 70ee606 (fix: move os.environ read to module level for Temporal sandbox)
             _category_keywords: dict[str, set[str]] = {
-                cat: set(kws) for cat, kws in json.loads(_RESEARCH_MCP_CATEGORIES_RAW).items()
+                cat: set(kws) for cat, kws in json.loads(inp.mcp_categories_json).items()
             }
             seed_lower = inp.seed.lower()
             mcp_needs: list[str] = []

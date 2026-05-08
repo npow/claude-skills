@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from sagaflow.durable.activities import emit_finding, spawn_subagent, write_artifact
@@ -37,6 +38,7 @@ def _build_input(
         max_directions=max_dirs,
         max_rounds=max_rounds,
         notify=True,
+        mcp_categories_json=os.environ.get("RESEARCH_MCP_CATEGORIES", "{}"),
     )
 
 
