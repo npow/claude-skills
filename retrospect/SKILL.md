@@ -110,15 +110,42 @@ For each classified failure:
 
 1. **Trace the chain:** What instruction, skill, or tool was involved? Quote the exact text.
 2. **Assess recurrence:** Always / Likely / Sometimes / Unlikely
-3. **Select fix level** (broadest appropriate):
-   - **CLAUDE.md requirement** → All sessions, all users in this repo
-   - **Skill modification** → All users invoking the skill
-   - **Memory entry** → Future sessions for this user (use project memory system)
-   - **No fix** → Document but don't patch (one-off edge case)
+3. **Select fix level** using the enforcement hierarchy below.
+
+**Enforcement hierarchy (prefer the highest tier that fits):**
+
+| Tier | Mechanism | Effect | When to use |
+|------|-----------|--------|-------------|
+| **T1 — Blocking gate** | `autonomy-rules.md` entry (stop-gate classifier) | Blocks turn-end when violation detected | Behavioral rules: "always do X before Y", "never do Z without checking" |
+| **T2 — PreToolUse hook** | Python hook in `.claude/hooks/` | Blocks specific tool calls matching pattern | Concrete tool-level guards: "don't edit generated files", "don't push to main" |
+| **T3 — Pre-commit hook** | `.pre-commit-config.yaml` entry | Blocks commits matching pattern | Code-level rules: lint, format, secret detection |
+| **T4 — Skill update** | Edit SKILL.md checklist/workflow | Guides behavior when skill is invoked | Skill-scoped workflow improvements |
+| **T5 — CLAUDE.md / SOUL.md** | Prescriptive text | Read at session start, no enforcement | Context, conventions, preferences (NOT behavioral rules) |
+| **T6 — Memory entry** | Project or user memory file | Read when relevant, no enforcement | User preferences, project context, reference pointers |
+
+**The rule: every behavioral fix (P1-P4) MUST have a T1-T3 mechanism.** T5-T6 are
+documentation — they describe intent but cannot prevent violations. A retrospect that
+produces only T5-T6 patches for behavioral failures is incomplete.
+
+SOUL.md and memory are appropriate for:
+- User preferences and context (T6)
+- Conventions and knowledge that inform judgment (T5)
+- Supplementary documentation alongside an enforcement mechanism
+
+They are NOT appropriate as the sole fix for:
+- "Always do X" rules (needs T1 gate)
+- "Never do Y" rules (needs T1 gate or T2 hook)
+- "Check Z before W" rules (needs T1 gate)
 
 ### Phase 4: PRESCRIBE — Generate Patches
 
 For each diagnosed failure that warrants a fix, generate a specific patch.
+
+**For each behavioral fix (P1-P4), generate a paired patch:**
+1. **Enforcement patch (T1-T3)** — the mechanism that blocks the violation
+2. **Documentation patch (T5-T6, optional)** — context for humans reading the rules
+
+The enforcement patch is the deliverable. The documentation patch is supplementary.
 
 **Patch format:**
 ```
@@ -126,43 +153,60 @@ For each diagnosed failure that warrants a fix, generate a specific patch.
 
 **Root cause:** [Category] — [one-line summary]
 **Recurrence:** [Always/Likely/Sometimes/Unlikely]
-**Target:** [file path]
+**Enforcement tier:** T[1-3]
+**Enforcement target:** [file path for gate/hook/pre-commit]
+**Documentation target:** [file path for SOUL/memory, or "none"]
 
-### Change
-[For edits: old text → new text]
-[For additions: new content with placement context]
+### Enforcement change
+[The autonomy-rules.md entry, hook code, or pre-commit config]
+
+### Documentation change (optional)
+[SOUL.md or memory entry providing context]
 
 ### Rationale
-[Why this fix prevents recurrence]
+[Why this enforcement prevents recurrence]
 ```
 
-**Safety checks before presenting:**
+**Choosing the right autonomy-rules category (T1):**
+When adding to `autonomy-rules.md`, find the existing stall category that best fits
+the failure pattern and add a sub-bullet. Common mappings:
+- "Didn't verify before acting" → **Guessing instead of reading**
+- "Dismissed a problem without evidence" → **Evidence-free dismissal**
+- "Wrote code without reading context" → **Edit-without-understanding**
+- "Masked a symptom instead of fixing root cause" → **Symptom-masking fixes**
+- "Used weak check instead of real test" → **Proxy verification**
+- "Stopped early with known gaps" → **Procrastination / premature good enough**
+- "Documented rule instead of enforcing it" → **Memory-as-enforcement**
+
+**Safety checks before applying:**
 1. Does this weaken any existing safety requirement? If yes, flag explicitly.
-2. Is this based on a single incident? Prefer narrow fixes unless recurrence evidence supports broader.
-3. Could this cause regressions by overgeneralizing?
+2. Is the autonomy-rules entry general enough to catch variants, not just the exact incident?
+3. Could false positives from the gate cause legitimate work to be blocked?
 
-For P5 positive learnings, use simplified format: Title, Target, Change, Rationale (no root cause).
+For P5 positive learnings, use simplified format: Title, Target, Change, Rationale (no enforcement needed).
 
-Present ALL patches to the user for approval before applying.
+### Phase 5: APPLY — Execute Patches
 
-### Phase 5: APPLY — Execute Approved Patches
+Apply in enforcement-first order:
 
-1. Group patches by target file — apply all edits to same file together
-2. For CLAUDE.md changes: edit directly
-3. For skill changes: edit the skill file
-4. For memory entries: write to the project memory system
+1. **T1 gates first** — edit `autonomy-rules.md` (resolve symlinks: `readlink -f ~/.claude/autonomy-rules.md`).
+   Commit and push to the dotfiles repo (branch + PR if `no-commit-to-branch` hook is active).
+2. **T2 hooks** — create/edit hook scripts in `.claude/hooks/`, update `settings.json`.
+3. **T3 pre-commit** — update `.pre-commit-config.yaml`.
+4. **T4 skills** — edit SKILL.md files.
+5. **T5-T6 documentation** — SOUL.md, CLAUDE.md, memory entries. These are optional supplements.
 
 **Post-apply summary:**
 ```
 ## Retrospect Summary
 
 ### Failures analyzed: [N]
-### Patches applied: [N]
-### Patches deferred: [N]
+### Enforcement patches applied: [N]
+### Documentation patches applied: [N]
 
-| # | Failure | Root Cause | Fix | Status |
-|---|---------|-----------|-----|--------|
-| 1 | [desc] | [category] | [target] | Applied/Deferred/Rejected |
+| # | Failure | Root Cause | Enforcement (T1-T3) | Documentation (T4-T6) | Status |
+|---|---------|-----------|---------------------|----------------------|--------|
+| 1 | [desc] | [category] | [gate/hook/none] | [soul/memory/none] | Applied/Deferred |
 ```
 
 ## Integration Points
