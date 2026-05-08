@@ -133,6 +133,15 @@ After all subtasks complete:
 
 Output: what was built, what was verified, what's untested, termination label.
 
+### Phase 6: Retrospect (always runs)
+
+After ship, run a lightweight retrospect scan on this session:
+1. Scan for P1-P3 signals (user corrections, self-corrections, structural failures)
+2. If any found: invoke `/retrospect` for full analysis with enforcement-first patches
+3. If none found: skip — no output needed
+
+This ensures behavioral fixes are captured while context is fresh, not lost to session end.
+
 **Termination labels** (honest, exhaustive):
 - `completed_verified` — all subtasks passed verification + QA clean
 - `completed_partial` — some subtasks passed, others failed after retries

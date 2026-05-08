@@ -1092,6 +1092,15 @@ Think like:
 
 ---
 
+## Post-Completion: Retrospect Scan (standalone runs only)
+
+After the final QA report (Phase 6), when running standalone (not as a sub-phase of autopilot):
+1. Scan for P1-P3 signals (user corrections, self-corrections, structural failures)
+2. If any found: invoke `/retrospect` for full analysis with enforcement-first patches
+3. If none found: skip — no output needed
+
+Skip when invoked as a sub-phase (autopilot Phase 4, deep-design QA) — the parent skill handles retrospect.
+
 ## Integration with deep-design and deep-research
 
 When invoked automatically at the end of a parent run (not standalone):

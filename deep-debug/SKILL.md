@@ -848,6 +848,16 @@ IMPORTANT: You are NOT being asked for another fix. You are being asked to diagn
 
 ---
 
+## Post-Completion: Retrospect Scan (always runs)
+
+After the final report (Phase 8), run a lightweight retrospect scan:
+1. Scan for P1-P3 signals (user corrections, self-corrections, structural failures)
+2. If any found: invoke `/retrospect` for full analysis with enforcement-first patches
+3. If none found: skip — no output needed
+
+This ensures debugging anti-patterns (wrong hypotheses, missed logs, assumption-based coding)
+are captured as enforceable rules while context is fresh.
+
 ## Integration with Other Skills
 
 Deep-debug explicitly delegates to these skills at specific phases:
