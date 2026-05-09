@@ -109,8 +109,13 @@ For each P1-P4 and P6 signal, assign a root cause:
 For each classified failure:
 
 1. **Trace the chain:** What instruction, skill, or tool was involved? Quote the exact text.
-2. **Assess recurrence:** Always / Likely / Sometimes / Unlikely
-3. **Select fix level** using the enforcement hierarchy below.
+2. **Verify enforcement actually evaluated the rule.** If the failure looks like it should have been caught by an existing T1-T3 mechanism, you MUST check the corresponding log before declaring "already covered" or "no new patch needed":
+   - **T1 (autonomy-rules):** `tail -300 ~/.claude/hooks/stop-gate.log` — find the entry for the failing turn and quote the `verdict=` and `reason=` fields. If `verdict=legitimate_completion` or the rule wasn't even evaluated, the rule has a loophole — fix the rule, don't claim coverage.
+   - **T2 (PreToolUse hook):** check the hook's log file (typically under `~/.claude/hooks/*.log` or in the hook's stderr) for the failing tool call.
+   - **T3 (pre-commit):** check the commit's pre-commit output (`git log --grep=fixup` or rerun `pre-commit run --all-files`).
+   - **The principle:** the *existence* of a rule is documentation-level evidence. The *classifier evaluated the rule and ruled correctly* is enforcement-level evidence. Retrospect must operate on enforcement-level evidence — otherwise you produce false-confidence patches that don't fix the actual bug.
+3. **Assess recurrence:** Always / Likely / Sometimes / Unlikely
+4. **Select fix level** using the enforcement hierarchy below.
 
 **Enforcement hierarchy (prefer the highest tier that fits):**
 
