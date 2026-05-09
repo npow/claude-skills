@@ -79,3 +79,7 @@ google-*
 # Project CLAUDE.md — kept local, not checked into public repo
 CLAUDE.md
 __pycache__/
+
+# Auto-generated per-project Claude Code overrides — may contain user-local
+# permission rules or paths.
+.claude/settings.local.json
