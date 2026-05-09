@@ -93,11 +93,7 @@ class DeepResearchInput:
     seed: str
     inbox_path: str
     run_dir: str
-    # Soft gate: realistic deep-research runs converge or exhaust
-    # frontier well before 100 rounds. The previous default (1000) made
-    # the gate effectively a no-op and let pathological loops run all
-    # night. 100 is high enough to never bind on legitimate research,
-    # low enough to fail fast on stuck-loop topics.
+    # Soft gate; override per-launch when a topic warrants more.
     max_rounds: int = 100
     min_rounds: int = 3
     max_directions: int = 100
