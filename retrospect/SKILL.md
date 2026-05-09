@@ -191,9 +191,10 @@ Apply in enforcement-first order:
 
 1. **T1 gates first** — edit `autonomy-rules.md` (resolve symlinks: `readlink -f ~/.claude/autonomy-rules.md`).
    Commit and push to the dotfiles repo (branch + PR if `no-commit-to-branch` hook is active).
-2. **T2 hooks** — create/edit hook scripts in `.claude/hooks/`, update `settings.json`.
-3. **T3 pre-commit** — update `.pre-commit-config.yaml`.
-4. **T4 skills** — edit SKILL.md files.
+   **For solo-owned repos: the PR is a midpoint, not the deliverable — finish with `gh pr merge --squash --delete-branch` so the rule lands on `main` and takes effect.** Stopping at `gh pr create` triggers the PR-creation-without-merge stall: the new rule is inert until merged, so the retrospect work hasn't actually changed agent behavior yet. (This applies to every step below that ends in a PR.)
+2. **T2 hooks** — create/edit hook scripts in `.claude/hooks/`, update `settings.json`. Same merge-not-just-create rule applies.
+3. **T3 pre-commit** — update `.pre-commit-config.yaml`. Same merge-not-just-create rule applies.
+4. **T4 skills** — edit SKILL.md files. Same merge-not-just-create rule applies.
 5. **T5-T6 documentation** — SOUL.md, CLAUDE.md, memory entries. These are optional supplements.
 
 **Post-apply summary:**
