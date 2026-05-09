@@ -8,6 +8,26 @@ import time
 
 from temporalio import activity
 
+# Hard caps on captured stdout/stderr — the activity result becomes a workflow
+# event payload, so unbounded subprocess output can blow Temporal's 2MB cap
+# when chained through many loop iterations. Trailing markers tell the
+# matching logic that the buffer is partial.
+_STDOUT_CAP = 256 * 1024  # 256 KiB
+_STDERR_CAP = 64 * 1024   # 64 KiB
+
+
+def _truncate_to_cap(text: str, cap_bytes: int, label: str) -> str:
+    if not text:
+        return text
+    encoded = text.encode("utf-8", errors="replace")
+    if len(encoded) <= cap_bytes:
+        return text
+    return (
+        encoded[:cap_bytes].decode("utf-8", errors="replace")
+        + f"\n\n... [{label} truncated: {len(encoded)} bytes total, "
+        f"{len(encoded) - cap_bytes} bytes dropped]"
+    )
+
 
 @activity.defn(name="run_verification_command")
 async def run_verification_command(
@@ -18,8 +38,8 @@ async def run_verification_command(
     """Execute *command* in a subprocess, capture stdout/stderr, check pattern.
 
     Returns a dict with keys:
-        stdout        str  — captured stdout
-        stderr        str  — captured stderr
+        stdout        str  — captured stdout (capped at 256KB)
+        stderr        str  — captured stderr (capped at 64KB)
         exit_code     int  — process exit code
         matched       bool — True if expected_pattern found in stdout
         duration_ms   int  — wall-clock ms for the subprocess
@@ -47,7 +67,8 @@ async def run_verification_command(
 
     duration_ms = int((time.monotonic() - started) * 1000)
 
-    # Pattern match: treat as regex if surrounded by '/', else substring.
+    # Pattern match BEFORE truncating: matching against the full output is
+    # correct, only the workflow-payload bytes need the cap.
     if expected_pattern.startswith("/") and expected_pattern.endswith("/") and len(expected_pattern) > 1:
         inner = expected_pattern[1:-1]
         try:
@@ -56,6 +77,9 @@ async def run_verification_command(
             matched = inner in stdout
     else:
         matched = expected_pattern in stdout
+
+    stdout = _truncate_to_cap(stdout, _STDOUT_CAP, "stdout")
+    stderr = _truncate_to_cap(stderr, _STDERR_CAP, "stderr")
 
     return {
         "stdout": stdout,

@@ -294,4 +294,13 @@ class MonitorWorkflow:
             steps = None
             await workflow.sleep(timedelta(seconds=inp.interval_seconds))
 
+            # Temporal terminates workflows whose history grows past ~50K
+            # events (~50MB). At a 5-min monitor cadence that's reached in
+            # ~3 weeks, mid-cycle. continue_as_new starts a fresh-history
+            # workflow with the same input so a recurring monitor can run
+            # indefinitely. Run-id stays the same; the underlying workflow
+            # execution rolls.
+            if workflow.info().is_continue_as_new_suggested():
+                workflow.continue_as_new(inp)
+
         return last_summary
