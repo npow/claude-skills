@@ -899,6 +899,51 @@ class DeepResearchWorkflow:
                     round_num, len(gap_raw), gap_added,
                 )
 
+                # Deterministic floor: if BOTH the expander and the gap-analyst
+                # returned 0 directions but we're below min_rounds, synthesize
+                # follow-ups mechanically from the round's findings rather than
+                # exit the loop. This is the only mechanism in the workflow that
+                # GUARANTEES we hit min_rounds — both LLM-based generators can
+                # judge a topic "exhausted" prematurely (especially on tightly-
+                # scoped seeds where round 1 covers the obvious questions). The
+                # mechanical fallback turns each finding into 2 follow-up
+                # questions: one drilling deeper on evidence, one looking for
+                # contradicting signals.
+                if not directions:
+                    fallback_added = 0
+                    for f in round_findings:
+                        if fallback_added >= max(10, inp.max_directions // 4):
+                            break
+                        fid = f.get("id", "?")
+                        fdim = f.get("dimension", "HOW")
+                        fq = f.get("question", "").strip()
+                        if not fq:
+                            continue
+                        for tag, suffix in (
+                            ("evidence", "What load-bearing evidence supports the claims in this direction, and which are still single-source?"),
+                            ("contradict", "What evidence contradicts or complicates the conclusions reached in this direction?"),
+                        ):
+                            new_q = f"{fq}\n[{tag}-followup] {suffix}"
+                            if new_q in explored_questions:
+                                continue
+                            directions.append(
+                                Direction(
+                                    id=f"d_floor_r{round_num}_{fid}_{tag}",
+                                    question=new_q,
+                                    dimension=fdim,
+                                    priority="high",
+                                )
+                            )
+                            fallback_added += 1
+                    progress.setdefault("deterministic_floor", []).append(
+                        {"round": round_num, "added": fallback_added}
+                    )
+                    workflow.logger.warning(
+                        "Deterministic floor triggered round %d "
+                        "(both expander and gap-analyst returned 0): added=%d",
+                        round_num, fallback_added,
+                    )
+
             progress["directions_remaining"] = len(directions)
             await _update_progress(
                 phase=f"round_{round_num}_done",
