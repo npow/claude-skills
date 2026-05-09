@@ -612,7 +612,9 @@ class DeepResearchWorkflow:
                 # (the synth prompt receives the file path, not the text).
                 # Keep a short excerpt for the in-state fallback path.
                 finding["findings_path"] = findings_path
-                finding["findings_bytes"] = len(findings_text)
+                # Stored as str so the inner dict stays dict[str, str]; this
+                # field is metadata for triage, not arithmetic.
+                finding["findings_bytes"] = str(len(findings_text))
                 finding["findings_excerpt"] = findings_text[:2000]
                 finding["findings"] = ""
                 _researchers_pending.discard(d.id)
