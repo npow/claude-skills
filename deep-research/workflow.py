@@ -96,7 +96,9 @@ class DeepResearchInput:
     # Soft gate; override per-launch when a topic warrants more.
     max_rounds: int = 100
     min_rounds: int = 3
-    max_directions: int = 100
+    # Directions per round (initial Phase-1 generation + expander cap).
+    # 50 covers most topics without bloating fan-out cost.
+    max_directions: int = 50
     max_concurrent_researchers: int = 20
     notify: bool = True
     mcp_categories_json: str = "{}"
@@ -797,7 +799,7 @@ class DeepResearchWorkflow:
                 "- Spread directions across at least 6 different dimensions.\n"
                 "- Prioritize directions that explore areas with ZERO prior coverage over drilling deeper into well-covered areas.\n"
                 "- Do NOT generate paraphrased variants of already-explored directions.\n\n"
-                f"Generate {max(20, min(info_gain * 2, 150))} new directions "
+                f"Generate {max(20, min(info_gain * 2, inp.max_directions))} new directions "
                 "(more if the topic is broad and underexplored, fewer if nearing exhaustion). "
                 "Use tools to discover gaps. "
                 "Only return 0 if the topic is truly exhausted.\n\n"
