@@ -858,7 +858,11 @@ class DeepResearchWorkflow:
                     new_added += 1
             progress["expansions"].append({"round": round_num, "proposed": len(new_raw), "added": new_added})
 
-            if not directions and round_num < inp.min_rounds:
+            # Recover empty-frontier as long as info_gain still has signal.
+            # Below 10% = diminishing returns → let convergence handle exit.
+            _SATURATION_GAIN_THRESHOLD = 10
+            _saturation_signal_alive = info_gain >= _SATURATION_GAIN_THRESHOLD
+            if not directions and (round_num < inp.min_rounds or _saturation_signal_alive):
                 gap_prompt_path = f"{run_dir}/gap-r{round_num}.txt"
                 covered_dims = {f.get("dimension", "") for f in all_findings}
                 all_dims = set(CROSS_CUT_DIMS) | set(d.dimension for d in current_batch)
@@ -942,12 +946,9 @@ class DeepResearchWorkflow:
                 # returned 0 directions but we're below min_rounds, synthesize
                 # follow-ups mechanically from the round's findings rather than
                 # exit the loop. This is the only mechanism in the workflow that
-                # GUARANTEES we hit min_rounds — both LLM-based generators can
-                # judge a topic "exhausted" prematurely (especially on tightly-
-                # scoped seeds where round 1 covers the obvious questions). The
-                # mechanical fallback turns each finding into 2 follow-up
-                # questions: one drilling deeper on evidence, one looking for
-                # contradicting signals.
+                # Mechanical fallback when both LLMs return 0 but info_gain
+                # says we're still learning. Turns each finding into 2 follow-
+                # ups (evidence-drilldown + contradicting-signals search).
                 if not directions:
                     fallback_added = 0
                     for f in round_findings:
