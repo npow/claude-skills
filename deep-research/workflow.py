@@ -750,6 +750,49 @@ class DeepResearchWorkflow:
                 and len(recent_gains) >= _CONVERGENCE_WINDOW
                 and all(g["rate"] < _CONVERGENCE_THRESHOLD for g in recent_gains)
             )
+
+            # Source-based novelty: deterministic, paraphrase-blind. Counts
+            # unique URL/source strings in this round's findings vs the
+            # cumulative set from prior rounds. Below 20% new sources for
+            # _CONVERGENCE_WINDOW rounds = real saturation, not Haiku noise.
+            if "all_sources_seen" not in progress:
+                progress["all_sources_seen"] = []
+            prior_sources = set(progress["all_sources_seen"])
+            this_round_sources: set[str] = set()
+            for f in round_findings:
+                try:
+                    srcs = json.loads(f.get("sources", "[]"))
+                    if isinstance(srcs, list):
+                        for s in srcs:
+                            if isinstance(s, str) and s.strip():
+                                this_round_sources.add(s.strip())
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            new_sources = this_round_sources - prior_sources
+            source_novelty = (
+                len(new_sources) / len(this_round_sources)
+                if this_round_sources else 0.0
+            )
+            progress["all_sources_seen"] = sorted(prior_sources | this_round_sources)
+            if "source_novelty_rates" not in progress:
+                progress["source_novelty_rates"] = []
+            progress["source_novelty_rates"].append({
+                "round": round_num,
+                "new": len(new_sources),
+                "total_this_round": len(this_round_sources),
+                "novelty_pct": round(source_novelty * 100, 1),
+            })
+            recent_novelty = progress["source_novelty_rates"][-_CONVERGENCE_WINDOW:]
+            _SOURCE_NOVELTY_THRESHOLD = 0.20  # below 20% new sources = saturating
+            source_converged = (
+                round_num >= inp.min_rounds
+                and len(recent_novelty) >= _CONVERGENCE_WINDOW
+                and all(r["novelty_pct"] / 100 < _SOURCE_NOVELTY_THRESHOLD for r in recent_novelty)
+                and all(r["total_this_round"] > 0 for r in recent_novelty)
+            )
+            # Either signal converging triggers exit; both are anti-noise.
+            converged = info_gain_converged or source_converged
+            info_gain_converged = converged  # downstream code reads this
             state.frontier = [d for d in state.frontier if d.status == "frontier"]
             warn_count = len(progress.get("warnings", []))
             if warn_count > 50:
@@ -760,6 +803,8 @@ class DeepResearchWorkflow:
                 phase=f"round_{round_num}_coord_done",
                 coord_summary_len=len(coord_summary),
                 info_gain_rate=info_gain,
+                source_novelty_pct=round(source_novelty * 100, 1),
+                source_converged=source_converged,
                 info_gain_converged=info_gain_converged,
             )
 
@@ -768,10 +813,23 @@ class DeepResearchWorkflow:
             # -------------------------------------------------------------- #
             if info_gain_converged:
                 directions.clear()
-                state.termination_label = (
-                    f"Convergence — info gain below {_CONVERGENCE_THRESHOLD}% "
-                    f"for {_CONVERGENCE_WINDOW} consecutive rounds "
-                    f"(rates: {[g['rate'] for g in recent_gains]})"
+                if source_converged and not (
+                    round_num >= inp.min_rounds
+                    and len(recent_gains) >= _CONVERGENCE_WINDOW
+                    and all(g["rate"] < _CONVERGENCE_THRESHOLD for g in recent_gains)
+                ):
+                    novelty_summary = [r["novelty_pct"] for r in recent_novelty]
+                    state.termination_label = (
+                        f"Convergence — source novelty below "
+                        f"{int(_SOURCE_NOVELTY_THRESHOLD*100)}% for "
+                        f"{_CONVERGENCE_WINDOW} consecutive rounds "
+                        f"(rates: {novelty_summary})"
+                    )
+                else:
+                    state.termination_label = (
+                        f"Convergence — info gain below {_CONVERGENCE_THRESHOLD}% "
+                        f"for {_CONVERGENCE_WINDOW} consecutive rounds "
+                        f"(rates: {[g['rate'] for g in recent_gains]})"
                 )
                 break
             explored_questions = {f["question"] for f in all_findings}
