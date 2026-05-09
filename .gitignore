@@ -38,7 +38,7 @@ inspect-jenkins
 inspect-pr
 inspect-run
 metaflow-release
-metatron-intent
+metatron-intent  # oss-ok
 radar
 run-tests
 swagger-intent

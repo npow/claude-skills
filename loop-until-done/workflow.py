@@ -197,13 +197,19 @@ class LoopUntilDoneWorkflow:
         # Collect all criteria across all stories.
         all_criteria: list[dict[str, str]] = []
         for story in stories:
-            for crit in story.get("criteria", []):
+            criteria_raw = story.get("criteria", [])
+            criteria_list = criteria_raw if isinstance(criteria_raw, list) else []
+            story_id_val = story.get("id", "")
+            story_id_str = story_id_val if isinstance(story_id_val, str) else ""
+            for crit in criteria_list:
+                if not isinstance(crit, dict):
+                    continue
                 all_criteria.append({
-                    "criterion_id": crit.get("id", ""),
-                    "criterion": crit.get("criterion", ""),
-                    "story_id": story.get("id", ""),
-                    "verification_command": crit.get("verification_command", ""),
-                    "expected_pattern": crit.get("expected_pattern", ""),
+                    "criterion_id": str(crit.get("id", "")),
+                    "criterion": str(crit.get("criterion", "")),
+                    "story_id": story_id_str,
+                    "verification_command": str(crit.get("verification_command", "")),
+                    "expected_pattern": str(crit.get("expected_pattern", "")),
                 })
 
         falsifiability_prompt_path = f"{inp.run_dir}/falsifiability-prompt.txt"
@@ -246,7 +252,8 @@ class LoopUntilDoneWorkflow:
         # --- Phase 3: Executor (per story) ---
         work_descriptions: dict[str, str] = {}
         for story in stories:
-            story_id = story.get("id", "")
+            story_id_val = story.get("id", "")
+            story_id = story_id_val if isinstance(story_id_val, str) else ""
             executor_prompt_path = f"{inp.run_dir}/executor-{story_id}.txt"
             await workflow.execute_activity(
                 "write_artifact",

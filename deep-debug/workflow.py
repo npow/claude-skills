@@ -735,7 +735,7 @@ def _merge_pass_verdicts(
 
 def _flatten_verdicts(hypotheses: list[dict[str, str]]) -> list[dict[str, str]]:
     """Convert hypothesis list to verdict-like dicts for final report lookup."""
-    return [{"hyp_id": h.get("id"), "plausibility": h.get("plausibility", "pending")}
+    return [{"hyp_id": h.get("id", ""), "plausibility": h.get("plausibility", "pending")}
             for h in hypotheses]
 
 

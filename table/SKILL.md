@@ -57,6 +57,3 @@ Hard rules. Never violate these.
 | [TEMPLATE.md](TEMPLATE.md) | Complete vanilla JS HTML template with full sort and filter implementation, CSS design tokens, column type rendering rules |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, likely causes, and fixes |
 
-## Sharing
-
-To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.
