@@ -14,4 +14,4 @@ from sagaflow import skill
 
 @skill("hello-world")
 async def hello(ctx, name: str = "world") -> str:
-    return await ctx.prompt("greeter", tier="HAIKU", name=name)
+    return await ctx.prompt("greeter", tier="SONNET", name=name)
