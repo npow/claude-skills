@@ -54,6 +54,3 @@ Hard rules. Never violate these.
 | [TEMPLATE.md](TEMPLATE.md) | Complete Reveal.js HTML template, all slide type patterns, content chunking rules |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, causes, fixes |
 
-## Sharing
-
-To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.

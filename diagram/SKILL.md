@@ -55,6 +55,3 @@ Hard rules. Never violate these.
 | [TEMPLATE.md](TEMPLATE.md) | Complete Cytoscape.js HTML template, color palette, layout patterns for common diagram types |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Failure diagnosis table: symptoms, causes, fixes |
 
-## Sharing
-
-To share externally, invoke `Skill(skill="upload-presentation", args="<html_file_path>")` to upload to S3 genpop.

@@ -877,15 +877,3 @@ async def _terminate(
         retry_policy=HAIKU_POLICY,
     )
     return f"{label}\nSummary: {summary_path}"
-
-
-def _parse_json_list(raw: str | list) -> list[dict]:
-    if isinstance(raw, list):
-        return [x for x in raw if isinstance(x, dict)]
-    try:
-        parsed = json.loads(raw)
-        if isinstance(parsed, list):
-            return [x for x in parsed if isinstance(x, dict)]
-    except (json.JSONDecodeError, TypeError):
-        pass
-    return []
