@@ -854,6 +854,33 @@ class DeepResearchWorkflow:
                 )
                 break
             explored_questions = {f["question"] for f in all_findings}
+            # Build a heavily-cited-source list so the expander avoids
+            # proposing more directions that would re-fetch the same docs.
+            # In a real AIMS run, 38 of 660 sources were cited 4+ times each;
+            # showing the model "this URL was already read by N researchers"
+            # encourages it to drill into UNDER-EXPLORED corners instead.
+            _src_counts: dict[str, int] = {}
+            for f in all_findings:
+                try:
+                    srcs = json.loads(f.get("sources", "[]"))
+                    if isinstance(srcs, list):
+                        for s in srcs:
+                            if isinstance(s, str) and s.strip():
+                                _src_counts[s.strip()] = _src_counts.get(s.strip(), 0) + 1
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            heavy_sources = sorted(
+                ((u, n) for u, n in _src_counts.items() if n >= 3),
+                key=lambda x: -x[1],
+            )[:25]
+            heavy_sources_block = ""
+            if heavy_sources:
+                heavy_sources_block = (
+                    f"\nHeavily-cited sources already covered ({len(heavy_sources)} sources, "
+                    "cited by 3+ researchers each — DO NOT propose directions that would "
+                    "primarily re-fetch these docs; instead drill into adjacent or unmentioned areas):\n"
+                    + "\n".join(f"- ({n}×) {u[:160]}" for u, n in heavy_sources) + "\n"
+                )
             expand_prompt_path = f"{run_dir}/expand-r{round_num}.txt"
             findings_summary = "\n".join(
                 f"- [{f['dimension']}] {f['question']}: {f.get('findings', '')[:500]}"
@@ -863,7 +890,8 @@ class DeepResearchWorkflow:
                 f"Research topic file: {seed_path}\n\n"
                 f"Round {round_num} just completed. Findings summary:\n{findings_summary}\n\n"
                 f"Already explored ({len(explored_questions)} directions):\n"
-                + "\n".join(f"- {q}" for q in list(explored_questions)[:30]) + "\n\n"
+                + "\n".join(f"- {q}" for q in list(explored_questions)[:30]) + "\n"
+                + heavy_sources_block + "\n"
                 "Based on these findings, generate NEW follow-up research directions that:\n"
                 "1. Drill deeper into surprising or underexplored findings\n"
                 "2. Follow up on entities/teams/tools mentioned but not independently researched\n"
