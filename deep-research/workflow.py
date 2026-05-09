@@ -603,13 +603,34 @@ class DeepResearchWorkflow:
                 }
                 if d.dimension in state.cross_cut_coverage:
                     state.cross_cut_coverage[d.dimension].append(d.id)
-                await _write(f"{findings_dir}/{d.id}.md", _format_findings_file(d, finding))
+                findings_path = f"{findings_dir}/{d.id}.md"
+                await _write(findings_path, _format_findings_file(d, finding))
+                # State-trim contract: after the findings file is on disk, drop
+                # the raw text from workflow state. Keeping it inflates Temporal
+                # payloads past the 2MB limit (TMPRL1103) once N×25KB findings
+                # accumulate. Synthesis re-reads from disk via findings_path
+                # (the synth prompt receives the file path, not the text).
+                # Keep a short excerpt for the in-state fallback path.
+                finding["findings_path"] = findings_path
+                # Stored as str so the inner dict stays dict[str, str]; this
+                # field is metadata for triage, not arithmetic.
+                finding["findings_bytes"] = str(len(findings_text))
+                finding["findings_excerpt"] = findings_text[:2000]
+                finding["findings"] = ""
                 _researchers_pending.discard(d.id)
                 _researchers_done.append(d.id)
+                # Bump findings_total incrementally so progress.json reflects
+                # partial success when some researchers are still running. Prior
+                # behavior set findings_total only after asyncio.gather, so a
+                # single hung researcher froze the count at 0 indefinitely.
+                progress["findings_total"] = (
+                    progress.get("findings_total", 0) + 1
+                )
                 await _update_progress(
                     phase=f"round_{round_num}_researching",
                     researchers_completed=len(_researchers_done),
                     researchers_pending=list(_researchers_pending),
+                    findings_total=progress["findings_total"],
                 )
                 return finding
 
@@ -636,7 +657,12 @@ class DeepResearchWorkflow:
             progress["researchers_completed"] += len(current_batch) - r_failed
             progress["researchers_failed"] += r_failed
             progress["researchers_empty"] += r_empty
-            progress["findings_total"] = len(all_findings)
+            # Don't overwrite findings_total here — it's now bumped per
+            # researcher inside _research_and_write. Reconcile to len(all_findings)
+            # only as a defensive sync (max of the two).
+            progress["findings_total"] = max(
+                progress.get("findings_total", 0), len(all_findings)
+            )
             await _update_progress(
                 phase=f"round_{round_num}_researchers_done",
                 round=round_num,
@@ -1395,7 +1421,12 @@ def _fallback(seed: str, findings: list[dict]) -> str:
     total = 0
     for f in findings:
         header = f"### {f.get('dimension', '?')}: {f.get('question', '?')}"
-        body = f.get("findings", "")[:2000]
+        # State carries only a short excerpt (full text is on disk at
+        # f["findings_path"]); fallback uses the excerpt + a pointer.
+        body = f.get("findings_excerpt") or f.get("findings", "")
+        body = body[:2000]
+        if not body and f.get("findings_path"):
+            body = f"(see {f['findings_path']})"
         total += len(header) + len(body) + 2
         if total > _MAX_FALLBACK_BYTES:
             lines.append(f"\n\n... truncated ({len(findings)} total findings, see findings directory)")

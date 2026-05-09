@@ -469,18 +469,29 @@ class TeamWorkflow:
                 quality_ok = _get_verdict(quality_result) == "approved"
 
                 if spec_ok and quality_ok:
+                    # State-trim: keep only metadata + a 2KB excerpt in the
+                    # worker_outputs list. Full work_summary is on disk at
+                    # f"{run_dir}/exec/worker-{wid}-output.md" via _spawn_write
+                    # above. Accumulating full text inflates Temporal payloads
+                    # past 2MB once subtask count × summary size exceeds cap.
+                    full_summary = work_result.get("WORK_SUMMARY", "")
                     return {
                         "id": wid,
-                        "work_summary": work_result.get("WORK_SUMMARY", ""),
+                        "work_summary_excerpt": full_summary[:2048],
+                        "work_summary_path": f"{run_dir}/exec/worker-{wid}-output.md",
+                        "work_summary_bytes": len(full_summary),
                         "files_touched": work_result.get("FILES_TOUCHED", "[]"),
                         "status": "task_complete_approved",
                     }
                 else:
                     consecutive_rejections += 1
                     if consecutive_rejections >= WORKER_QUORUM_REJECTION_LIMIT:
+                        full_summary = work_result.get("WORK_SUMMARY", "")
                         return {
                             "id": wid,
-                            "work_summary": work_result.get("WORK_SUMMARY", ""),
+                            "work_summary_excerpt": full_summary[:2048],
+                            "work_summary_path": f"{run_dir}/exec/worker-{wid}-output.md",
+                            "work_summary_bytes": len(full_summary),
                             "files_touched": "[]",
                             "status": "blocked",
                         }
