@@ -790,11 +790,29 @@ class DeepResearchWorkflow:
                 and all(r["novelty_pct"] / 100 < _SOURCE_NOVELTY_THRESHOLD for r in recent_novelty)
                 and all(r["total_this_round"] > 0 for r in recent_novelty)
             )
-            # Both signals must converge to exit (avoid premature termination
-            # when one is noisy). info_gain is fuzzy/Haiku-judged; source-set
-            # is deterministic. Disagreement = at least one says "still
-            # learning" → keep going.
-            converged = info_gain_converged and source_converged
+            # Default: both signals must agree (avoid premature termination
+            # when one is noisy). Tiebreaker: if either has been converged
+            # for 2× the window without the other catching up, accept the
+            # one signal — escapes stuck-disagreement deadlock.
+            _STUCK_WINDOW = _CONVERGENCE_WINDOW * 2  # 6 rounds default
+            stuck_recent_gains = progress["info_gain_rates"][-_STUCK_WINDOW:]
+            stuck_recent_novelty = progress["source_novelty_rates"][-_STUCK_WINDOW:]
+            info_gain_long_converged = (
+                round_num >= inp.min_rounds
+                and len(stuck_recent_gains) >= _STUCK_WINDOW
+                and all(g["rate"] < _CONVERGENCE_THRESHOLD for g in stuck_recent_gains)
+            )
+            source_long_converged = (
+                round_num >= inp.min_rounds
+                and len(stuck_recent_novelty) >= _STUCK_WINDOW
+                and all(r["novelty_pct"] / 100 < _SOURCE_NOVELTY_THRESHOLD for r in stuck_recent_novelty)
+                and all(r["total_this_round"] > 0 for r in stuck_recent_novelty)
+            )
+            converged = (
+                (info_gain_converged and source_converged)
+                or info_gain_long_converged
+                or source_long_converged
+            )
             info_gain_converged = converged  # downstream code reads this
             state.frontier = [d for d in state.frontier if d.status == "frontier"]
             warn_count = len(progress.get("warnings", []))
