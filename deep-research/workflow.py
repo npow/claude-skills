@@ -787,7 +787,24 @@ class DeepResearchWorkflow:
                 max_tokens=128000,
                 tools_needed=True,
             )
+            # Forensic dump: persist the expander's raw response for debugging
+            # premature termination. _parse_json_list on missing/malformed
+            # output silently coerces to [], which makes "expander returned 0"
+            # indistinguishable from "spawn failed" or "model output unparseable".
+            await _write(
+                f"{run_dir}/expand-r{round_num}-result.json",
+                json.dumps(expand_result, indent=2, default=str),
+            )
             new_raw = _parse_json_list(expand_result.get("DIRECTIONS", "[]"))
+            workflow.logger.info(
+                "expand-r%d: explored=%d, prompt_size=%d, raw_keys=%s, "
+                "DIRECTIONS_len=%d, parsed_len=%d",
+                round_num, len(explored_questions),
+                len(expand_result.get("_full_prompt", "")) if isinstance(expand_result, dict) else 0,
+                sorted(expand_result.keys()) if isinstance(expand_result, dict) else None,
+                len(expand_result.get("DIRECTIONS", "")) if isinstance(expand_result, dict) else 0,
+                len(new_raw),
+            )
             new_added = 0
             for d in new_raw:
                 q = d.get("question", "")
@@ -848,7 +865,19 @@ class DeepResearchWorkflow:
                     max_tokens=128000,
                     tools_needed=True,
                 )
+                # Forensic dump: same rationale as expand-r{N}-result.json above.
+                await _write(
+                    f"{run_dir}/gap-r{round_num}-result.json",
+                    json.dumps(gap_result, indent=2, default=str),
+                )
                 gap_raw = _parse_json_list(gap_result.get("DIRECTIONS", "[]"))
+                workflow.logger.info(
+                    "gap-r%d: raw_keys=%s, DIRECTIONS_len=%d, parsed_len=%d",
+                    round_num,
+                    sorted(gap_result.keys()) if isinstance(gap_result, dict) else None,
+                    len(gap_result.get("DIRECTIONS", "")) if isinstance(gap_result, dict) else 0,
+                    len(gap_raw),
+                )
                 gap_added = 0
                 for d in gap_raw:
                     q = d.get("question", "")
