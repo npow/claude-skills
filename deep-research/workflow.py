@@ -790,8 +790,11 @@ class DeepResearchWorkflow:
                 and all(r["novelty_pct"] / 100 < _SOURCE_NOVELTY_THRESHOLD for r in recent_novelty)
                 and all(r["total_this_round"] > 0 for r in recent_novelty)
             )
-            # Either signal converging triggers exit; both are anti-noise.
-            converged = info_gain_converged or source_converged
+            # Both signals must converge to exit (avoid premature termination
+            # when one is noisy). info_gain is fuzzy/Haiku-judged; source-set
+            # is deterministic. Disagreement = at least one says "still
+            # learning" → keep going.
+            converged = info_gain_converged and source_converged
             info_gain_converged = converged  # downstream code reads this
             state.frontier = [d for d in state.frontier if d.status == "frontier"]
             warn_count = len(progress.get("warnings", []))
