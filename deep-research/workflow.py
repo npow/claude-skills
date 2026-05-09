@@ -177,6 +177,7 @@ class DeepResearchWorkflow:
             prompt_path=lang_prompt_path,
             max_tokens=128000,
             tools_needed=True,
+            run_dir=run_dir,
         )
         raw_langs = lang_result.get("AUTHORITATIVE_LANGUAGES", '["en"]')
         try:
@@ -216,6 +217,7 @@ class DeepResearchWorkflow:
             prompt_path=novelty_prompt_path,
             max_tokens=128000,
             tools_needed=True,
+            run_dir=run_dir,
         )
         self_report = novelty_result.get("NOVELTY_CLASS", "familiar")
         state.self_report_novelty = self_report
@@ -292,6 +294,7 @@ class DeepResearchWorkflow:
                 prompt_path=vocab_prompt_path,
                 max_tokens=128000,
                 tools_needed=True,
+                run_dir=run_dir,
             )
             # Retry once with output_schema (forced JSON at API level) if the
             # subagent returned prose instead of structured output markers.
@@ -325,6 +328,7 @@ class DeepResearchWorkflow:
                     max_tokens=32000,
                     tools_needed=False,
                     output_schema=_vocab_schema,
+                    run_dir=run_dir,
                 )
             raw_terms = vocab_result.get("CANONICAL_TERMS") or vocab_result.get("canonical_terms") or "[]"
             raw_discovered = vocab_result.get("DISCOVERED_SOURCES") or vocab_result.get("discovered_sources") or "[]"
@@ -393,6 +397,7 @@ class DeepResearchWorkflow:
             prompt_path=dim_prompt_path,
             max_tokens=128000,
             tools_needed=True,
+            run_dir=run_dir,
         )
         raw_directions = _parse_json_list(dim_result.get("DIRECTIONS", "[]"))
 
@@ -416,6 +421,7 @@ class DeepResearchWorkflow:
                     prompt_path=dim_prompt_path,
                     max_tokens=128000,
                     tools_needed=True,
+                    run_dir=run_dir,
                 )
                 raw_directions = _parse_json_list(
                     dim_result_retry.get("DIRECTIONS", "[]")
@@ -576,6 +582,7 @@ class DeepResearchWorkflow:
                         max_tokens=128000,
                         tools_needed=True,
                         mcp_config_path=mcp_config_path,
+                        run_dir=run_dir,
                     )
                 except BaseException as exc:
                     r_failed += 1
@@ -714,6 +721,7 @@ class DeepResearchWorkflow:
                 prompt_path=coord_prompt_path,
                 max_tokens=128000,
                 tools_needed=True,
+                run_dir=run_dir,
             )
             coord_summary = coord_result.get("COORD_SUMMARY", "")
             state.coordinator_summary_count += 1
@@ -812,6 +820,7 @@ class DeepResearchWorkflow:
                 prompt_path=expand_prompt_path,
                 max_tokens=128000,
                 tools_needed=True,
+                run_dir=run_dir,
             )
             # Forensic dump: persist the expander's raw response for debugging
             # premature termination. _parse_json_list on missing/malformed
@@ -890,6 +899,7 @@ class DeepResearchWorkflow:
                     prompt_path=gap_prompt_path,
                     max_tokens=128000,
                     tools_needed=True,
+                    run_dir=run_dir,
                 )
                 # Forensic dump: same rationale as expand-r{N}-result.json above.
                 await _write(
@@ -1048,6 +1058,7 @@ class DeepResearchWorkflow:
                 prompt_path=verify_prompt_path,
                 max_tokens=128000,
                 tools_needed=True,
+                run_dir=run_dir,
             )
             try:
                 state.verified_claims = json.loads(verifier_output.get("VERIFIED", "[]"))
@@ -1143,6 +1154,7 @@ class DeepResearchWorkflow:
             prompt_path=synth_prompt_path,
             max_tokens=128000,
             tools_needed=True,
+            run_dir=run_dir,
         )
         report_md = synth_result.get("REPORT", _fallback(inp.seed, all_findings))
 
@@ -1216,9 +1228,15 @@ async def _spawn(
     prompt_path: str,
     max_tokens: int,
     tools_needed: bool,
+    run_dir: str,
     mcp_config_path: str | None = None,
     output_schema: dict | None = None,
 ) -> dict[str, str]:
+    # ``run_dir`` is required: sagaflow's ``spawn_subagent`` activity only
+    # writes the per-step manifest entry and the ``cost_audit.jsonl`` row
+    # when ``inp.run_dir`` is non-empty. Omitting it silently disables
+    # ``sagaflow cost runs`` reporting (which then shows $0.0000 / 0 steps
+    # for every research run).
     timeout = 7200 if tools_needed else 3600
     result = await workflow.execute_activity(
         "spawn_subagent",
@@ -1231,6 +1249,7 @@ async def _spawn(
             tools_needed=tools_needed,
             mcp_config_path=mcp_config_path,
             output_schema=output_schema,
+            run_dir=run_dir,
         ),
         start_to_close_timeout=timedelta(seconds=timeout),
         heartbeat_timeout=timedelta(seconds=120),
