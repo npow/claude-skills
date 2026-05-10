@@ -121,16 +121,21 @@ For each classified failure:
 
 | Tier | Mechanism | Effect | When to use |
 |------|-----------|--------|-------------|
-| **T1 — Blocking gate** | `autonomy-rules.md` entry (stop-gate classifier) | Blocks turn-end when violation detected | Behavioral rules: "always do X before Y", "never do Z without checking" |
-| **T2 — PreToolUse hook** | Python hook in `.claude/hooks/` | Blocks specific tool calls matching pattern | Concrete tool-level guards: "don't edit generated files", "don't push to main" |
+| **T0 — Tool-shape wrapper** | Bash wrapper script in `~/bin/` (e.g., `safe-destruct`) | Restructures the tool surface so violation is physically impossible | Destructive ops, evidence-gathering, expensive operations — preferred when the violation pattern has a clean wrap point. The most bulletproof tier; prefer over T1 when feasible. |
+| **T1a — JIT rule card** | New file at `~/.claude/rule-cards/<kebab-name>.md` with frontmatter (`name`, `description`, `triggers`, `tier: default\|triggered`, `severity`) | Pre-emptively injected into agent context via UserPromptSubmit hook at moment of risk — primes attention BEFORE the violation | Behavioral rules where pre-emptive priming prevents the violation entirely (e.g., "verify technical claims before asserting", "don't fire-and-forget async"). Cheaper and earlier than T1b. |
+| **T1b — Stop classifier rule** | `autonomy-rules.md` entry | Blocks turn-end when classifier detects violation | Behavioral rules whose detection is irreducibly semantic — what the cards miss. Residue layer. |
+| **T2 — PreToolUse gate** | Python hook in `.claude/hooks/` registered in `settings.json` | Blocks specific tool calls matching syntactic pattern | Concrete tool-level guards: "don't edit generated files", "don't push to main", "rm -rf without backup marker". Use the marker-file pattern (`local-test-gate.py`, `destructive-bash-gate.py`) for stateful checks. |
 | **T3 — Pre-commit hook** | `.pre-commit-config.yaml` entry | Blocks commits matching pattern | Code-level rules: lint, format, secret detection |
 | **T4 — Skill update** | Edit SKILL.md checklist/workflow | Guides behavior when skill is invoked | Skill-scoped workflow improvements |
 | **T5 — CLAUDE.md / SOUL.md** | Prescriptive text | Read at session start, no enforcement | Context, conventions, preferences (NOT behavioral rules) |
 | **T6 — Memory entry** | Project or user memory file | Read when relevant, no enforcement | User preferences, project context, reference pointers |
 
-**The rule: every behavioral fix (P1-P4) MUST have a T1-T3 mechanism.** T5-T6 are
-documentation — they describe intent but cannot prevent violations. A retrospect that
-produces only T5-T6 patches for behavioral failures is incomplete.
+**The rule: every behavioral fix (P1-P4) MUST have a T0-T3 mechanism.** Prefer the
+HIGHEST tier that fits — a tool-shape wrapper (T0) makes the violation impossible;
+a rule card (T1a) primes attention before the risk; an autonomy-rules entry (T1b)
+catches the residue at turn-end. T5-T6 are documentation — they describe intent but
+cannot prevent violations. A retrospect that produces only T5-T6 patches for
+behavioral failures is incomplete.
 
 SOUL.md and memory are appropriate for:
 - User preferences and context (T6)
@@ -182,6 +187,7 @@ the failure pattern and add a sub-bullet. Common mappings:
 - "Used weak check instead of real test" → **Proxy verification**
 - "Stopped early with known gaps" → **Procrastination / premature good enough**
 - "Documented rule instead of enforcing it" → **Memory-as-enforcement**
+- "Asserted a technical fact without verifying it" → **(af) Unverified-technical-assertion**. The fact-ledger at `~/.claude/fact-ledger/<session_id>.jsonl` (written by `~/.claude/hooks/fact-ledger.py` PostToolUse) provides deterministic evidence of what was verified this session. The Stop classifier reads the ledger and treats claims without matching entries as stalls. If retrospect finds an unverified-assertion failure, prefer T1a (rule card with the relevant trigger keywords) over T1b — pre-emption is cheaper than residue-checking.
 
 **Safety checks before applying:**
 1. Does this weaken any existing safety requirement? If yes, flag explicitly.
@@ -192,15 +198,17 @@ For P5 positive learnings, use simplified format: Title, Target, Change, Rationa
 
 ### Phase 5: APPLY — Execute Patches
 
-Apply in enforcement-first order:
+Apply in enforcement-first order, preferring the highest tier that fits.
 
-1. **T1 gates first** — edit `autonomy-rules.md` (resolve symlinks: `readlink -f ~/.claude/autonomy-rules.md`).
-   Commit and push to the dotfiles repo (branch + PR if `no-commit-to-branch` hook is active).
-   **For solo-owned repos: the PR is a midpoint, not the deliverable — finish with `gh pr merge --squash --delete-branch` so the rule lands on `main` and takes effect.** Stopping at `gh pr create` triggers the PR-creation-without-merge stall: the new rule is inert until merged, so the retrospect work hasn't actually changed agent behavior yet. (This applies to every step below that ends in a PR.)
-2. **T2 hooks** — create/edit hook scripts in `.claude/hooks/`, update `settings.json`. Same merge-not-just-create rule applies.
-3. **T3 pre-commit** — update `.pre-commit-config.yaml`. Same merge-not-just-create rule applies.
-4. **T4 skills** — edit SKILL.md files. Same merge-not-just-create rule applies.
-5. **T5-T6 documentation** — SOUL.md, CLAUDE.md, memory entries. These are optional supplements.
+**For solo-owned repos: every PR below is a midpoint, not the deliverable — finish with `gh pr merge --squash --delete-branch` so the change lands on `main` and takes effect.** Stopping at `gh pr create` triggers the PR-creation-without-merge stall: the new rule/hook/wrapper is inert until merged.
+
+1. **T0 wrappers** — create a Bash wrapper at `~/bin/<name>` that restructures the tool surface (e.g., auto-snapshot before destruction, auto-record evidence). Register an exception in the corresponding T2 gate so wrapper invocations pass through. Commit + PR + merge.
+2. **T1a rule cards** — write a new card at `~/.claude/rule-cards/<kebab-name>.md` with frontmatter (`name`, `description`, `triggers`, `tier`, `severity`). The `inject-rule-cards.py` hook auto-discovers new cards on next prompt — no registration step needed. Commit + PR + merge.
+3. **T1b classifier rules** — edit `autonomy-rules.md` for residue-only rules that the cards can't pre-empt. Resolve symlinks: `readlink -f ~/.claude/autonomy-rules.md`. Commit + PR + merge.
+4. **T2 gates** — create/edit hook scripts in `.claude/hooks/`, update `settings.json`. For stateful checks, use the marker-file pattern (`local-test-gate.py`, `destructive-bash-gate.py`). Commit + PR + merge.
+5. **T3 pre-commit** — update `.pre-commit-config.yaml`. Commit + PR + merge.
+6. **T4 skills** — edit SKILL.md files. Commit + PR + merge.
+7. **T5-T6 documentation** — SOUL.md, CLAUDE.md, memory entries. Optional supplements.
 
 **Post-apply summary:**
 ```
