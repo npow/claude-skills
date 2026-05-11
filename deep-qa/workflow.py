@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shlex
 from dataclasses import dataclass
 from datetime import timedelta
 from string import Template
@@ -215,6 +216,13 @@ class DeepQaInput:
 _HAIKU_MAX_TOKENS = 64000
 _SONNET_MAX_TOKENS = 128000
 
+# How many chars of the artifact are passed into critic/dim-discover prompts
+# vs. the verifier (which gets a larger window for fact-checking). When the
+# real artifact exceeds these, a banner is injected into prompts AND emitted
+# to the workflow log so the user knows analysis was windowed.
+_CRITIC_ARTIFACT_MAX_CHARS = 20000
+_VERIFIER_ARTIFACT_MAX_CHARS = 30000
+
 # Bounded parallelism per round (spec: max 8 critics per round).
 # When cross-model is enabled, 6 Haiku + 2 cross-model (1 GPT, 1 Gemini).
 _MAX_CRITICS_PER_ROUND = 8
@@ -227,6 +235,22 @@ _MAX_DEFECTS_PER_JUDGE_BATCH = 5
 
 # Maximum rationalization-auditor retry attempts before hard exit.
 _MAX_AUDIT_ATTEMPTS = 2
+
+
+def _window_artifact(artifact_text: str, max_chars: int) -> str:
+    """Return the artifact windowed to max_chars, with a loud banner prefix
+    if truncation occurred so critics surface coverage in their findings."""
+    full_len = len(artifact_text)
+    if full_len <= max_chars:
+        return artifact_text
+    banner = (
+        f"[TRUNCATION NOTICE — artifact is {full_len} chars; only the first "
+        f"{max_chars} chars are shown below. {full_len - max_chars} chars "
+        f"({(full_len - max_chars) * 100 // full_len}% of the artifact) "
+        f"were NOT analyzed. Treat unobserved content as out-of-scope rather "
+        f"than 'missing'.]\n\n"
+    )
+    return banner + artifact_text[:max_chars]
 
 
 @workflow.defn(name="DeepQaWorkflow")
@@ -254,6 +278,13 @@ class DeepQaWorkflow:
             start_to_close_timeout=timedelta(seconds=10),
             retry_policy=HAIKU_POLICY,
         )
+        if len(artifact_text) > _CRITIC_ARTIFACT_MAX_CHARS:
+            workflow.logger.warning(
+                "Artifact is %d chars but critic/dim-discover window is %d; "
+                "%d chars will not be analyzed (banner injected into prompts)",
+                len(artifact_text), _CRITIC_ARTIFACT_MAX_CHARS,
+                len(artifact_text) - _CRITIC_ARTIFACT_MAX_CHARS,
+            )
         await workflow.execute_activity(
             "write_artifact",
             WriteArtifactInput(
@@ -261,7 +292,7 @@ class DeepQaWorkflow:
                 content=Template(inp.dim_discovery_user_prompt).safe_substitute(
                     artifact_type=inp.artifact_type,
                     artifact_length=str(len(artifact_text)),
-                    artifact_text=artifact_text[:20000],
+                    artifact_text=_window_artifact(artifact_text, _CRITIC_ARTIFACT_MAX_CHARS),
                 ),
             ),
             start_to_close_timeout=timedelta(seconds=10),
@@ -388,7 +419,7 @@ class DeepQaWorkflow:
                             angle_question=angle.question,
                             angle_dimension=angle.dimension,
                             artifact_type=inp.artifact_type,
-                            artifact_text=artifact_text[:20000],
+                            artifact_text=_window_artifact(artifact_text, _CRITIC_ARTIFACT_MAX_CHARS),
                         ),
                     ),
                     start_to_close_timeout=timedelta(seconds=10),
@@ -424,15 +455,18 @@ class DeepQaWorkflow:
                 model = _CROSS_MODEL_MODELS[cm_idx % len(_CROSS_MODEL_MODELS)]
                 cm_output = f"{inp.run_dir}/critic-r{round_idx}-cm-{model.split('-')[0]}.txt"
                 cm_prompt_path = f"{inp.run_dir}/critic-r{round_idx}-cm-{cm_idx}-prompt.txt"
+                # LLM-generated values (cm_angle.question, cm_angle.dimension)
+                # flow into shell — they MUST be shell-quoted to prevent
+                # command injection from prompt-injected critic inputs.
                 cm_cmd = (
-                    f"python3 {_CROSS_MODEL_SCRIPT} "
-                    f"--angle-file {cm_path} "
-                    f"--artifact-file {artifact_snapshot} "
-                    f"--output-file {cm_output} "
-                    f"--model {model} "
-                    f"--angle-id {cm_angle.question[:40]} "
-                    f"--dimension {cm_angle.dimension} "
-                    f"--mode {inp.artifact_type}"
+                    f"python3 {shlex.quote(_CROSS_MODEL_SCRIPT)} "
+                    f"--angle-file {shlex.quote(cm_path)} "
+                    f"--artifact-file {shlex.quote(artifact_snapshot)} "
+                    f"--output-file {shlex.quote(cm_output)} "
+                    f"--model {shlex.quote(model)} "
+                    f"--angle-id {shlex.quote(cm_angle.question[:40])} "
+                    f"--dimension {shlex.quote(cm_angle.dimension)} "
+                    f"--mode {shlex.quote(inp.artifact_type)}"
                 )
                 await workflow.execute_activity(
                     "write_artifact",
@@ -449,6 +483,7 @@ class DeepQaWorkflow:
                             system_prompt="Run the command in the prompt file. Report the output file contents as structured output.",
                             user_prompt_path=cm_prompt_path,
                             tools_needed=True,
+                            output_schema=_SCHEMA_DEFECTS,
                             run_dir=inp.run_dir,
                         ),
                         start_to_close_timeout=timedelta(seconds=300),
@@ -466,6 +501,16 @@ class DeepQaWorkflow:
                 if isinstance(result, BaseException):
                     # Critic failure: fail-safe skip; do NOT re-queue.
                     continue
+                if "DEFECTS" not in result:
+                    # Loud surface for cross-model / schema-violating critics
+                    # whose output didn't match _SCHEMA_DEFECTS — otherwise
+                    # findings would be silently dropped (violates "make
+                    # failures loud" rule).
+                    workflow.logger.warning(
+                        "Critic returned no DEFECTS key (angle=%s, keys=%s) — "
+                        "findings dropped",
+                        angle.id, list(result.keys()),
+                    )
                 defects_raw = result.get("DEFECTS", "[]")
                 for raw_defect in _parse_raw_defects(defects_raw):
                     defect_id = raw_defect.get("id") or f"d-r{round_idx}-{len(all_defects)}"
@@ -668,7 +713,7 @@ class DeepQaWorkflow:
                 WriteArtifactInput(
                     path=verifier_prompt_path,
                     content=Template(inp.verifier_user_prompt).safe_substitute(
-                        artifact_text=artifact_text[:30000],
+                        artifact_text=_window_artifact(artifact_text, _VERIFIER_ARTIFACT_MAX_CHARS),
                     ),
                 ),
                 start_to_close_timeout=timedelta(seconds=10),
