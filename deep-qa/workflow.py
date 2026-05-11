@@ -209,8 +209,10 @@ class DeepQaInput:
     cross_model_enabled: bool = True
 
 
-# Tier-appropriate max_tokens (Haiku caps at 8192 output tokens).
-_HAIKU_MAX_TOKENS = 8192
+# Tier-appropriate max_tokens. Haiku 4.5 supports up to 64K output tokens;
+# the prior 8192 cap was a leftover from Haiku 3.5 and truncated critic JSON
+# when many defects were reported, silently dropping findings.
+_HAIKU_MAX_TOKENS = 64000
 _SONNET_MAX_TOKENS = 128000
 
 # Bounded parallelism per round (spec: max 8 critics per round).
