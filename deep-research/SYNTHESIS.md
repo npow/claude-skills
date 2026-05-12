@@ -177,20 +177,20 @@ The final synthesis subagent reads raw findings files only if needed for specifi
 
 ### Role-attribution discipline (REQUIRED for synthesis subagent)
 
-When the report includes a "team table" or any tabular attribution of people to teams/applications, the synthesis subagent MUST distinguish three categories and label them explicitly. Conflating them is a documented defect class — see CLAUDE-CASES.md case "Aria Rezaei manager misclassification (2026-05-12)".
+When the report includes a "team table" or any tabular attribution of people to teams/applications, the synthesis subagent MUST distinguish three categories and label them explicitly. Conflating them is a documented defect class.
 
 | Category | Source signal | How to render |
 |---|---|---|
-| **Manager** | Appears as a non-terminal element in a Pandora `latest_owner_employee_user_id_mgt_chain_array` (i.e. has direct reports below them in the chain). Findings typically quote chain tuples like `[--, estone, iyohai, ebloom, gbleikamp, ...]` — every userid before the trailing `...` is a manager. | Use as the "Manager" cell value. Preserve the userid `(gbleikamp)` next to the human-readable name. |
-| **Lead IC / Author** | Found via CODEOWNERS, commit authorship, Slack `<@U...>` mention, or "author of" / "lead engineer on" phrasing in findings. NOT in a Pandora mgmt chain (or only in the chain's terminal position with no `...` after). | Use a separate "Lead / IC" cell, OR annotate inline as `(IC)`. NEVER place in a "Manager" column. |
+| **Manager** | Evidence from a formal org-hierarchy data source (ownership table, HR system, org-chart doc, management-chain query) that places the person above ≥1 direct report. | Use as the "Manager" cell value. |
+| **Lead IC / Author** | Found via code-ownership entries, commit authorship, chat mentions, or "author of" / "lead engineer on" phrasing. Not in a formal hierarchy. | Use a separate "Lead / IC" cell, OR annotate inline as `(IC)`. NEVER place in a "Manager" column. |
 | **Unknown role** | Name appears in findings without role evidence either way. | Render as `*(role unknown)*` — do not guess. |
 
 **Synthesis subagent prompt MUST include** (verbatim):
 
 > When building any team→people table:
-> 1. For each named person, check the coordinator summary AND the mini-syntheses for a Pandora management-chain quote (`[--, estone, ..., USERID, ...]`). If their userid appears with at least one element after them in the chain, they are a manager. Otherwise, treat them as IC unless explicit "Manager of X" phrasing exists.
-> 2. NEVER place a CODEOWNER, commit author, or Slack-mentioned contributor in a column labeled "Manager." Use "Lead / IC" or annotate `(IC)`.
-> 3. If you cannot determine role with evidence, write `*(role unknown)*` — do not infer "probably manager" from team-doc proximity, position in a list, or the fact that they were the most-quoted person in a finding.
+> 1. For each named person, look in the coordinator summary and mini-syntheses for a formal-hierarchy citation (org chart, ownership table, management chain). They are a manager only if such a citation places them above at least one direct report.
+> 2. NEVER place a code-owner, commit author, or chat-mentioned contributor in a column labeled "Manager." Use "Lead / IC" or annotate `(IC)`.
+> 3. If you cannot determine role with formal-hierarchy evidence, write `*(role unknown)*` — do not infer "probably manager" from team-doc proximity, position in a list, or the fact that they were the most-quoted person in a finding.
 
 ### Source-link preservation (REQUIRED for synthesis subagent)
 
@@ -208,7 +208,7 @@ Every Google Doc, Manuals page, GitHub PR, or external URL that appears in a fin
 > 3. If the URL does NOT exist in findings → either drop the verbatim quote (you cannot attribute without provenance) OR include the claim with a `⚠️ Citation not found in findings — single-source unverified`.
 > 4. If the URL exists but the doc is access-walled (Google Docs, Confluence) → add a `⚠️ Verification note:` that the doc content was transcribed by the research agent at fetch time and could not be independently verified by the synthesis pass.
 
-### Termination disclosure (REQUIRED — addresses deep-qa "queued directions not inventoried" defect class)
+### Termination disclosure (REQUIRED — addresses "queued directions not inventoried" defect class)
 
 When research terminates with a non-empty unexplored frontier (any termination label other than `Frontier exhausted after N rounds`), the final report MUST include a `What this report did NOT cover` subsection inside `Coverage & Termination`. The workflow dumps `{run_dir}/unexplored-frontier.json` containing every direction whose status is not `researched` or `duplicate`; the synthesis subagent reads that file and enumerates each entry by id, dimension, priority, and question.
 
@@ -218,9 +218,9 @@ When research terminates with a non-empty unexplored frontier (any termination l
 
 > If `unexplored-frontier.json` (passed in your prompt) has any entries, render a `What this report did NOT cover` subsection in `Coverage & Termination` that lists every entry as a bullet: `- {id} ({dimension}, priority={priority}): {question}`. Required even if the list is long. Do NOT collapse or summarize — each unexplored direction gets its own line.
 
-### Contradiction reconciliation (REQUIRED — addresses deep-qa "internal contradictions" defect class)
+### Contradiction reconciliation (REQUIRED — addresses "internal contradictions" defect class)
 
-The coordinator summary has a `Contradictions / Reconciliation` section that captures cross-round disagreements (e.g. "X is paved path" vs. "X has 6 production teams"). The synthesis subagent has historically suppressed these in the final report, picking one side silently. This is a documented defect class (deep-qa C5).
+The coordinator summary has a `Contradictions / Reconciliation` section that captures cross-round disagreements (e.g. "X is the standard" vs. "X has many production users"). The synthesis subagent has historically suppressed these in the final report, picking one side silently. This is a documented defect class.
 
 **Synthesis subagent prompt MUST include** (verbatim):
 
@@ -230,7 +230,7 @@ The coordinator summary has a `Contradictions / Reconciliation` section that cap
 > 3. Either (a) an explicit reconciliation drawn from evidence (e.g. "different time windows: X was true in 2024, Y is true in 2026") or (b) the explicit label `UNRESOLVED — both views preserved` if no evidence resolves the disagreement.
 > Never silently pick one side. Never omit a contradiction because "it makes the report cleaner."
 
-### Attribution recency (REQUIRED — addresses deep-qa "stale source" defect class)
+### Attribution recency (REQUIRED — addresses "stale source" defect class)
 
 Manager-level org claims, individual contributor attributions, and team-composition snapshots routinely come from sources >12 months old. For fast-moving topics (org charts, platform inventories, tool adoption), 16+ month-old sources are routinely wrong by report time. The report must visibly carry source-year information for these claims.
 
