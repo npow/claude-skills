@@ -1212,6 +1212,18 @@ class DeepResearchWorkflow:
         findings_index = [{"id": f["id"], "dimension": f["dimension"], "question": f["question"], "file": f"{findings_dir}/{f['id']}.md"} for f in all_findings]
         await _write(findings_index_path, json.dumps(findings_index, indent=2))
 
+        # Dump the unexplored frontier so the synth subagent can list "what we did
+        # NOT cover" — without this the report silently terminates with an unknown
+        # blast radius (deep-qa C2/C4: VP-roles unvalidated, queued directions
+        # not inventoried).
+        unexplored_path = f"{run_dir}/unexplored-frontier.json"
+        unexplored = [
+            {"id": d.id, "dimension": d.dimension, "question": d.question, "priority": d.priority}
+            for d in state.frontier
+            if d.status not in ("researched", "duplicate")
+        ]
+        await _write(unexplored_path, json.dumps(unexplored, indent=2))
+
         synth_prompt_path = f"{run_dir}/synth-prompt.txt"
         await _write(synth_prompt_path,
             f"Research topic file: {seed_path}\n\n"
@@ -1219,6 +1231,7 @@ class DeepResearchWorkflow:
             f"Findings index ({len(all_findings)} directions): {findings_index_path}\n"
             f"Findings directory: {findings_dir}/\n"
             f"Coordinator summary: {run_dir}/coordinator-summary.md\n"
+            f"Unexplored frontier ({len(unexplored)} unresearched directions): {unexplored_path}\n"
             "Read the coordinator summary and findings files for full content.\n\n"
             f"{cross_cut_section}\n\n"
             f"{verifier_section}\n\n"
@@ -1229,8 +1242,15 @@ class DeepResearchWorkflow:
             "- Findings per direction\n"
             "- Cross-cutting analysis (PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, "
             "STRATEGIC-TIMING, ACTUAL-USAGE)\n"
+            "- Contradictions & Reconciliation (verbatim from coordinator summary, never silently picked)\n"
             "- Fact Verification Results\n"
-            "- Coverage & Termination\n"
+            "- Coverage & Termination — REQUIRED subsections:\n"
+            "    * 'What this report did NOT cover' — enumerate each entry from "
+            f"      {unexplored_path} as a bullet, with priority and dimension. "
+            "      Required whenever the unexplored frontier is non-empty.\n"
+            "    * 'Attribution recency' — for each named manager/IC/team-state "
+            "      claim, cite the year of the underlying source. Flag any "
+            "      attribution older than 12 months as `[STALE: source from {date}]`.\n"
             "- Sources\n"
             "STRUCTURED_OUTPUT_START\n"
             "REPORT|<full markdown>\n"
@@ -1273,11 +1293,40 @@ class DeepResearchWorkflow:
                 "unverified`. If the URL exists but the doc is access-walled (Google Docs, "
                 "Confluence, Notion) → include a `⚠️ Verification note:` that the doc could "
                 "not be independently verified. "
+                "9) TERMINATION DISCLOSURE: when the unexplored-frontier file passed in your "
+                "prompt has entries (any termination label other than `Frontier exhausted "
+                "after N rounds`), you MUST include a 'What this report did NOT cover' "
+                "subsection in Coverage & Termination that enumerates every unexplored "
+                "direction by id, dimension, priority, and question. This is required even "
+                "if the list is long. Silently terminating with unexplored frontier hides "
+                "the report's blast radius (deep-qa C2/C4: VP-roles unvalidated, queued "
+                "directions not inventoried). "
+                "10) CONTRADICTION RECONCILIATION: scan the coordinator summary's "
+                "'Contradictions / Reconciliation' section. Every contradiction listed there "
+                "MUST appear in the final report's 'Contradictions & Reconciliation' section "
+                "with both sides quoted verbatim, source attribution for each, and either "
+                "(a) an explicit reconciliation if the disagreement is resolvable from "
+                "evidence (e.g. different time windows, different scopes), or (b) the label "
+                "`UNRESOLVED — both views preserved` if not. Never silently pick one side "
+                "(deep-qa C5: Metaboost 'not paved path' vs. documented production usage "
+                "across 6+ teams). "
+                "11) ATTRIBUTION RECENCY: every named manager/IC/team-state claim must "
+                "carry the year/date of the underlying source visible in the report (in a "
+                "footnote, parenthetical, or 'as of {date}' phrase). For manager-attribution "
+                "claims sourced from material >12 months old, append `[STALE: source from "
+                "{date}]` inline. This is required for fast-moving topics like org charts, "
+                "platform inventories, and tool adoption — 16+ month-old org-doc snapshots "
+                "are routinely wrong by report time (deep-qa C1/C3: managers and individual "
+                "attributions stale). "
                 "AFTER writing the report, do a VERIFY pass: scan for capitalized proper "
                 "nouns not inside markdown links and add links for any you missed; scan for "
                 "every 'Manager' column entry and confirm it has Pandora-chain evidence or "
                 "an `(IC)` / `*(role unknown)*` annotation; scan for every verbatim quote "
-                "from a doc and confirm the doc is linked or marked unverified. "
+                "from a doc and confirm the doc is linked or marked unverified; verify the "
+                "'What this report did NOT cover' subsection exists if the unexplored "
+                "frontier was non-empty; verify every contradiction in the coordinator "
+                "summary appears in 'Contradictions & Reconciliation'; verify every named "
+                "manager has a source-year annotation. "
                 "STRUCTURED_OUTPUT_START\n"
                 "REPORT|<full markdown>\n"
                 "STRUCTURED_OUTPUT_END"

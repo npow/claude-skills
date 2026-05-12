@@ -208,6 +208,40 @@ Every Google Doc, Manuals page, GitHub PR, or external URL that appears in a fin
 > 3. If the URL does NOT exist in findings → either drop the verbatim quote (you cannot attribute without provenance) OR include the claim with a `⚠️ Citation not found in findings — single-source unverified`.
 > 4. If the URL exists but the doc is access-walled (Google Docs, Confluence) → add a `⚠️ Verification note:` that the doc content was transcribed by the research agent at fetch time and could not be independently verified by the synthesis pass.
 
+### Termination disclosure (REQUIRED — addresses deep-qa "queued directions not inventoried" defect class)
+
+When research terminates with a non-empty unexplored frontier (any termination label other than `Frontier exhausted after N rounds`), the final report MUST include a `What this report did NOT cover` subsection inside `Coverage & Termination`. The workflow dumps `{run_dir}/unexplored-frontier.json` containing every direction whose status is not `researched` or `duplicate`; the synthesis subagent reads that file and enumerates each entry by id, dimension, priority, and question.
+
+**Why this is required:** When a report terminates with 20 queued directions and doesn't list them, a reader cannot tell whether a major team (e.g. Payments/Monetization sub-team) is absent because it doesn't use the subject matter, vs. absent because it sat in the unexecuted frontier. Coverage gaps must be enumerable from the report alone — anything else hides the blast radius.
+
+**Synthesis subagent prompt MUST include** (verbatim):
+
+> If `unexplored-frontier.json` (passed in your prompt) has any entries, render a `What this report did NOT cover` subsection in `Coverage & Termination` that lists every entry as a bullet: `- {id} ({dimension}, priority={priority}): {question}`. Required even if the list is long. Do NOT collapse or summarize — each unexplored direction gets its own line.
+
+### Contradiction reconciliation (REQUIRED — addresses deep-qa "internal contradictions" defect class)
+
+The coordinator summary has a `Contradictions / Reconciliation` section that captures cross-round disagreements (e.g. "X is paved path" vs. "X has 6 production teams"). The synthesis subagent has historically suppressed these in the final report, picking one side silently. This is a documented defect class (deep-qa C5).
+
+**Synthesis subagent prompt MUST include** (verbatim):
+
+> Read the `Contradictions / Reconciliation` section of the coordinator summary. Every contradiction listed there MUST appear in the final report's `Contradictions & Reconciliation` section with:
+> 1. Both sides quoted verbatim.
+> 2. Source attribution for each side (which direction id, which round).
+> 3. Either (a) an explicit reconciliation drawn from evidence (e.g. "different time windows: X was true in 2024, Y is true in 2026") or (b) the explicit label `UNRESOLVED — both views preserved` if no evidence resolves the disagreement.
+> Never silently pick one side. Never omit a contradiction because "it makes the report cleaner."
+
+### Attribution recency (REQUIRED — addresses deep-qa "stale source" defect class)
+
+Manager-level org claims, individual contributor attributions, and team-composition snapshots routinely come from sources >12 months old. For fast-moving topics (org charts, platform inventories, tool adoption), 16+ month-old sources are routinely wrong by report time. The report must visibly carry source-year information for these claims.
+
+**Synthesis subagent prompt MUST include** (verbatim):
+
+> For every named-person claim (manager, IC, team membership) and every team-state claim (paved path, primary tool, deprecation status):
+> 1. Cite the year/date of the underlying source visible in the report — in a footnote, parenthetical, or `as of {date}` phrase.
+> 2. If the underlying source is dated >12 months before the report's run date, append `[STALE: source from {date}]` inline to that specific claim.
+> 3. If multiple sources of differing ages corroborate the claim, cite the most recent one.
+> 4. The fact-verification pass earlier in the run sampled URLs at fetch time; the synthesis pass cannot re-fetch them but MUST preserve their date provenance.
+
 ### Contradiction Handling
 
 When findings from different directions contradict:
