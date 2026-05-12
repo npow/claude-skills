@@ -38,6 +38,12 @@ netflix-dataoven
 TitusContainerRole
 rag-slack-prod
 nflx-
+\bestone\b
+prodhive
+\bcea_[a-z][a-z_]+
+\bcorp/[a-z][a-z0-9_-]+
+dpa_training_service
+spinnaker\.mgmt
 EOF
 
 # ---------------------------------------------------------------------------
@@ -102,7 +108,7 @@ while IFS= read -r match; do
     echo "$match"
     FOUND=1
 done < <(
-    grep -rn --with-filename -E "$COMBINED_PATTERN" "${FILTERED[@]}" 2>/dev/null || true
+    grep -rn --with-filename -iE "$COMBINED_PATTERN" "${FILTERED[@]}" 2>/dev/null || true
 )
 
 if [[ $FOUND -eq 1 ]]; then
