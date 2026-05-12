@@ -169,7 +169,7 @@ class DeepResearchWorkflow:
         )
         lang_result = await _spawn(
             role="lang-detect",
-            tier="OPUS",
+            tier="HAIKU",
             system_prompt=(
                 "You detect the authoritative languages for a research topic. "
                 "STRUCTURED_OUTPUT_START\n"
@@ -209,7 +209,7 @@ class DeepResearchWorkflow:
         )
         novelty_result = await _spawn(
             role="novelty-classify",
-            tier="OPUS",
+            tier="HAIKU",
             system_prompt=(
                 "You classify topic novelty. Use WebSearch to verify recalled sources. "
                 "STRUCTURED_OUTPUT_START\n"
@@ -292,7 +292,7 @@ class DeepResearchWorkflow:
             )
             vocab_result = await _spawn(
                 role="vocab-bootstrap",
-                tier="OPUS",
+                tier="SONNET",
                 system_prompt=_vocab_system,
                 prompt_path=vocab_prompt_path,
                 max_tokens=128000,
@@ -386,7 +386,7 @@ class DeepResearchWorkflow:
         )
         dim_result = await _spawn(
             role="dim-discover",
-            tier="OPUS",
+            tier="SONNET",
             system_prompt=(
                 "You generate research directions including mandatory cross-cutting "
                 "dimensions (PRIOR-FAILURE, BASELINE, ADJACENT-EFFORTS, "
@@ -412,7 +412,7 @@ class DeepResearchWorkflow:
                 )
                 dim_result_retry = await _spawn(
                     role="dim-discover-retry",
-                    tier="OPUS",
+                    tier="SONNET",
                     system_prompt=(
                         "You generate research directions. Your previous attempt was not "
                         "parseable. Output ONLY valid JSON — no markdown fences, no prose "
@@ -579,7 +579,7 @@ class DeepResearchWorkflow:
                 try:
                     r = await _spawn(
                         role="researcher",
-                        tier="OPUS",
+                        tier="SONNET",
                         system_prompt=_researcher_system,
                         prompt_path=prompt_path,
                         max_tokens=128000,
@@ -708,7 +708,7 @@ class DeepResearchWorkflow:
             )
             coord_result = await _spawn(
                 role="coord-summary",
-                tier="OPUS",
+                tier="HAIKU",
                 system_prompt=(
                     "You synthesize research round findings into a comprehensive coordinator "
                     "summary. Read ALL findings files referenced. Identify gaps, contradictions, "
@@ -916,7 +916,7 @@ class DeepResearchWorkflow:
             )
             expand_result = await _spawn(
                 role="direction-expander",
-                tier="OPUS",
+                tier="SONNET",
                 system_prompt=(
                     "You generate follow-up research directions based on prior findings. "
                     "Use all available tools to discover gaps and unexplored areas. "
@@ -999,7 +999,7 @@ class DeepResearchWorkflow:
                 )
                 gap_result = await _spawn(
                     role="gap-analyst",
-                    tier="OPUS",
+                    tier="SONNET",
                     system_prompt=(
                         "You are a research gap analyst. The previous direction expander "
                         "returned 0 new directions too early. Find gaps the expander missed. "
@@ -1152,7 +1152,7 @@ class DeepResearchWorkflow:
             )
             verifier_output = await _spawn(
                 role="verifier",
-                tier="OPUS",
+                tier="SONNET",
                 system_prompt=(
                     "You are an exhaustive fact verifier. Check EVERY claim using all "
                     "available tools — code search for code claims, documentation search "
@@ -1238,7 +1238,7 @@ class DeepResearchWorkflow:
         )
         synth_result = await _spawn(
             role="synth",
-            tier="OPUS",
+            tier="SONNET",
             system_prompt=(
                 "Write the most comprehensive research report possible. Include EVERY "
                 "finding from EVERY direction. Include a 'Cross-cutting analysis' "
@@ -1256,8 +1256,28 @@ class DeepResearchWorkflow:
                 "without paragraph breaks. "
                 "5) Every factual claim has a source. "
                 "6) Keep source terminology exactly — do not rename proper nouns. "
+                "7) ROLE ATTRIBUTION DISCIPLINE: when building any team→people table, "
+                "distinguish managers from ICs explicitly. A person is a MANAGER iff their "
+                "userid appears in a Pandora `latest_owner_employee_user_id_mgt_chain_array` "
+                "tuple `[--, estone, ..., USERID, ...]` with at least one element after them. "
+                "CODEOWNERS, commit authors, Slack mentions, and people identified as 'lead "
+                "engineer on X' are ICs unless explicit 'Manager of X' phrasing exists in "
+                "findings. NEVER place an IC in a column labeled 'Manager' — use 'Lead / IC' "
+                "or annotate `(IC)`. If role evidence is missing, write `*(role unknown)*` — "
+                "do not guess from proximity, list position, or quote frequency. "
+                "8) SOURCE-DOC LINK PRESERVATION: for every claim of the form 'Per the X "
+                "doc, ...' or 'X authored Y stating: \"...quote...\"', search the coordinator "
+                "summary and mini-syntheses for the URL. If found → hyperlink the doc title "
+                "on first mention. If the URL is NOT in findings → either drop the verbatim "
+                "quote OR mark it `⚠️ Citation not found in findings — single-source "
+                "unverified`. If the URL exists but the doc is access-walled (Google Docs, "
+                "Confluence, Notion) → include a `⚠️ Verification note:` that the doc could "
+                "not be independently verified. "
                 "AFTER writing the report, do a VERIFY pass: scan for capitalized proper "
-                "nouns not inside markdown links and add links for any you missed. "
+                "nouns not inside markdown links and add links for any you missed; scan for "
+                "every 'Manager' column entry and confirm it has Pandora-chain evidence or "
+                "an `(IC)` / `*(role unknown)*` annotation; scan for every verbatim quote "
+                "from a doc and confirm the doc is linked or marked unverified. "
                 "STRUCTURED_OUTPUT_START\n"
                 "REPORT|<full markdown>\n"
                 "STRUCTURED_OUTPUT_END"

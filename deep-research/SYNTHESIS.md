@@ -175,6 +175,39 @@ The coordinator passes the following to the final synthesis subagent (Sonnet):
 
 The final synthesis subagent reads raw findings files only if needed for specific claims — not as primary input.
 
+### Role-attribution discipline (REQUIRED for synthesis subagent)
+
+When the report includes a "team table" or any tabular attribution of people to teams/applications, the synthesis subagent MUST distinguish three categories and label them explicitly. Conflating them is a documented defect class — see CLAUDE-CASES.md case "Aria Rezaei manager misclassification (2026-05-12)".
+
+| Category | Source signal | How to render |
+|---|---|---|
+| **Manager** | Appears as a non-terminal element in a Pandora `latest_owner_employee_user_id_mgt_chain_array` (i.e. has direct reports below them in the chain). Findings typically quote chain tuples like `[--, estone, iyohai, ebloom, gbleikamp, ...]` — every userid before the trailing `...` is a manager. | Use as the "Manager" cell value. Preserve the userid `(gbleikamp)` next to the human-readable name. |
+| **Lead IC / Author** | Found via CODEOWNERS, commit authorship, Slack `<@U...>` mention, or "author of" / "lead engineer on" phrasing in findings. NOT in a Pandora mgmt chain (or only in the chain's terminal position with no `...` after). | Use a separate "Lead / IC" cell, OR annotate inline as `(IC)`. NEVER place in a "Manager" column. |
+| **Unknown role** | Name appears in findings without role evidence either way. | Render as `*(role unknown)*` — do not guess. |
+
+**Synthesis subagent prompt MUST include** (verbatim):
+
+> When building any team→people table:
+> 1. For each named person, check the coordinator summary AND the mini-syntheses for a Pandora management-chain quote (`[--, estone, ..., USERID, ...]`). If their userid appears with at least one element after them in the chain, they are a manager. Otherwise, treat them as IC unless explicit "Manager of X" phrasing exists.
+> 2. NEVER place a CODEOWNER, commit author, or Slack-mentioned contributor in a column labeled "Manager." Use "Lead / IC" or annotate `(IC)`.
+> 3. If you cannot determine role with evidence, write `*(role unknown)*` — do not infer "probably manager" from team-doc proximity, position in a list, or the fact that they were the most-quoted person in a finding.
+
+### Source-link preservation (REQUIRED for synthesis subagent)
+
+Every Google Doc, Manuals page, GitHub PR, or external URL that appears in a finding's Key Sources MUST be preserved as a clickable hyperlink in the final report when that finding's content is included. Specifically:
+
+- If the report quotes a verbatim passage from a doc, the **first mention of the doc title must hyperlink to its URL.**
+- If the report attributes a strategic decision, statement, or commitment to a doc (e.g. "Per the [X] strategy doc, Y"), the doc MUST be linked.
+- If a Google Doc is access-walled and the synthesis subagent cannot independently verify the content, the report MUST include a `⚠️ Verification note:` indicating the doc was not retrieved and the claim is single-source from the research agent's transcription.
+
+**Synthesis subagent prompt MUST include** (verbatim):
+
+> For every claim of the form "Per the X doc, ..." or "X authored Y stating: '...verbatim quote...'":
+> 1. Search the coordinator summary and mini-syntheses for the URL of doc X. URLs in research findings typically appear in `Key Sources` sections or inline as `(https://docs.google.com/document/d/...)`.
+> 2. If the URL exists in findings → hyperlink the doc title on first mention.
+> 3. If the URL does NOT exist in findings → either drop the verbatim quote (you cannot attribute without provenance) OR include the claim with a `⚠️ Citation not found in findings — single-source unverified`.
+> 4. If the URL exists but the doc is access-walled (Google Docs, Confluence) → add a `⚠️ Verification note:` that the doc content was transcribed by the research agent at fetch time and could not be independently verified by the synthesis pass.
+
 ### Contradiction Handling
 
 When findings from different directions contradict:
