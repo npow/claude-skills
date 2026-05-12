@@ -51,19 +51,29 @@ The unified orchestrator. One skill that auto-scales from a single-agent one-fil
 
 ### Phase 0: Task Analysis (always runs, <30s)
 
+**Spec directory scan:** Before classifying, check for a `specs/` directory in the project root. If found, list feature subdirectories and check for `spec.md` and `plan.md` files. If the task matches an existing feature (by slug, keyword, or explicit reference):
+- Read `specs/<feature>/spec.md` — use its user stories, acceptance scenarios, and goals as the authoritative requirements.
+- Read `specs/<feature>/plan.md` if it exists — use its subtasks and acceptance criteria directly, promoting clarity to "full spec" and potentially skipping Phase 1.
+- Read `specs/<feature>/adr.md` if it exists — use architectural decisions as constraints.
+- Log: `Found spec directory: specs/<feature>/ (spec.md + plan.md) — using as task input.`
+
 Read the input. Classify along three axes:
 
 1. **Clarity**: vague idea → partial spec → full spec → single task
+   - Having `specs/<feature>/spec.md` promotes to at least "partial spec"
+   - Having both `spec.md` + `plan.md` promotes to "full spec"
 2. **Scope**: one-file fix → multi-file feature → multi-module project → greenfield repo
 3. **Decomposability**: atomic (can't split) → sequential (must be ordered) → parallel (independent parts) → mixed
 
-Output: a `TaskProfile` logged to the user. Example: "Task: multi-file feature, partial spec, 4 subtasks (2 parallel + 2 sequential). Topology: staged fanout."
+Output: a `TaskProfile` logged to the user. Example: "Task: multi-file feature, full spec (from specs/my-feature/), 4 subtasks (2 parallel + 2 sequential). Topology: staged fanout."
 
 **Pressure awareness:** this skill applies the pressure circuit breakers from [`_shared/pressure-awareness.md`](../_shared/pressure-awareness.md). After 2 retries of the same phase producing no new evidence, escalate rather than retrying. The iron-law phase gates already enforce checkpoint evidence; this contract adds the diminishing-returns check to prevent grinding within a phase.
 
-### Phase 1: Plan (conditional — skip if atomic)
+### Phase 1: Plan (conditional — skip if atomic or spec+plan exist)
 
-- If clarity is "vague idea": invoke deep-design inline to stress-test the concept, then deep-plan to break into steps.
+- If `specs/<feature>/plan.md` exists with acceptance criteria and subtasks: skip to Phase 2 — the plan is already done. Log: `Using existing plan from specs/<feature>/plan.md — skipping Phase 1.`
+- If `specs/<feature>/spec.md` exists but no plan: invoke deep-plan with the spec as input. deep-plan will write `specs/<feature>/plan.md` on completion.
+- If clarity is "vague idea" (no spec): invoke deep-design inline to stress-test the concept, then deep-plan to break into steps.
 - If clarity is "partial spec" or higher: invoke deep-plan inline to produce ordered subtasks with acceptance criteria.
 - If atomic (single task, clear spec): skip directly to Phase 2.
 

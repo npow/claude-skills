@@ -84,9 +84,10 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
    - Empty or <10 words of actionable content
    - Pure execution request with concrete file/symbol anchors — route back to direct execution
    - Harmful scope (weapon, exploit) — decline
-2. Detect high-risk signals (see `--deliberate`) and set `mode: "short" | "deliberate"`.
-3. Generate `run_id = $(date +%Y%m%d-%H%M%S)`.
-4. Create directory: `deep-plan-{run_id}/`
+2. **Spec directory detection:** scan for a `specs/` directory in the project root. If found, list feature subdirectories. If the task description matches an existing feature (by slug or content), read `specs/<feature>/spec.md` as supplemental input — it becomes the authoritative requirements source for the Planner. Log: `Found spec: specs/<feature>/spec.md — using as requirements input.`
+3. Detect high-risk signals (see `--deliberate`) and set `mode: "short" | "deliberate"`.
+4. Generate `run_id = $(date +%Y%m%d-%H%M%S)`.
+5. Create directory: `deep-plan-{run_id}/`
    - `state.json` (see STATE.md)
    - `task.md` — task description locked verbatim
    - `iterations/iter-{N}/` — one directory per iteration
@@ -240,6 +241,8 @@ The coordinator then copies the final plan to `deep-plan-{run_id}/plan.md` (unch
 - Architect degraded-mode flag if any
 - Critic degraded-mode flag if any
 - Count of dropped rubber-stamp rejections across all iterations
+
+**Spec directory sync:** If a spec was loaded from `specs/<feature>/spec.md` in Step 0, also copy the final plan to `specs/<feature>/plan.md` and the ADR to `specs/<feature>/adr.md`. This keeps the feature's spec directory as the single source of truth for downstream consumers (autopilot, team). Log: `Synced plan → specs/<feature>/plan.md`.
 
 ### Step 7: Interactive Approval Gate (`--interactive` only)
 

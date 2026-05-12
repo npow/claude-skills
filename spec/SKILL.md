@@ -43,7 +43,9 @@ Turns a conversation, idea, or discussion into a complete, structured technical 
 
 7. **Write the full spec** — assemble all sections in the exact output format. See [FORMAT.md](FORMAT.md).
 
-8. **Save to file** — write the spec to `spec-[slug].md` in the current working directory, where slug is a lowercase hyphenated version of the title. Print the full spec to the conversation as well.
+8. **Save to file** — write the spec to `specs/[slug]/spec.md` (creating the directory if needed), where slug is a lowercase hyphenated version of the title. This directory becomes the feature's home for all downstream artifacts (plan, tasks, data model, contracts). Also print the full spec to the conversation.
+   - If a `specs/` directory already exists with other features, append to it — don't flatten.
+   - The `specs/[slug]/` directory is the handoff point: `deep-plan` reads `spec.md` from here and writes `plan.md` alongside it; `autopilot` scans `specs/` for existing spec+plan files in Phase 0.
 
 ## Self-review checklist
 
@@ -57,7 +59,7 @@ Before delivering, verify ALL:
 - [ ] Failure Modes table is present with Failure, Probability, Impact, and Mitigation columns
 - [ ] Success Metrics are measurable (numbers, percentages, latency targets)
 - [ ] Open Questions is present — even if empty, the section must appear
-- [ ] File is saved as `spec-[slug].md` in the current working directory
+- [ ] File is saved as `specs/[slug]/spec.md` (directory created if needed)
 - [ ] No section contains "TBD" — unknowns go in Open Questions instead
 
 ## Golden rules
@@ -69,7 +71,7 @@ Hard rules. Never violate these.
 3. **Failure Modes are mandatory.** A spec with no Failure Modes table is incomplete. Happy-path-only specs fail in production.
 4. **Success Metrics are mandatory.** Without measurable criteria there is no definition of done. Vague metrics ("users are happy") are rejected — replace with numbers.
 5. **Never write TBD in API or Data Model.** If the design is unknown, write the open question in the Open Questions section. The spec body must contain actual designs, not placeholders.
-6. **Always save the spec to a file.** Print to conversation AND write `spec-[slug].md`. Specs that exist only in the conversation are lost.
+6. **Always save the spec to a file.** Print to conversation AND write `specs/[slug]/spec.md`. Specs that exist only in the conversation are lost.
 7. **Ask at most 3 clarifying questions, batched in one message.** If the problem is truly ambiguous, ask — but never more than 3 at once, present them as a single numbered batch, and prefer to proceed with stated assumptions over interrogating the user.
 
 ## Reference files

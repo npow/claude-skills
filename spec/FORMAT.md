@@ -16,7 +16,7 @@ Complete template, section-by-section writing guidance, good vs bad examples, an
 
 ## Complete Spec Template
 
-The spec file is named `spec-[slug].md` where slug is a lowercase hyphenated version of the title.
+The spec file is saved to `specs/[slug]/spec.md` where slug is a lowercase hyphenated version of the title. This directory becomes the feature home for all downstream artifacts (`plan.md`, `tasks.md`, `data-model.md`, `contracts/`).
 
 ```markdown
 # Spec: [Title]
@@ -36,6 +36,34 @@ why it matters, and who is affected.]
 ## Non-Goals
 - [Explicitly out of scope item 1]
 - [Explicitly out of scope item 2]
+
+## User Stories
+
+Each story is prioritized, independently testable, and delivers standalone value.
+Order by importance — P1 is the MVP.
+
+### US1: [Brief Title] (P1)
+[Describe the user journey in plain language]
+
+**Why this priority:** [Value and urgency]
+**Independent test:** [How to verify this story alone]
+
+**Acceptance scenarios:**
+1. **Given** [state], **When** [action], **Then** [outcome]
+2. **Given** [state], **When** [action], **Then** [outcome]
+
+### US2: [Brief Title] (P2)
+[Describe the user journey]
+
+**Why this priority:** [Value and urgency]
+**Independent test:** [How to verify this story alone]
+
+**Acceptance scenarios:**
+1. **Given** [state], **When** [action], **Then** [outcome]
+
+### Edge Cases
+- What happens when [boundary condition]?
+- How does the system handle [error scenario]?
 
 ## Background and Context
 [Prior art, related systems, or context needed to understand the design.
@@ -241,6 +269,33 @@ in Metaflow today; teams hack around this with ad-hoc artifact checks in step lo
 - Shared cross-user caches — this is per-user local cache only
 - Remote or cloud-backed cache stores (v2 scope)
 - Automatic cache warming or prefetching
+
+## User Stories
+
+### US1: Basic step caching (P1)
+As a data scientist, I add @cache to an expensive step and see it skip on the next
+identical run, cutting my iteration loop from 90s to <10s.
+
+**Why this priority:** Covers 80% of the use case — most users just want transparent caching.
+**Independent test:** Add @cache to one step, run twice with same inputs, verify second run skips.
+
+**Acceptance scenarios:**
+1. **Given** a @cache-decorated step, **When** run twice with identical inputs, **Then** second run returns cached result in <1s
+2. **Given** a @cache-decorated step, **When** inputs change, **Then** step re-executes and caches new result
+
+### US2: Custom cache key (P2)
+As a power user, I provide a custom key function to @cache to control cache granularity.
+
+**Why this priority:** Needed for partial-input caching but not for MVP.
+**Independent test:** Add @cache(key=...) with a custom hash, verify cache hits on matching key.
+
+**Acceptance scenarios:**
+1. **Given** @cache(key=lambda self: hash(self.raw_data)), **When** raw_data unchanged but other attrs change, **Then** cache hits
+
+### Edge Cases
+- What happens when cached pickle is from a different class version?
+- What happens when disk is full during cache write?
+- What happens when two concurrent runs write the same cache key?
 
 ## Background and Context
 Metaflow's artifact store already serializes step outputs via pickle. This proposal
