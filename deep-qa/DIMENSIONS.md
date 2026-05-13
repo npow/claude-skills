@@ -147,8 +147,9 @@ Applies to: research reports, literature reviews, deep-research outputs, finding
 | COUNTER-EVIDENCE | What contradicts the findings? Is it acknowledged fairly and with appropriate weight? | — |
 | NUMERICAL CLAIMS | Are statistics exact and appropriate for the claim? Unit confusion? Percentage of what? | accuracy |
 | REPRODUCIBILITY | Could the research be reproduced? Methods described sufficiently? Sources accessible? | — |
+| TEMPORAL FRESHNESS | For every date-anchored claim (targets, deadlines, "launching in April," "planned for Q2"), has the date elapsed relative to today? If so, does the report verify the actual outcome rather than restating the plan as if it were current? Stale targets presented as current status are the highest-impact accuracy defect in status reports and project audits. | temporal_freshness |
 
-**Required categories for `research`:** `accuracy`, `citation_validity`, `provenance`, `internal_consistency`, `logical_consistency`, `coverage_gaps`
+**Required categories for `research`:** `accuracy`, `citation_validity`, `provenance`, `internal_consistency`, `logical_consistency`, `coverage_gaps`, `temporal_freshness`
 
 **When PROVENANCE applies:** any time the report makes a claim of the form "*subject* did/owns/authored/reported *artifact*." Typical cases: person/team activity reports, project audits, customer references, promo packets, authorship attributions. Pure topic-level literature reviews (where no subject owns the artifacts) can answer this dimension "not applicable — no subject-attribution claims" and that counts as coverage.
 
@@ -184,11 +185,18 @@ Applies to: research reports, literature reviews, deep-research outputs, finding
 - COVERAGE GAPS: "What major competing approaches or viewpoints weren't covered?", "Are the known limitations of the cited evidence acknowledged?", "What would a critic of the dominant framing cite?"
 - COUNTER-EVIDENCE: "What findings contradict the report's main conclusions?", "Is contradictory evidence dismissed too quickly or given insufficient weight?"
 - NUMERICAL CLAIMS: "Are percentages calculated relative to the right denominator?", "Are 'improvement' figures relative to a clearly stated baseline?"
+- TEMPORAL FRESHNESS:
+  - "**Stale-target sweep (MANDATORY for status reports and project audits).** Extract every date-anchored claim: 'April target,' 'launching Q2,' 'end of March deadline,' 'mid-April launch,' 'H2 2026.' Compare each date against today's date. For every date that has ELAPSED: the report MUST state the actual outcome (shipped, slipped, cancelled, blocked), not restate the plan. A report written in May that says 'April target' without saying whether it shipped is presenting a plan as a status — this is the single most common accuracy defect in AI-generated status reports. File as major for each stale target without verified outcome; critical if the stale target anchors a key conclusion (e.g., 'Phase 2 is on track' when multiple Phase 2 targets have elapsed unverified)."
+  - "**Source-freshness audit.** For each cited source: when was it last updated? If the source is a planning doc from 3+ months ago and the report presents its targets as current, the report has a freshness defect. Cross-check against more recent sources (Slack threads, PR activity, pipeline runs) to verify whether the plan materialized."
+  - "**Status-vs-plan confusion.** Does the report clearly distinguish between planned status (from planning docs) and verified status (from operational evidence like Slack threads, pipeline runs, AB test results, deployment logs)? A report that treats 'the plan says April launch' as equivalent to 'launched in April' conflates planning artifacts with operational evidence. Every status claim needs a source tier: plan (from planning doc), operational (from Slack/pipeline/deployment), or unverified."
+  - "**Relative-date anchoring.** Does the report use relative dates ('recently,' 'soon,' 'upcoming,' 'next quarter') without absolute anchors? Relative dates rot immediately — 'upcoming Q2 launch' is meaningless if the reader doesn't know when the report was written. Every date claim should include an absolute date or the report's generation date should be prominent."
 
 **Cross-dimensional angles for `research`:**
 - "accuracy × logical_consistency" — "Are the conclusions logically valid given the (accurately cited) evidence, or does the argument require stronger evidence than exists?"
 - "coverage_gaps × counter_evidence" — "Is the absence of counter-evidence due to honest coverage or selective framing?"
 - "provenance × citation_validity" — "A source can be accessible and correctly cited yet wrongly attributed; don't let 'the URL works' mask 'the subject is wrong.'"
+- "temporal_freshness × accuracy" — "When a planning doc says 'April target' and it's now May, citing the planning doc accurately doesn't make the status claim accurate. The source may be correct about what was planned, but the report's claim about what IS true requires operational verification. Accuracy without temporal freshness is plan-laundering."
+- "temporal_freshness × coverage_gaps" — "Does the report acknowledge which status claims it could not verify against operational evidence? Unverified targets should be flagged, not presented as confirmed."
 
 ---
 
@@ -245,6 +253,16 @@ Track in `state.json`:
   "security": false,
   "testability": false,
   "temporal_coupling": false
+}
+// For research type:
+"required_categories_covered": {
+  "accuracy": false,
+  "citation_validity": false,
+  "provenance": false,
+  "internal_consistency": false,
+  "logical_consistency": false,
+  "coverage_gaps": false,
+  "temporal_freshness": false
 }
 ```
 
