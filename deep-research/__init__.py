@@ -9,7 +9,13 @@ from sagaflow.durable.activities import emit_finding, spawn_subagent, write_arti
 from sagaflow.slack_progress import report_slack_progress
 from sagaflow.registry import SkillRegistry, SkillSpec
 
-from .workflow import DeepResearchInput, DeepResearchWorkflow
+# Default backend is the RLM-based workflow (cheaper + denser specifics
+# than the DFS pipeline preserved in workflow.py). Set
+# DEEP_RESEARCH_BACKEND=dfs to fall back to the legacy DFS workflow.
+if os.environ.get("DEEP_RESEARCH_BACKEND", "rlm").lower() == "dfs":
+    from .workflow import DeepResearchInput, DeepResearchWorkflow
+else:
+    from .workflow_rlm import DeepResearchInput, DeepResearchWorkflow
 
 
 def _build_input(
