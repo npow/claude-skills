@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "npow-claude-skills",
   "version": "0.1.0",
-  "description": "OSS Claude Code skills: deep-* analyses, autopilot, loop-until-done, and other agent-orchestration primitives.",
+  "description": "OSS Claude Code skills: deep-* analyses, autopilot, /goal-based completion, and other agent-orchestration primitives.",
   "owner": {
     "name": "npow",
     "email": "npow@users.noreply.github.com"
@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "claude-skills",
-      "description": "Bundles all skills in this repo (deep-*, autopilot, loop-until-done, retrospect, monitor, and more).",
+      "description": "Bundles all skills in this repo (deep-*, autopilot, /goal-based completion, retrospect, monitor, and more).",
       "version": "0.1.0",
       "author": {
         "name": "npow"
@@ -51,7 +51,6 @@
         "./gen-smoke",
         "./goal-manager",
         "./init-github-repo",
-        "./loop-until-done",
         "./magic-fetch",
         "./ml-pipeline-report",
         "./monitor",

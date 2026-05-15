@@ -23,6 +23,16 @@ Generates genuinely novel ideas through five orthogonal forcing functions, adver
 Standard generation: LLM samples the mode of the distribution → produces what already exists.
 This skill: Forces generation from mechanisms that are structurally unlikely to produce known ideas — inversions, cross-domain transplants, edge-user designs. Then adversarially kills any that already exist. Then mutates the generator when it gets stuck.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Generate novel ideas: N ideas generated that survived all novelty-killing rounds"
+```
+
+The skill will iterate the full generation workflow (landscape mapping → forcing → killing → mutation) until all surviving ideas are ready.
+
 ## Reference files
 
 | File | Contents |

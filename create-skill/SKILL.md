@@ -17,6 +17,16 @@ metadata_source: inferred
 
 Build a Claude Code skill that follows harness engineering best practices. The skill must be a map, not a manual — concise entrypoint, structured reference files, hard rules, feedback loops.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Create a skill: SKILL.md created, RED-GREEN-REFACTOR gates pass, eval passes"
+```
+
+The skill will iterate the creation workflow (design → implement → pressure-test → verify) until the goal state is reached.
+
 ## Skill types
 
 Every skill is one of three types. Classify FIRST — it determines which rules apply:

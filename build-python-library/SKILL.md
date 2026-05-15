@@ -16,6 +16,16 @@ metadata_source: inferred
 
 Implements pip-installable Python libraries by scaffolding the project structure, building core abstractions with adapters, and verifying each module with pytest before proceeding.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Build a Python library: pytest exits 0, pip install succeeds, all scaffold files exist"
+```
+
+The skill will iterate the full workflow cycle (scaffold → implement → test → verify) until the goal state is reached.
+
 ## Workflow
 
 1. **Scaffold the project** — create src layout, pyproject.toml, package structure, and py.typed marker. See [SCAFFOLDING.md](SCAFFOLDING.md).

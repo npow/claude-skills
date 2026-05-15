@@ -17,6 +17,16 @@ metadata_source: inferred
 
 Build a faithful digital board game as a single HTML file. Accurate rules, multiplayer support, polished visuals.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Develop board game: all features implemented, Playwright tests pass, HTML renders correctly"
+```
+
+The skill will iterate the workflow (research → implement → test → review) until the goal state is reached.
+
 ## Workflow
 
 1. **Research rules** — understand EVERY rule before coding. List them in a comment block at the top of the HTML file. Do not start coding until you can explain every rule. See step details in [WORKFLOW.md](WORKFLOW.md).

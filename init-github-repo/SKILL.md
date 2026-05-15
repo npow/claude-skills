@@ -15,6 +15,16 @@ metadata_source: inferred
 
 Initializes a complete GitHub repository by detecting the project type and generating a JTBD-focused README, CI/CD pipeline, license, .gitignore, and SEO-optimized repo metadata.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Initialize GitHub repo: repo created on GitHub, CI green, README committed"
+```
+
+The skill will iterate the initialization workflow (detect → create → test → push) until the goal state is reached.
+
 ## Workflow
 
 1. **Detect project type** — read pyproject.toml, package.json, Cargo.toml, go.mod, or other markers to determine language, package name, license, and version. See [CICD.md](CICD.md).
