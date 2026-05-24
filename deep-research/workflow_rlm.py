@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import shlex
+import sys
 from dataclasses import dataclass
 from datetime import timedelta
 
@@ -50,7 +51,9 @@ with workflow.unsafe.imports_passed_through():
 # silently consume budget.
 ACTIVITY_TIMEOUT = timedelta(hours=2)
 HEARTBEAT_TIMEOUT = timedelta(seconds=120)
-DEFAULT_PYTHON = "/apps/default-python/bin/python3"
+# Use the interpreter running this worker — it has sagaflow + temporalio
+# installed. Avoids the BDI default Python 3.10 which lacks temporalio.
+DEFAULT_PYTHON = sys.executable
 
 
 # ---------------------------------------------------------------------------
