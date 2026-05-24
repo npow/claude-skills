@@ -6,9 +6,11 @@ argument: |
   The design concept or idea to spec out (a game, product, system, protocol, etc.)
     --spec                           Lightweight spec mode: single-session document
                                      generation from conversation/idea. No adversarial
-                                     critics. Outputs a structured spec (RFC, API design,
-                                     data model, implementation spec). Use when you need
-                                     a written document, not a battle-tested design.
+                                     critics. Outputs an SDD-compatible spec.md with
+                                     User Scenarios, Functional Requirements (FR-###),
+                                     Success Criteria (SC-###), and Key Entities.
+    --sdd-dir <path>                 Target directory for SDD artifacts (e.g., specs/003-feature/).
+                                     If omitted, auto-creates specs/{NNN-feature-name}/.
 
 category: design
 capabilities:
@@ -55,10 +57,10 @@ maturity: stable
 
 # Deep Design Skill
 
-## When to use deep-design vs spec
+## When to use deep-design vs --spec mode
 
-- **deep-design**: Multi-agent adversarial workflow — stress-tests designs with parallel critics. Use for complex systems.
-- **spec**: Single-session lightweight spec writer. Use for quick documentation of a decided design.
+- **deep-design** (default): Multi-agent adversarial workflow — stress-tests designs with parallel critics. Use for complex systems. Outputs battle-tested design doc.
+- **deep-design --spec**: Single-session lightweight spec writer. Outputs SDD-compatible `spec.md` with User Scenarios & Testing (prioritized P1/P2/P3), Functional Requirements (FR-###), Success Criteria (SC-###), Key Entities, Assumptions, and Edge Cases. Creates `specs/{NNN-feature}/spec.md` and `checklists/requirements.md`. Ready for `deep-plan` to consume.
 
 Adversarially stress-test a design. Given a concept, validate input, draft a spec, attack it with parallel critic agents across orthogonal dimensions, fix discovered flaws using independent judge agents, and repeat until coverage is saturated. Output is a battle-tested design document with an honest coverage report.
 
@@ -370,6 +372,14 @@ Before proceeding to final synthesis, the coordinator MUST programmatically veri
 
 - **Do NOT read all raw critique files** — use the coordinator summary + per-critique mini-syntheses + latest spec + state file
 - Spawn a Sonnet subagent to write `deep-design-{run_id}/spec.md`
+- If `--sdd-dir` was provided (or auto-created): ALSO write an SDD-compatible copy to `{SDD_DIR}/spec.md` with the required SDD sections:
+  - *User Scenarios & Testing* — prioritized user stories (P1, P2, P3) with Given/When/Then acceptance scenarios
+  - *Functional Requirements* — FR-001, FR-002, etc.
+  - *Success Criteria* — SC-001, SC-002, etc. (technology-agnostic, measurable)
+  - *Key Entities* — if data is involved
+  - *Assumptions* and *Edge Cases*
+  - *Design Decisions* — traceable to the adversarial critique process (resolved flaws, accepted tradeoffs)
+- Generate `{SDD_DIR}/checklists/requirements.md` for spec quality validation
 - Termination label: "Conditions Met" or "Max Rounds Reached" — never "no critical flaws remain"
 - Coverage report must include: dimensions covered, required categories covered, honest coverage caveats section, list of unverified sections, list of open issues at termination
 - Includes: resolved flaws, disputed flaws, accepted tradeoffs, open questions, implementation notes

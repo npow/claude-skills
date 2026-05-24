@@ -1,82 +1,87 @@
 ---
 name: spec
-description: Turns a conversation, idea, or discussion into a structured technical specification document. Use when the user asks to write a spec, technical spec, design doc, RFC, API design, data model, spec this out, turn this into a spec, write up the design, document this, implementation spec, spec for this feature.
+description: |
+  DEPRECATED — use `deep-design --spec` instead.
+  Turns a conversation, idea, or discussion into an SDD-compatible spec.md.
+  Use when the user asks to write a spec, technical spec, design doc, RFC, API design,
+  data model, spec this out, turn this into a spec, write up the design, document this,
+  implementation spec, spec for this feature.
 argument-hint: "[feature or system to specify]"
 allowed-tools: Write
 
 category: design
 capabilities: [loop-based]
 input_types: [artifact-file, task, question]
-output_types: [code, design-spec]
+output_types: [design-spec]
 complexity: moderate
 cost_profile: low
-maturity: beta
+maturity: deprecated
 metadata_source: inferred
 ---
 
 # Spec
 
-## When to use spec vs deep-design
+> **DEPRECATED**: This skill is now a thin wrapper around `deep-design --spec`. The standalone `spec` skill is maintained for backwards compatibility but all new development happens in deep-design.
 
-- **spec**: Single-session, lightweight — turns a conversation into a structured document. No adversarial stress-testing.
-- **deep-design**: Multi-agent, adversarial, sagaflow-backed — battle-tests a design with critic agents before implementation.
+## Routing
 
-Use `spec` for quick writeups. Use `deep-design` when the design needs stress-testing.
+When invoked, this skill delegates to `deep-design --spec`:
+- If `deep-design` is available: invoke it with `--spec` flag and pass through the argument.
+- If not available: fall back to the inline workflow below.
 
-Turns a conversation, idea, or discussion into a complete, structured technical specification saved as a markdown file.
+## SDD-Compatible Output
 
-## Workflow
+The spec is written as `specs/{NNN-feature-name}/spec.md` following the Spec-Driven Development format:
 
-> **Pace:** Spec authoring is load-bearing design work — choices made here propagate to implementation. Think carefully and step-by-step; this is harder than it looks. Do not rush the API/data-model/failure-mode sections.
+```
+specs/{NNN-feature-name}/
+├── spec.md              # Feature specification
+└── checklists/
+    └── requirements.md  # Spec quality validation
+```
 
-1. **Extract the core idea** — identify what system, feature, or API is being specified from the conversation or argument. See [DESIGN.md](DESIGN.md).
+### Required Sections
 
-2. **Ask clarifying questions if needed (batched)** — if the problem, scale, or constraints are unclear, ask at most 3 targeted questions before proceeding. **If you have ≥ 1 question, present ALL of them as a single numbered batch in one message — never serially.** See [DESIGN.md](DESIGN.md).
+- *User Scenarios & Testing* — prioritized user stories (P1, P2, P3) with Given/When/Then acceptance scenarios. Each story must be independently testable.
+- *Functional Requirements* — FR-001, FR-002, etc. Each testable and unambiguous.
+- *Success Criteria* — SC-001, SC-002, etc. Technology-agnostic, measurable outcomes.
+- *Key Entities* — if data is involved (entity, attributes, relationships).
+- *Assumptions* — reasonable defaults documented here.
+- *Edge Cases* — boundary conditions and error scenarios.
 
-3. **Draft the problem statement and goals** — write the Problem Statement and Goals/Non-Goals sections first. Do not proceed to design until these are locked. See [FORMAT.md](FORMAT.md).
+### Spec Quality Rules
 
-4. **Design the API/interface surface** — specify the public interface: functions, endpoints, decorators, or CLI commands. Use code blocks. See [FORMAT.md](FORMAT.md).
+- Focus on WHAT and WHY, never HOW. No implementation details (languages, frameworks, APIs).
+- Success criteria must be measurable and technology-agnostic.
+- Max 3 `[NEEDS CLARIFICATION]` markers (scope > security > UX priority).
+- Every requirement must be testable.
 
-5. **Design the data model** — define key data structures, schemas, and artifact shapes. Use code blocks. See [FORMAT.md](FORMAT.md).
+## Fallback Workflow
 
-6. **Identify failure modes** — enumerate what can go wrong and how each is mitigated. See [FORMAT.md](FORMAT.md).
+If `deep-design` is unavailable, use this inline workflow:
 
-7. **Write the full spec** — assemble all sections in the exact output format. See [FORMAT.md](FORMAT.md).
+> **Pace:** Spec authoring is load-bearing design work — choices made here propagate to implementation. Think carefully and step-by-step.
 
-8. **Save to file** — write the spec to `specs/[slug]/spec.md` (creating the directory if needed), where slug is a lowercase hyphenated version of the title. This directory becomes the feature's home for all downstream artifacts (plan, tasks, data model, contracts). Also print the full spec to the conversation.
-   - If a `specs/` directory already exists with other features, append to it — don't flatten.
-   - The `specs/[slug]/` directory is the handoff point: `deep-plan` reads `spec.md` from here and writes `plan.md` alongside it; `autopilot` scans `specs/` for existing spec+plan files in Phase 0.
+1. **Extract the core idea** — identify what system, feature, or API is being specified.
+2. **Ask clarifying questions if needed (batched, max 3)** — present ALL as a single numbered batch.
+3. **Create SDD directory** — scan `specs/` for next sequential prefix, create `specs/{NNN-name}/`.
+4. **Draft spec.md** — write all required sections following the SDD format above.
+5. **Generate checklists/requirements.md** — validate spec quality (no implementation details, testable requirements, measurable criteria, max 3 clarification markers).
+6. **Self-correct** — if validation fails, fix and re-validate (max 3 iterations).
+7. **Report** — print SDD_DIR path, spec status, and suggested next step (`deep-plan` or `deep-design --spec` for clarification).
 
-## Self-review checklist
+## Golden Rules
 
-Before delivering, verify ALL:
+1. **Problem before design.** Always define what and why before how.
+2. **Non-Goals are valuable.** They define the boundary of the work.
+3. **Success Criteria are mandatory.** Without measurable criteria there is no definition of done.
+4. **Ask at most 3 clarifying questions, batched in one message.**
+5. **Spec serves downstream tools.** The spec.md must be consumable by `deep-plan` for plan generation and by `autopilot` for the full SDD workflow.
 
-- [ ] Problem Statement is 3-6 sentences of prose — no bullet points
-- [ ] Goals are concrete and measurable (not "improve performance" but "p99 latency < 500ms")
-- [ ] Non-Goals section is present with at least 2 items
-- [ ] API/Interface section contains actual code blocks — not prose descriptions of code
-- [ ] Data Model section contains actual code blocks — not prose descriptions
-- [ ] Failure Modes table is present with Failure, Probability, Impact, and Mitigation columns
-- [ ] Success Metrics are measurable (numbers, percentages, latency targets)
-- [ ] Open Questions is present — even if empty, the section must appear
-- [ ] File is saved as `specs/[slug]/spec.md` (directory created if needed)
-- [ ] No section contains "TBD" — unknowns go in Open Questions instead
+## Follow-up Skills
 
-## Golden rules
-
-Hard rules. Never violate these.
-
-1. **Problem before design.** Always write the Problem Statement and Goals before designing anything. A design without a problem statement will be wrong.
-2. **Non-Goals are mandatory.** Never skip the Non-Goals section. It is as important as Goals — it defines the boundary of the work.
-3. **Failure Modes are mandatory.** A spec with no Failure Modes table is incomplete. Happy-path-only specs fail in production.
-4. **Success Metrics are mandatory.** Without measurable criteria there is no definition of done. Vague metrics ("users are happy") are rejected — replace with numbers.
-5. **Never write TBD in API or Data Model.** If the design is unknown, write the open question in the Open Questions section. The spec body must contain actual designs, not placeholders.
-6. **Always save the spec to a file.** Print to conversation AND write `specs/[slug]/spec.md`. Specs that exist only in the conversation are lost.
-7. **Ask at most 3 clarifying questions, batched in one message.** If the problem is truly ambiguous, ask — but never more than 3 at once, present them as a single numbered batch, and prefer to proceed with stated assumptions over interrogating the user.
-
-## Reference files
-
-| File | Contents |
-|------|----------|
-| [FORMAT.md](FORMAT.md) | Complete spec template, section-by-section writing guidance, good vs bad examples, and a complete abbreviated example spec |
-| [DESIGN.md](DESIGN.md) | How to extract design from conversation, API-first design principle, handling ambiguity, making key decisions explicit |
+| Next Step | Skill | Purpose |
+|-----------|-------|---------|
+| Clarify ambiguities | `deep-design --spec` | Adversarial stress-testing of the spec |
+| Plan implementation | `deep-plan --spec specs/{NNN}/spec.md` | Produce plan.md + tasks.md |
+| Build everything | `autopilot` | Full SDD workflow: specify → plan → tasks → implement |

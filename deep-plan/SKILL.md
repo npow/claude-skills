@@ -1,8 +1,13 @@
 ---
 name: deep-plan
-description: Use before touching code for any multi-step task — features, refactors, migrations, architectural decisions, bug fixes, or any work that needs to be broken into verifiable steps. Trigger phrases include "write a plan", "implementation plan", "plan this", "plan the work", "break this down", "how should I approach this", "make a plan", "design the approach", "before I code this", "I need a plan", "write up the plan", "spec to plan", "requirements to plan". Produces an ADR-backed plan with verification-backed acceptance criteria via a Planner → Architect → Critic consensus loop.
+description: Use before touching code for any multi-step task — features, refactors, migrations, architectural decisions, bug fixes, or any work that needs to be broken into verifiable steps. Trigger phrases include "write a plan", "implementation plan", "plan this", "plan the work", "break this down", "how should I approach this", "make a plan", "design the approach", "before I code this", "I need a plan", "write up the plan", "spec to plan", "requirements to plan". Produces SDD-compatible plan.md, research.md, data-model.md, contracts/, and tasks.md via a Planner → Architect → Critic consensus loop.
 user_invocable: true
-argument: The task description or problem statement to produce a deep plan for.
+argument: |
+  The task description or problem statement to produce a deep plan for.
+    --sdd-dir <path>                 Target directory for SDD artifacts (e.g., specs/003-feature/).
+                                     If omitted, auto-creates specs/{NNN-feature-name}/ from task.
+    --spec <path>                    Path to existing spec.md to plan against.
+                                     If omitted, plans from the task description directly.
 
 category: plan
 capabilities:
@@ -21,6 +26,10 @@ input_types:
   - concept
 output_types:
   - plan
+  - tasks
+  - research
+  - data-model
+  - contracts
 output_signals:
   - termination_label
   - iteration_count
@@ -47,7 +56,24 @@ maturity: stable
 
 # Deep Plan Skill
 
-Produce an ADR-backed plan that three fully independent agents — Planner, Architect, Critic — agree on, or stop honestly at max iterations. The coordinator never evaluates. All three roles read and write via files only; they do not inherit coordinator context.
+Produce SDD-compatible implementation artifacts that three fully independent agents — Planner, Architect, Critic — agree on, or stop honestly at max iterations. The coordinator never evaluates. All three roles read and write via files only; they do not inherit coordinator context.
+
+## SDD Artifact Output
+
+When consensus is reached (or max iterations hit), deep-plan produces the following artifacts in the target directory (`--sdd-dir` or auto-created `specs/{NNN-feature}/`):
+
+```
+specs/{NNN-feature}/
+├── plan.md              # Implementation plan (SDD format)
+├── research.md          # Resolved unknowns: Decision / Rationale / Alternatives
+├── data-model.md        # Entities, fields, relationships, validation rules
+├── contracts/           # Interface contracts (API endpoints, CLI schemas, etc.)
+├── quickstart.md        # Key validation scenarios
+├── tasks.md             # Ordered task list (phased, user-story-organized)
+└── adr.md               # Architecture Decision Record
+```
+
+If `--spec <path>` is provided, the Planner reads the spec.md for requirements, user stories, and acceptance criteria. Tasks in `tasks.md` are organized by user story (from spec.md) with FR-### traceability.
 
 ## Execution Model
 
@@ -84,22 +110,28 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
    - Empty or <10 words of actionable content
    - Pure execution request with concrete file/symbol anchors — route back to direct execution
    - Harmful scope (weapon, exploit) — decline
-2. **Spec directory detection:** scan for a `specs/` directory in the project root. If found, list feature subdirectories. If the task description matches an existing feature (by slug or content), read `specs/<feature>/spec.md` as supplemental input — it becomes the authoritative requirements source for the Planner. Log: `Found spec: specs/<feature>/spec.md — using as requirements input.`
-3. Detect high-risk signals (see `--deliberate`) and set `mode: "short" | "deliberate"`.
-4. Generate `run_id = $(date +%Y%m%d-%H%M%S)`.
-5. Create directory: `deep-plan-{run_id}/`
+2. Detect high-risk signals (see `--deliberate`) and set `mode: "short" | "deliberate"`.
+3. Generate `run_id = $(date +%Y%m%d-%H%M%S)`.
+4. **Resolve SDD output directory:**
+   - If `--sdd-dir` provided: use that path (e.g., `specs/003-user-auth/`).
+   - Otherwise: scan existing `specs/` directories for next sequential 3-digit prefix, derive 2-4 word kebab-case name from task, create `specs/{NNN-name}/`.
+   - Set `SDD_DIR` to the resolved path.
+5. **Resolve spec input:**
+   - If `--spec` provided: set `SPEC_FILE` to that path. Read and extract user stories, requirements (FR-###), success criteria (SC-###).
+   - Otherwise: `SPEC_FILE` is empty; Planner works from task description only.
+6. Create working directory: `deep-plan-{run_id}/`
    - `state.json` (see STATE.md)
    - `task.md` — task description locked verbatim
+   - `spec_ref` — path to SPEC_FILE if provided
+   - `sdd_dir` — resolved SDD_DIR
    - `iterations/iter-{N}/` — one directory per iteration
      - `plan.md` — Planner output
      - `architect-verdict.md` — Architect output with `STRUCTURED_OUTPUT_START/END`
      - `critic-verdict.md` — Critic output with `STRUCTURED_OUTPUT_START/END`
      - `feedback-bundle.md` — coordinator-assembled file handed to next Planner
-   - `adr.md` — final ADR (written only on consensus or max-iter stop)
-   - `plan.md` — final plan (written only on consensus or max-iter stop)
    - `logs/decisions.jsonl` — audit trail, one line per decision
-5. Write initial `state.json` with `iteration: 0`, `status: "planner_pending"`, `mode`, `max_iterations` (default 5, capped by `--max-iter`).
-6. Print: `Starting deep-plan on: {task summary} [run: {run_id}] [mode: {short|deliberate}] [max_iter: {N}]`
+7. Write initial `state.json` with `iteration: 0`, `status: "planner_pending"`, `mode`, `max_iterations` (default 5, capped by `--max-iter`), `sdd_dir`, `spec_file`.
+8. Print: `Starting deep-plan on: {task summary} [run: {run_id}] [mode: {short|deliberate}] [max_iter: {N}] [sdd: {SDD_DIR}]`
 
 ### Step 1: Planner Pass (iteration N)
 
@@ -114,15 +146,18 @@ All operations use Claude Code primitives. Contracts are non-negotiable:
 
 **Spawn Planner:**
 - `Task(subagent_type="general-purpose", prompt=<see Planner Prompt Template>)`
-- Planner writes `iterations/iter-{N}/plan.md` with:
-  - Requirements summary
+- Planner writes `iterations/iter-{N}/plan.md` in SDD format with:
+  - **Summary** — primary requirement + technical approach
+  - **Technical Context** — Language/Version, Primary Dependencies, Storage, Testing, Target Platform, Project Type, Performance Goals, Constraints, Scale/Scope
+  - **Constitution Check** — validates against `/memory/constitution.md` if present
+  - **Project Structure** — concrete file/directory layout for source code and tests
   - Acceptance criteria list with `{id, criterion, verification_command, expected_output_pattern}` per item
   - Implementation steps (file-anchored)
   - Risks + mitigations
-  - Verification steps
   - **RALPLAN-DR summary** (Principles 3-5, Decision Drivers top 3, Viable Options ≥2 with bounded pros/cons, Invalidation Rationale if only 1 viable)
   - Deliberate mode only: pre-mortem (3 scenarios) + expanded test plan
   - `STRUCTURED_OUTPUT_START` / `STRUCTURED_OUTPUT_END` block summarizing plan metadata
+- If `SPEC_FILE` is provided, Planner MUST reference spec.md user stories and requirements (FR-###) in the plan
 
 **On failure:** If Planner spawn fails, record `spawn_failed` with reason; resume retries spawn. Unparseable structured output → re-spawn once with same input; second failure → terminate with label `planner_unparseable_at_iter_N`.
 
@@ -219,15 +254,17 @@ Read Critic structured verdict.
   - If `N < max_iterations`: build `iter-{N}/feedback-bundle.md` combining architect concerns + surviving critic rejections + dropped-rejection note. Increment N. Go back to Step 1.
   - If `N == max_iterations`: Mark `max_iter_no_consensus`. Go to Step 6 with the last iteration's plan as the output.
 
-### Step 6: ADR + Final Output
+### Step 6: ADR + SDD Artifact Generation
 
-The coordinator does NOT author the ADR. Spawn one final independent agent — the **ADR Scribe** — with file paths to:
+The coordinator does NOT author artifacts. Two independent agents run sequentially:
+
+**6a. ADR Scribe** — spawned with file paths to:
 - Final plan (last iteration's `plan.md`)
 - All iterations' architect verdicts + critic verdicts
 - RALPLAN-DR summary from final iteration's plan
 - Termination label from state
 
-ADR Scribe writes `adr.md` with:
+ADR Scribe writes `{SDD_DIR}/adr.md` with:
 - **Decision** — chosen option from RALPLAN-DR
 - **Drivers** — top 3 from RALPLAN-DR
 - **Alternatives considered** — all viable options with bounded pros/cons
@@ -235,14 +272,31 @@ ADR Scribe writes `adr.md` with:
 - **Consequences** — including accepted tradeoffs from Architect
 - **Follow-ups** — surviving non-blocking concerns from critic history
 
-The coordinator then copies the final plan to `deep-plan-{run_id}/plan.md` (unchanged) and writes the summary header. Summary includes:
+**6b. SDD Artifact Generator** — spawned with paths to final plan, spec (if provided), and ADR:
+
+Produces all remaining SDD artifacts in `{SDD_DIR}/`:
+
+- **`plan.md`** — copy of final plan in SDD format (Technical Context, Constitution Check, Project Structure, Acceptance Criteria)
+- **`research.md`** — extract all technical decisions from the plan and architect verdicts. Format: Decision / Rationale / Alternatives Considered per item.
+- **`data-model.md`** — extract entities from spec/plan. Format: Entity name, fields, relationships, validation rules, state transitions (if applicable).
+- **`contracts/`** — extract interface definitions from the plan. API endpoints, CLI schemas, library interfaces — whatever the project type requires. Skip for purely internal tools.
+- **`quickstart.md`** — key validation scenarios for integration testing, derived from acceptance criteria.
+- **`tasks.md`** — ordered task list derived from plan phases and spec user stories:
+  - Tasks grouped by user story (US1, US2, US3 from spec.md) for independent implementation.
+  - Phase structure: Setup → Foundational → User Story 1 (P1) → User Story 2 (P2) → ... → Polish.
+  - Format: `- [ ] T{NNN} [P?] [US?] Description` — `[P]` for parallelizable, `[US?]` for story traceability.
+  - Each task includes exact file paths from plan.md's Project Structure.
+  - Every task maps to ≥1 requirement (FR-###) or user story.
+  - Checkpoints between phases.
+  - Dependencies section with phase ordering and parallel opportunities.
+
+The coordinator then writes the summary header. Summary includes:
 - Termination label (never "approved" unless `consensus_reached_at_iter_N`)
 - Iteration count
+- SDD_DIR path and list of generated artifacts
 - Architect degraded-mode flag if any
 - Critic degraded-mode flag if any
 - Count of dropped rubber-stamp rejections across all iterations
-
-**Spec directory sync:** If a spec was loaded from `specs/<feature>/spec.md` in Step 0, also copy the final plan to `specs/<feature>/plan.md` and the ADR to `specs/<feature>/adr.md`. This keeps the feature's spec directory as the single source of truth for downstream consumers (autopilot, team). Log: `Synced plan → specs/<feature>/plan.md`.
 
 ### Step 7: Interactive Approval Gate (`--interactive` only)
 
@@ -297,14 +351,23 @@ You are the Planner. You are an independent agent spawned by the deep-plan coord
 **Task file:** {task_file_path}
 Read this first. It contains the verbatim task description.
 
+**Spec file (may be empty):** {spec_file_path}
+If present, read this spec.md for user stories (P1, P2, P3...), functional requirements (FR-###), success criteria (SC-###), and acceptance scenarios. Your plan MUST address every requirement and trace implementation steps to FR-### IDs.
+
 **Feedback bundle (may be empty):** {feedback_bundle_path}
 If present, read every concern and rejection. Each rejection includes a failure scenario and a verification command. Address the root cause of each — do not simply add prose.
 
 **Mode:** {short | deliberate}
 
 **Your job:**
-1. Produce a complete plan addressing the task.
-2. Every acceptance criterion MUST include:
+1. Produce a complete plan in SDD format addressing the task.
+2. Plan MUST include these SDD sections:
+   - **Summary** — primary requirement + technical approach (1-2 sentences)
+   - **Technical Context** — Language/Version, Primary Dependencies, Storage, Testing, Target Platform, Project Type, Performance Goals, Constraints, Scale/Scope. Mark unknowns as NEEDS CLARIFICATION.
+   - **Constitution Check** — if `/memory/constitution.md` exists, validate against it. List pass/fail per principle.
+   - **Project Structure** — concrete directory layout for source and tests. Use: `src/` for single project, `backend/`+`frontend/` for web, `api/`+`ios/` for mobile. Include exact paths.
+   - **Complexity Tracking** — only if Constitution Check has violations that need justification.
+3. Every acceptance criterion MUST include:
    - `id` (AC-NNN)
    - `criterion` (one sentence, testable)
    - `verification_command` (an executable shell command, e.g. `pytest tests/auth_test.py::test_login`, `npm run lint`, `curl -f http://localhost/health`)
@@ -472,11 +535,11 @@ Do not invent content. Do not paraphrase Architect or Critic verdicts; quote the
 ```
 Bash(
   run_in_background=true,
-  command="sagaflow launch deep-plan --arg task='<TASK>' --arg max_iter=<N> --await"
+  command="sagaflow launch deep-plan --arg task='<TASK>' --arg max_iter=<N> --arg sdd_dir='<SDD_DIR>' --arg spec='<SPEC_FILE>' --await"
 )
 ```
 
-Substitute `<TASK>` with the task description and `<N>` with the iteration cap (default 5). The workflow writes the ADR-backed plan to `~/.sagaflow/runs/<run_id>/plan.md` (alongside `adr.md` and per-iteration Planner/Architect/Critic transcripts).
+Substitute `<TASK>` with the task description, `<N>` with the iteration cap (default 5), `<SDD_DIR>` with the target specs directory, and `<SPEC_FILE>` with the spec path (empty if none). The workflow writes SDD artifacts to `<SDD_DIR>/` (plan.md, adr.md, research.md, data-model.md, contracts/, quickstart.md, tasks.md) alongside per-iteration Planner/Architect/Critic transcripts in `~/.sagaflow/runs/<run_id>/`.
 
 ---
 
