@@ -1,13 +1,9 @@
-"""deep-research workflow backed by the RLM multi-RLM orchestrator.
+"""deep-research workflow backed by the skill-owned RLM multi-RLM orchestrator.
 
 Replaces the DFS-style deep-research-temporal workflow (preserved in
 ``workflow.py`` for rollback) with a thin wrapper around
-``sagaflow.rlm.orchestrator`` — the same engine that powers
-``rlm-research``. The motivation is cost: the DFS pipeline runs phases
-0f, 0g, 1, 2 (researcher fan-out), 3 (coordinator summaries), 4
-(verification), and 5 (synthesis) — each round costs tens of Sonnet
-calls and the loop runs up to ``max_rounds`` times. RLM runs a single
-fan-out across ~14 dims and one synthesis + verify + revise pass.
+``rlm_orchestrator.py`` in this skill package. Sagaflow owns only generic RLM
+plumbing; decomposition, synthesis, verification, and report policy live here.
 
 The replacement keeps the externally-observable contract:
   - Input dataclass field names match ``DeepResearchInput`` so callers
@@ -19,8 +15,8 @@ The replacement keeps the externally-observable contract:
   - Workflow name: ``DeepResearchWorkflow`` so the registry binding
     stays valid.
 
-To roll back, edit ``__init__.py`` to import from ``workflow`` instead
-of ``workflow_rlm``.
+To roll back, set ``DEEP_RESEARCH_BACKEND=dfs`` so ``__init__.py`` imports
+from ``workflow.py`` instead of this module.
 """
 
 from __future__ import annotations
@@ -30,6 +26,7 @@ import shlex
 import sys
 from dataclasses import dataclass
 from datetime import timedelta
+from pathlib import Path
 
 from temporalio import workflow
 from temporalio.common import RetryPolicy
@@ -47,18 +44,19 @@ with workflow.unsafe.imports_passed_through():
 # Activity ceiling. RLM orchestrator wall time scales with
 # ``max_dimensions * iters_per_dimension``. At 14 dims × 50 iters the
 # measured end-to-end is 60-75 min; we cap the activity at 2h with
-# heartbeats every 60s so a hung Trino query or slow LM gateway can't
-# silently consume budget.
+# heartbeats every 60s so a hung query or slow LM gateway can't silently
+# consume budget.
 ACTIVITY_TIMEOUT = timedelta(hours=2)
 HEARTBEAT_TIMEOUT = timedelta(seconds=120)
 # Use the interpreter running this worker — it has sagaflow + temporalio
 # installed. Avoids the BDI default Python 3.10 which lacks temporalio.
 DEFAULT_PYTHON = sys.executable
+ORCHESTRATOR_PATH = Path(__file__).resolve().with_name("rlm_orchestrator.py")
 
 
 # ---------------------------------------------------------------------------
-# Input — field names match the original DFS workflow so __init__.py
-# build_input doesn't change.
+# Input — original DFS field names stay present for deep-research callers.
+# RLM-specific fields support the explicit rlm-research alias.
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -73,6 +71,11 @@ class DeepResearchInput:
     max_concurrent_researchers: int = 20
     notify: bool = True
     mcp_categories_json: str = "{}"
+    iters_per_dimension: int = 50
+    llm_calls_per_dimension: int = 100
+    max_gap_rounds: int = 0
+    max_workers: int = 8
+    verbose: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -87,22 +90,15 @@ class DeepResearchWorkflow:
         run_dir = inp.run_dir
         report_path = f"{run_dir}/research-report.md"
 
-        # Map DFS knobs to RLM knobs.
-        # max_directions in DFS is total directions across all rounds; in
-        # RLM there's a single fan-out, so cap at 14 to match the
-        # benchmarks where this score was demonstrated.
+        # Map DFS knobs to RLM knobs. max_directions in DFS is total directions
+        # across all rounds; in RLM there's a single fan-out, so cap at 14 to
+        # match the benchmarks where this score was demonstrated.
         max_dimensions = min(int(inp.max_directions or 14), 14) or 14
-        # iters_per_dimension defaults to 50 — measured convergence
-        # sweet spot for R1/R2/R3 benches. max_rounds in DFS sense maps
-        # to RLM's max_gap_rounds (additional fan-out after the initial
-        # synth flagged gaps); 0 by default since revise covers most gaps.
-        max_gap_rounds = 0
 
         cmd_parts = [
             "export PATH=$HOME/.deno/bin:$PATH &&",
-            DEFAULT_PYTHON,
-            "-m",
-            "sagaflow.rlm.orchestrator",
+            shlex.quote(DEFAULT_PYTHON),
+            shlex.quote(str(ORCHESTRATOR_PATH)),
             "--query",
             shlex.quote(inp.seed),
             "--run-dir",
@@ -110,29 +106,30 @@ class DeepResearchWorkflow:
             "--max-dimensions",
             str(max_dimensions),
             "--iters-per-dimension",
-            "50",
+            str(inp.iters_per_dimension),
             "--llm-calls-per-dimension",
-            "100",
+            str(inp.llm_calls_per_dimension),
             "--max-gap-rounds",
-            str(max_gap_rounds),
+            str(inp.max_gap_rounds),
             "--max-workers",
-            "8",
+            str(inp.max_workers),
             "--python-path",
-            DEFAULT_PYTHON,
+            shlex.quote(DEFAULT_PYTHON),
         ]
+        if inp.verbose:
+            cmd_parts.append("--verbose")
         cmd = " ".join(cmd_parts)
 
         # Inherit env from the worker. The orchestrator reads RLM_API_BASE
         # (or falls back to OPENAI_BASE_URL) and optionally SAGAFLOW_RLM_TOOLS
         # — operators configure those on the worker process to point at
         # their tenant's LM gateway and tool inventory. Never hardcode
-        # tenant-specific URLs or tool module paths in this generic
-        # workflow.
+        # tenant-specific URLs or tool module paths in this generic workflow.
         result: RunShellResult = await workflow.execute_activity(
             "run_shell",
             RunShellInput(
                 command=cmd,
-                cwd="/root/projects/sagaflow",
+                cwd=str(ORCHESTRATOR_PATH.parent),
                 timeout_seconds=ACTIVITY_TIMEOUT.total_seconds() - 60,
                 label=f"deep-research-rlm: {inp.seed[:60]}",
             ),
@@ -188,12 +185,14 @@ class DeepResearchWorkflow:
         # Pull summary stats from orchestrator stdout (last line is JSON).
         iters = elapsed = dims = "?"
         err_count = 0
+        gap_rounds = 0
         try:
             last_line = result.stdout.strip().split("\n")[-1]
             output = json.loads(last_line)
             iters = output.get("total_iterations", "?")
             elapsed = output.get("total_elapsed_seconds", "?")
-            dims = output.get("dimensions", "?")
+            dims = output.get("dimensions", output.get("dimension_count", "?"))
+            gap_rounds = output.get("gap_rounds", 0)
             err_count = len(output.get("dimension_errors", []) or output.get("errors", []) or [])
         except (json.JSONDecodeError, IndexError, KeyError):
             pass
@@ -202,6 +201,8 @@ class DeepResearchWorkflow:
             f"deep-research complete: {dims} dimensions, {iters} total iters, "
             f"{elapsed}s elapsed"
         )
+        if gap_rounds:
+            summary += f", {gap_rounds} gap-fill round(s)"
         if err_count:
             summary += f" ({err_count} dimension error(s))"
         summary += f". Report: {report_path}"
