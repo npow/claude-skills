@@ -100,6 +100,12 @@ class DeepResearchInput:
     # 50 covers most topics without bloating fan-out cost.
     max_directions: int = 50
     max_concurrent_researchers: int = 20
+    # Per-researcher dollar cap. Forwarded to claude --max-budget-usd; the
+    # subagent self-terminates when it hits the cap. Bounds runaway tool-
+    # loop researchers (we've seen 60-min stragglers on broad seeds).
+    # Typical researcher costs $1-5; 8.0 caps the long tail without
+    # affecting normal cases. Set 0 to disable.
+    researcher_budget_usd: float = 8.0
     notify: bool = True
     mcp_categories_json: str = "{}"
 
@@ -144,6 +150,12 @@ class DeepResearchWorkflow:
             "expansions": [],
             "warnings": [],
         }
+        # In-memory source deduplication set — NOT serialized to progress.json.
+        # Writing thousands of URLs to disk on every round update was the root
+        # cause of the 500KB boundary violation that terminated long runs before
+        # synthesis. Only the count is written; dedup state is lost on crash/resume
+        # (acceptable — the run re-searches some sources, no correctness impact).
+        _all_sources_seen: set[str] = set()
 
         async def _update_progress(**kwargs: object) -> None:
             progress.update(kwargs)
@@ -605,6 +617,7 @@ class DeepResearchWorkflow:
                         tools_needed=True,
                         mcp_config_path=mcp_config_path,
                         run_dir=run_dir,
+                        max_budget_usd=inp.researcher_budget_usd or None,
                     )
                 except BaseException as exc:
                     r_failed += 1
@@ -774,9 +787,6 @@ class DeepResearchWorkflow:
             # unique URL/source strings in this round's findings vs the
             # cumulative set from prior rounds. Below 20% new sources for
             # _CONVERGENCE_WINDOW rounds = real saturation, not Haiku noise.
-            if "all_sources_seen" not in progress:
-                progress["all_sources_seen"] = []
-            prior_sources = set(progress["all_sources_seen"])
             this_round_sources: set[str] = set()
             for f in round_findings:
                 try:
@@ -787,12 +797,13 @@ class DeepResearchWorkflow:
                                 this_round_sources.add(s.strip())
                 except (json.JSONDecodeError, TypeError):
                     pass
-            new_sources = this_round_sources - prior_sources
+            new_sources = this_round_sources - _all_sources_seen
             source_novelty = (
                 len(new_sources) / len(this_round_sources)
                 if this_round_sources else 0.0
             )
-            progress["all_sources_seen"] = sorted(prior_sources | this_round_sources)
+            _all_sources_seen.update(this_round_sources)
+            progress["all_sources_count"] = len(_all_sources_seen)
             if "source_novelty_rates" not in progress:
                 progress["source_novelty_rates"] = []
             progress["source_novelty_rates"].append({
@@ -1442,6 +1453,7 @@ async def _spawn(
     run_dir: str,
     mcp_config_path: str | None = None,
     output_schema: dict | None = None,
+    max_budget_usd: float | None = None,
 ) -> dict[str, str]:
     # ``run_dir`` is required: sagaflow's ``spawn_subagent`` activity only
     # writes the per-step manifest entry and the ``cost_audit.jsonl`` row

@@ -1,6 +1,14 @@
 ---
 name: deep-design
-description: The single entry point for ALL design and specification work. Use when designing, specifying, architecting, writing a spec, writing an RFC, writing a design doc, or drafting a design for any system, feature, product, protocol, game, or workflow. Trigger phrases include "design this", "design the system", "architect this", "draft a design", "design a feature", "design spec", "stress-test the design", "battle-test the design", "find flaws in this design", "design review", "harden the design", "pressure-test the design", "think through the design", "write a spec", "technical spec", "spec this out", "turn this into a spec", "write up the design", "RFC", "API design", "data model", "implementation spec". Default mode: adversarial stress-testing with parallel critics. Use `--spec` for lightweight single-session spec document generation (no critics).
+description: >-
+  The single entry point for ALL design and specification work. Use when
+  designing, specifying, architecting, writing a spec, RFC, design doc, or
+  drafting a design for any system, feature, product, protocol, game, or
+  workflow. Trigger phrases include "design this", "architect this", "design
+  spec", "design review", "write a spec", "technical spec", "RFC", "API
+  design", "data model", and "implementation spec". Default mode:
+  adversarial stress-testing with parallel critics. Use `--spec` for
+  lightweight single-session spec document generation without critics.
 user_invocable: true
 argument: |
   The design concept or idea to spec out (a game, product, system, protocol, etc.)
