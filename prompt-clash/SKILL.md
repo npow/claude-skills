@@ -16,6 +16,16 @@ metadata_source: inferred
 
 Unified prompt engineering competition toolkit. Five composable modes, one skill.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Compete in prompt clash: hardened prompt submitted, all security patterns covered"
+```
+
+The skill will iterate the attack-defend cycles (attack generation → defense iteration → self-checking) until a competition-ready prompt emerges.
+
 ## Modes
 
 Invoke with a mode keyword or let context determine the mode:

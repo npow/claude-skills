@@ -16,6 +16,16 @@ metadata_source: inferred
 
 Finds viable ideas through adversarial generation-and-kill cycles. Generates batches of 5, validates every idea against real market data, kills failures with documented reasons, and loops until survivors emerge.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Find market gaps: 3 viable ideas identified with validated evidence"
+```
+
+The skill will iterate the full validation workflow (generate → validate → kill → record) until survivors emerge.
+
 ## Workflow
 
 1. **Establish the domain** — identify the space the user wants ideas in (e.g., "MCP servers", "developer tools", "mobile apps for nurses"). Extract any constraints (tech stack, budget, solo founder, etc.) and previously killed ideas. Write these to a scratchpad file in the current working directory (`gap-finder-state.md`).

@@ -22,6 +22,16 @@ metadata_source: inferred
 
 Fan out parallel prompt-clash defenders at staggered time budgets, then ensemble the results into a single hardened prompt stronger than any individual attempt.
 
+## Using with `/goal`
+
+Invoke this skill with `/goal` for autonomous drive-to-completion:
+
+```
+/goal "Ensemble prompt defense: all 4 parallel defenders complete, best elements synthesized"
+```
+
+The skill will fan out parallel defenders, collect results, and synthesize a final hardened prompt ready for competition.
+
 ## Why Ensemble
 
 Different time budgets produce structurally different prompts:
