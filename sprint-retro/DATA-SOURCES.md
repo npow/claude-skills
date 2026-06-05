@@ -8,7 +8,7 @@ Default: last 14 days from today. Override with user-provided dates. All queries
 
 **All 5 sources below are independent and should be queried in parallel.** Don't wait for GitHub results before starting Slack or Jira queries — fire them all concurrently and collect results.
 
-**Per-person queries within each source should ALSO be parallel.** When searching GitHub for 6 team members, fire all 6 `get_contributor_repos` / `commit_search` calls in a single parallel batch — not one person at a time. Same for Pandora lookups, Slack name searches, and Jira queries. The combinatorial fanout (N members × M sources) should maximize parallel tool calls at every level.
+**Per-person queries within each source should ALSO be parallel.** When searching GitHub for 6 team members, fire all 6 `get_contributor_repos` / `commit_search` calls in a single parallel batch — not one person at a time. Same for people-directory lookups, Slack name searches, and Jira queries. The combinatorial fanout (N members × M sources) should maximize parallel tool calls at every level.
 
 ## Source 1: GitHub (gh CLI + Sourcegraph)
 
@@ -123,19 +123,19 @@ If any source returns zero results or fails:
 
 When input is a Slack alias (starts with `@`):
 
-**Steps 1 & 2: Try Pandora AND Slack in parallel**
+**Steps 1 & 2: Try the people directory AND Slack in parallel**
 
-Fire both searches concurrently — don't wait for Pandora to fail before trying Slack:
+Fire both searches concurrently — don't wait for the people directory to fail before trying Slack:
 
 - Use a people directory API to search for the alias — may match a team or org unit
 - Search Slack for the alias to find mentions that list usergroup members
 - Use semantic search: `"{alias} members team"` — find membership context
 
-Slack usergroups (e.g. `@metaflow-dev-group`) are NOT indexed in Pandora — they're Slack-specific constructs. If Pandora returns nothing, use the Slack results to discover individual names from channel bot responses, thread authors, or group mentions.
+Slack usergroups (e.g. `@metaflow-dev-group`) are NOT indexed in the people directory — they're Slack-specific constructs. If the people directory returns nothing, use the Slack results to discover individual names from channel bot responses, thread authors, or group mentions.
 
-**Step 3: Resolve each member via Pandora (ALL in parallel)**
+**Step 3: Resolve each member via the people directory (ALL in parallel)**
 
-Once you have individual names (from Pandora team results or Slack channel discovery), resolve ALL members through the identity cascade in [`_shared/identity-resolution.md`](../_shared/identity-resolution.md) **concurrently** — fire all Pandora lookups and Sourcegraph `get_contributor_repos` calls in a single parallel batch, not one at a time.
+Once you have individual names (from people-directory team results or Slack channel discovery), resolve ALL members through the identity cascade in [`_shared/identity-resolution.md`](../_shared/identity-resolution.md) **concurrently** — fire all people-directory lookups and Sourcegraph `get_contributor_repos` calls in a single parallel batch, not one at a time.
 
 **Step 4: List resolved members for verification**
 - Show all resolved members in the report header
@@ -148,7 +148,7 @@ Once you have individual names (from Pandora team results or Slack channel disco
 
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
-| Pandora returns 0 for alias | Alias is a Slack usergroup, not a Pandora team | Try Slack channel search — find the corresponding channel and discover members from recent threads |
+| The people directory returns 0 for alias | Alias is a Slack usergroup, not a people-directory team | Try Slack channel search — find the corresponding channel and discover members from recent threads |
 | Slack search returns 0 results | Wrong team member handles or search terms too specific | Broaden search: use just the person's first name, try without date filters |
 | Jira returns 0 results | Team uses different project key or board | Ask user for Jira project key, or search by assignee email |
 | Google Docs search empty | Docs may be in shared drives not indexed | Note the gap; suggest user manually share relevant docs |
