@@ -199,7 +199,7 @@ Treat what you discover as a GRAPH and traverse it:
 
 3. **Search for repos/artifacts whose names contain `<SUBJECT>`.** Once
    you have `<SUBJECT>`, search code for repos with names like
-   `<SUBJECT>-*`, `*-<SUBJECT>-*`, `nflx-<SUBJECT>`, `<SUBJECT>-platform`,
+   `<SUBJECT>-*`, `*-<SUBJECT>-*`, `<ORG>-<SUBJECT>`, `<SUBJECT>-platform`,
    `<SUBJECT>-client`, `<SUBJECT>-sdk`, `<SUBJECT>-worker`. Every
    distinct repo prefix matching that pattern is plausibly another team's
    adoption. Also search for adjacent-vocabulary terms — synonyms,

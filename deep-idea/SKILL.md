@@ -29,6 +29,7 @@ This skill: Forces generation from mechanisms that are structurally unlikely to 
 |------|----------|
 | [FORCING.md](FORCING.md) | The 5 forcing functions + NEGATION STACKER + MICRO-NICHER — how to generate from each, derivation chain requirements |
 | [NOVELTY.md](NOVELTY.md) | The 4-check novelty kill chain — adversarial search for existing ideas, structured output format, fail-safes |
+| [SOUNDNESS.md](SOUNDNESS.md) | The cross-model soundness critic (Phase 3.7) — verifies the load-bearing technical claim is TRUE, not just novel; codex invocation, schema, routing |
 | [LOOP.md](LOOP.md) | Mutation levels, hard ceilings, anti-give-up logic, --auto rules, escalation triggers |
 | [FORMAT.md](FORMAT.md) | Output format for surviving ideas |
 
@@ -219,10 +220,40 @@ For each idea still alive after Phase 3.5, require a `minimum_viable_implementat
 
 **Tag is non-overridable by coordinator softening.** "It's novel enough that feasibility doesn't matter" is a listed rationalization — see Counter-Table row "feasibility doesn't matter at idea stage."
 
+Ideas still alive after this phase advance to Phase 3.7 (soundness). **Do NOT present results yet** — a novel, feasible idea can still rest on a false technical premise.
+
+---
+
+### Phase 3.7: Soundness Critic (cross-model)
+
+For each idea still alive after Phase 3.6, run one independent **soundness critic** — a *different model family* (the `codex` CLI; fallbacks in SOUNDNESS.md) with read-only access to any source code the idea targets. See SOUNDNESS.md for the full specification, invocation contract, schema, and prompt template.
+
+**Why this phase exists:** The novelty chain (killer + judge + prior-art) only answers "does this already exist?" It never answers "is the idea's load-bearing technical claim TRUE?" The most dangerous idea is one that is novel *because* its premise is false — prior-art search finds nothing and stamps it NOVEL. Novelty is necessary but not sufficient; soundness is the last gate. (This phase was added after a run passed two technically-broken ideas with `killed: []` and a 100% judge-pass rate.)
+
+**Cross-model requirement:** The killer, judge, and prior-art agents are all Claude — they share blind spots. The soundness critic is routed to a different family (codex/OpenAI) so its errors are uncorrelated. Fallback chain (SOUNDNESS.md): gemini → opus Claude agent tagged `[SOUNDNESS_SAME_FAMILY]`. Never silently skip.
+
+**Code grounding:** When the idea targets a system with available source, the critic MUST verify the claim against the actual code (`-C <repo>`, `-s read-only`), citing `file:line`. First-principles only when no source exists — and it must say which it used.
+
+**Critic structured output** (forced via `--output-schema`, read by coordinator only):
+```
+verdict: SOUND | UNSOUND | UNVERIFIED
+load_bearing_claim_restated, falsification_attempt, evidence, confidence
+```
+
+**Coordinator routing:**
+- `SOUND` → idea may be presented as a survivor (subject to earlier novelty/prior-art tags).
+- `UNSOUND` → idea is **KILLED** with `failed_check: SOUNDNESS`, *regardless of novelty*. Log the falsification.
+- `UNVERIFIED` (timeout, no critic available, inconclusive) → tag `[SOUNDNESS_UNVERIFIED]`, present as near-miss, not counted toward target survivors. Never default UNVERIFIED to SOUND.
+- A 0% UNSOUND rate across ≥4 ideas = soundness analog of a broken judge — inspect `falsification_attempt`; if thin, re-run stricter.
+
+**Coordinator never decides soundness.** Reads structured verdict only (Golden Rule 11).
+
 **Now present results to the user:**
-- `NOVEL` + `no_match_found` + feasible path → survivor (unflagged)
-- `NOVEL` + `partial_match` → survivor with `[PRIOR_ART_OVERLAP]` tag
-- `disputed` by judge (any prior-art verdict) → near-miss with `[NOVELTY_DISPUTED]` tag, not counted toward target survivors
+- `NOVEL` + `no_match_found` + feasible + `SOUND` → survivor (unflagged)
+- `NOVEL` + `partial_match` + `SOUND` → survivor with `[PRIOR_ART_OVERLAP]` tag
+- `UNSOUND` (any novelty verdict) → killed, `failed_check: SOUNDNESS`; not presented as survivor
+- `disputed` by judge (any prior-art/soundness verdict) → near-miss with `[NOVELTY_DISPUTED]` tag, not counted toward target survivors
+- `UNVERIFIED` soundness → additional `[SOUNDNESS_UNVERIFIED]` tag; not counted toward target
 - Any surviving idea missing or hand-wave on `minimum_viable_implementation_path` → additional `[FEASIBILITY_UNVERIFIED]` tag
 - Prior-art agent failed or search unavailable → additional `novelty_unverified` tag
 
@@ -253,8 +284,9 @@ Write `deep-idea-report.md` per FORMAT.md format, including cost summary.
 | Scout | haiku | general-purpose + `model: "haiku"` | Landscape mapping, novelty killing |
 | Generator | sonnet | general-purpose + `model: "sonnet"` | Idea generation — Levels 0, 1, 2 |
 | Deep Reframer | opus | general-purpose + `model: "opus"` | ONLY Level 3+ (reframe, inter-domain) |
+| Soundness Critic | **cross-model** (codex/OpenAI; → gemini → opus) | `codex exec` subprocess, read-only repo access | Phase 3.7 — verify the load-bearing technical claim is TRUE. See SOUNDNESS.md |
 
-**Rule:** Never use Opus at Level 0-2. Track `total_opus_calls` in state and enforce `max_opus_calls = 30` hard ceiling.
+**Rule:** Never use Opus at Level 0-2. Track `total_opus_calls` in state and enforce `max_opus_calls = 30` hard ceiling. The soundness critic is deliberately a **different model family** from the rest of the pipeline (correlated blind spots are the failure mode it guards against) — do not substitute a Claude agent as the primary critic; it is the last-resort fallback only, tagged `[SOUNDNESS_SAME_FAMILY]`.
 
 ---
 
@@ -270,6 +302,7 @@ Write `deep-idea-report.md` per FORMAT.md format, including cost summary.
 8. **Generator isolation.** Generators do not share ideas during a cycle. Exception: Level 2 coordinator-mediated summaries (see LOOP.md).
 9. **Coordinator NEVER decides novelty or prior-art.** Both verdicts come from independent agents. Coordinator reads structured output only. A 100% novel-rate from any judge across a run = judge is broken, not a miracle.
 10. **Every surviving idea must have a falsifiable implementation path.** `minimum_viable_implementation_path` is required. Empty, hand-wave, or unfalsifiable → tagged `[FEASIBILITY_UNVERIFIED]`.
+11. **Novelty is not soundness.** A novel idea can rest on a false premise — and is *more* likely to pass novelty *because* it's false (no prior art for things that don't work). Every survivor must pass the Phase 3.7 soundness critic (`SOUND`). `UNSOUND` kills regardless of novelty. The critic is a different model family with code access; the coordinator never decides soundness itself (same invariant as Rule 9).
 
 ---
 
@@ -293,6 +326,10 @@ The coordinator WILL be tempted to skip gates, soften kills, or let a favorite i
 | "Web search is down; I'll infer prior-art from training data." | No. That is silent substitution. Tag `novelty_unverified` and present with the tag. Never fabricate prior-art coverage. |
 | "The judge came back `novel` on every idea this cycle — great run!" | No. A 100% novel rate from an adversarial judge is a broken judge, not a great run. Inspect the judge's rationales. If they are thin, re-spawn with a stricter prompt or treat the cycle's survivors as `[JUDGE_SUSPECT]`. |
 | "The implementation path is 'use LLMs to do X' — that's concrete enough." | No. Falsifiable means someone could attempt it and fail. "Use LLMs" is not falsifiable. Required: a specific build step (e.g. "fine-tune on N labeled examples from source X, measure F1 against held-out set Y"). |
+| "Prior-art found nothing, so the idea is a survivor — no need for the soundness gate." | No. "Nobody built it" is consistent with "it can't work." Novelty ≠ soundness. The Phase 3.7 critic must return `SOUND` before any survivor is presented. |
+| "The load-bearing claim is obviously true to me; skip the code check." | No. "Obviously true" without reading the code is exactly the failure that created this gate (two ideas passed whose claims the training code directly contradicted). When source exists, the critic reads it and cites file:line. |
+| "Codex/cross-model isn't available, so the coordinator (Claude) will judge soundness." | No. Coordinator self-judging is the correlated-blind-spot trap. Use the SOUNDNESS.md fallback chain (gemini → opus agent), tag `[SOUNDNESS_SAME_FAMILY]`, and never present it as a clean survivor. |
+| "Soundness critic said UNSOUND but the idea is so novel it's worth presenting anyway." | No. An idea built on a false premise is a misconception, not an idea. `UNSOUND` kills regardless of novelty (Golden Rule 11). If a weakened version is true, that's a *different* idea — re-run it through the pipeline. |
 
 When the coordinator reaches for any of these rationalizations: it stops, spawns the independent agent, waits for the structured output, and proceeds by what the output says — not what the coordinator hoped it would say.
 
@@ -310,8 +347,12 @@ Before presenting output:
 - [ ] Judge novel-rate sanity-checked per cycle; `[JUDGE_SUSPECT]` tag applied if ≥95% over ≥5 classifications
 - [ ] Every Phase 3a surviving idea passed through an independent `prior-art-search` spawn with a parseable `PRIOR_ART_VERDICT`
 - [ ] `exact_match` ideas killed; `partial_match` ideas tagged `[PRIOR_ART_OVERLAP]`; search failures tagged `novelty_unverified`
-- [ ] Every surviving idea has a `minimum_viable_implementation_path` field; empty/hand-wave → `[FEASIBILITY_UNVERIFIED]` tag
-- [ ] Coordinator never wrote the novelty or prior-art verdict itself (Golden Rule 9)
+- [ ] Every idea alive after Phase 3.6 passed through a Phase 3.7 soundness critic; the critic was a different model family from killer/judge/prior-art (codex primary; gemini/opus fallback tagged `[SOUNDNESS_SAME_FAMILY]`)
+- [ ] When the idea targets source code, the critic was given read-only repo access and cited `file:line` evidence
+- [ ] `UNSOUND` ideas killed with `failed_check: SOUNDNESS` regardless of novelty; `UNVERIFIED` tagged `[SOUNDNESS_UNVERIFIED]` and not counted toward target
+- [ ] Soundness UNSOUND-rate sanity-checked (0% across ≥4 ideas → inspect critic for rubber-stamping)
+- [ ] Every surviving idea has a `load_bearing_claim` field and a `minimum_viable_implementation_path` field; empty/hand-wave path → `[FEASIBILITY_UNVERIFIED]` tag
+- [ ] Coordinator never wrote the novelty, prior-art, or soundness verdict itself (Golden Rules 9 & 11)
 - [ ] No idea re-proposed after being killed — including reuse of same mechanism under new name
 - [ ] Mutation log accurate — escalation reason documented
 - [ ] Hard ceilings respected — no agent calls after any ceiling hit
@@ -364,6 +405,7 @@ Output format:
 **Core insight**: [The non-obvious thing — one sentence]
 **What it does**: [Concrete enough to write a landing page headline]
 **Target user**: [Specific person, specific context]
+**Load-bearing claim**: [The single technical assertion this idea depends on, stated so it is FALSIFIABLE — if this is false, the idea collapses. The soundness critic (Phase 3.7) will adversarially try to falsify exactly this, against source code where it exists. Be precise and checkable, e.g. "each training sample contributes gradient to only a sparse subset of the N blocks" — NOT vague, e.g. "blocks are independent". If you cannot state one falsifiable claim, the mechanism is too vague — say so.]
 **Why this doesn't exist yet**: [Structural reason]
 **Why now**: [What changed in the last 18 months]
 **Minimum viable implementation path**: [1-3 sentences. MUST be falsifiable — someone could try the first step and fail. Name specific tech, data sources, build artifacts, or measurable outcomes. Examples of acceptable: "fine-tune a 7B model on {named dataset} and measure retrieval F1 ≥ 0.8 on held-out queries from source Y"; "scrape public {named API} endpoints weekly, dedupe by hash, build a Postgres-backed search UI". Examples of unacceptable hand-wave: "use LLMs", "build a platform that connects", "implement the idea".]
@@ -517,3 +559,26 @@ Fail-safe rules (do not violate):
 
 A confident "no_match_found" without cited searches is unverifiable — prefer honest failure reporting over fake confidence.
 ```
+
+---
+
+## Soundness Critic Invocation (Phase 3.7)
+
+Full spec in [SOUNDNESS.md](SOUNDNESS.md). The critic is a subprocess (different model family), not a Claude subagent. Run one per idea still alive after Phase 3.6, in parallel.
+
+Write `soundness_schema.json` (from SOUNDNESS.md) and a per-idea prompt file, then:
+
+```bash
+codex exec -s read-only --skip-git-repo-check \
+  -C <REPO_ROOT_THE_IDEA_TARGETS> \
+  --output-schema <DIR>/soundness_schema.json \
+  -o <DIR>/soundness_<idea_id>.json \
+  - < <DIR>/soundness_prompt_<idea_id>.txt
+```
+
+- `-s read-only`: never give the critic write access. `-C`: the repo grounding the claim (omit + note for external-system ideas).
+- 420s timeout per idea → on timeout, verdict `UNVERIFIED`, tag `[SOUNDNESS_UNVERIFIED]`, no retry.
+- Non-zero exit / empty `-o` output → fallback chain: `gemini` (same schema), then an opus Claude `general-purpose` agent with repo read access tagged `[SOUNDNESS_SAME_FAMILY]`. Never silently skip.
+- Coordinator reads only the structured JSON `verdict`. Routing in Phase 3.7 above.
+
+The prompt is the "Critic prompt template" in SOUNDNESS.md — fill SYSTEM CONTEXT (naming the files that govern the claim), the idea's mechanism, and the generator's `load_bearing_claim`.

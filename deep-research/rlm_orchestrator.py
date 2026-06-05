@@ -439,7 +439,7 @@ def _run_dimension_subprocess(
     # Run in its OWN process group so we can kill the whole tree on timeout.
     # Without this, ``subprocess.run(timeout=...)`` only kills the immediate
     # child — the runner spawns Deno (WASM sandbox) and tool subprocesses
-    # (`metatron`, `src`) that survive the kill and keep consuming CPU/sockets,
+    # that survive the kill and keep consuming CPU/sockets,
     # accumulating zombies across runs on long-lived workers.
     start = time.time()
     proc: subprocess.Popen[str] | None = None
