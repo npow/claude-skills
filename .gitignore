@@ -83,3 +83,8 @@ __pycache__/
 # Auto-generated per-project Claude Code overrides — may contain user-local
 # permission rules or paths.
 .claude/settings.local.json
+
+# spec-kit (github/spec-kit) content — installed per-machine by install.sh,
+# regenerated from the upstream specify CLI, not checked in.
+speckit-*/
+.specify/

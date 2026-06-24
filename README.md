@@ -4,13 +4,21 @@ A library of composable skills for [Claude Code](https://docs.anthropic.com/en/d
 
 ## Quickstart
 
-Skills depend on shared contracts in `_shared/` and compose with each other (`/autopilot` → `/deep-plan` → `/deep-qa`), so install the whole repo:
+Clone the repo and run the installer:
 
 ```bash
 git clone https://github.com/npow/claude-skills.git
-mv ~/.claude/skills ~/.claude/skills.bak
-ln -s "$(pwd)/claude-skills" ~/.claude/skills
+cd claude-skills
+./install.sh
 ```
+
+`install.sh` does three things:
+
+1. **Links the skills** — symlinks this repo into `~/.claude/skills` so Claude Code loads every skill here. Skills depend on shared contracts in `_shared/` and compose with each other (`/autopilot` → `/deep-plan` → `/deep-qa`), so the whole repo is linked as one. An existing `~/.claude/skills` is backed up first.
+2. **Installs [spec-kit](https://github.com/github/spec-kit)** — installs GitHub's `specify` CLI via [`uv`](https://docs.astral.sh/uv/) (required).
+3. **Scaffolds spec-kit's skills** — adds `/speckit-specify`, `/speckit-plan`, `/speckit-tasks`, `/speckit-clarify`, `/speckit-analyze`, `/speckit-implement`, and the rest of the Spec-Driven Development workflow alongside the skills above.
+
+Pass `--no-speckit` to link only this repo's skills, or set `CLAUDE_CONFIG_DIR` to target a non-default config dir.
 
 Then in Claude Code:
 
@@ -18,7 +26,29 @@ Then in Claude Code:
 /deep-research "how do vector databases handle updates?"
 /autopilot "REST API for a bookstore in TypeScript"
 /deep-qa --path spec.md
+/speckit-specify "a CLI todo app with due dates"
 ```
+
+### Using the spec-kit workflow in a project
+
+The `speckit-*` skills drive a per-project workflow and need a `.specify/` directory in the project you're working in. Enable it once per project:
+
+```bash
+specify init . --integration claude
+```
+
+Then `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` → `/speckit-implement` operate on that project.
+
+### Adding Modal Auto-Research Skills
+
+To integrate the [modal-auto-research-skills](https://github.com/modal-projects/modal-auto-research-skills) for GPU and distributed compute capabilities:
+
+```bash
+git clone https://github.com/modal-projects/modal-auto-research-skills.git
+cp -R modal-auto-research-skills/{modal-basic-skills,modal-gpu-dev,modal-gpu-experiment,sub-agents} ~/.claude/skills/
+```
+
+This adds skills for provisioning GPUs on demand, interactive debugging environments, training applications, and coordinating parallel processes.
 
 ## How It Works
 
