@@ -1,6 +1,6 @@
 ---
 name: gap-finder
-description: Finds viable product, business, or project ideas in any domain by generating candidates in batches, rigorously validating each against real competitors and market data, and killing weak ideas with documented reasons. Use when the user asks to brainstorm ideas, find market gaps, identify business opportunities, figure out what to build, come up with side project ideas, or find underserved niches. Works for SaaS, open source, MCP servers, apps, tools, APIs, or any product category.
+description: Finds viable product, business, or project ideas in any domain by generating candidates, rigorously validating each against real competitors and market data, and killing weak ideas with documented reasons. Two modes — fast batch generate-and-kill (default), or `--deep` DFS that branches a single space into opportunity tuples with codex cross-attack, mandatory steelman, and a VC-gauntlet fundability gate. Use when the user asks to brainstorm ideas, find market gaps, identify business opportunities, figure out what to build, come up with side project ideas, find underserved niches, or (with --deep) "find the real opportunities in X", "exhaustively explore X", "keep digging until you exhaust X". Works for SaaS, open source, MCP servers, apps, tools, APIs, or any product category.
 
 category: execution
 capabilities: [loop-based, adversarial-critique, static-analysis]
@@ -15,6 +15,11 @@ metadata_source: inferred
 # Gap Finder
 
 Finds viable ideas through adversarial generation-and-kill cycles. Generates batches of 5, validates every idea against real market data, kills failures with documented reasons, and loops until survivors emerge.
+
+## Modes
+
+- **Batch (default)** — broad generate-and-kill across a domain. Generates batches of 5, runs the 6-check kill chain on each, loops until 3 survivors emerge. Best for "give me side-project ideas", "what should I build", scanning many adjacent niches. This is the workflow below.
+- **Deep (`--deep`)** — exhaustive depth-first exploration of ONE space. Branches the market into opportunity *tuples* (market × wedge × unfair-advantage × why-now × who-pays), reality-calibrates each against real companies, maps named incumbents + GTM, runs an independent **codex** cross-attack and a mandatory steelman per node, then puts the top survivors through a VC-gauntlet fundability gate. Resumable via a JSON state file. Best for "find the *real* opportunities in X", "keep digging until you exhaust X". The full method lives in [DEEP-DFS.md](DEEP-DFS.md) — read and follow it when `--deep` is passed, instead of the batch workflow below.
 
 ## Workflow
 
@@ -61,3 +66,4 @@ Hard rules. Never violate these.
 | [GENERATION.md](GENERATION.md) | How to generate idea batches, the idea template, angle diversity requirements |
 | [VALIDATION.md](VALIDATION.md) | The 6-check kill chain with search strategies and pass/fail criteria |
 | [SURVIVOR-FORMAT.md](SURVIVOR-FORMAT.md) | Output format for surviving ideas with required evidence sections |
+| [DEEP-DFS.md](DEEP-DFS.md) | `--deep` mode: the full DFS / tuple / codex-cross-attack / steelman / VC-gauntlet method |
